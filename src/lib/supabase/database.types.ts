@@ -1537,6 +1537,67 @@ export type Database = {
           },
         ]
       }
+      professional_verification_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string
+          created_at: string
+          from_status: string
+          id: string
+          metadata: Json
+          professional_id: string
+          reason: string
+          to_status: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role: string
+          created_at?: string
+          from_status: string
+          id?: string
+          metadata?: Json
+          professional_id: string
+          reason: string
+          to_status: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string
+          created_at?: string
+          from_status?: string
+          id?: string
+          metadata?: Json
+          professional_id?: string
+          reason?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_verification_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_verification_events_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_metrics"
+            referencedColumns: ["professional_id"]
+          },
+          {
+            foreignKeyName: "professional_verification_events_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       professional_verifications: {
         Row: {
           created_at: string | null
@@ -2244,9 +2305,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      _verification_missing_documents: {
+        Args: { p_professional_id: string; p_since?: string }
+        Returns: string[]
+      }
       add_job_media: {
         Args: { p_job_id: string; p_kind: string; p_storage_path: string }
         Returns: string
+      }
+      admin_transition_professional_verification: {
+        Args: {
+          p_action: string
+          p_expected_status: string
+          p_metadata?: Json
+          p_professional_id: string
+          p_reason: string
+        }
+        Returns: Json
       }
       assign_booking: { Args: { p_booking_id: string }; Returns: Json }
       create_booking: {
@@ -2363,6 +2438,7 @@ export type Database = {
         }
         Returns: string
       }
+      submit_professional_verification: { Args: never; Returns: Json }
       transition_job_state: {
         Args: {
           p_actor_user_id: string

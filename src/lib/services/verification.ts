@@ -13,7 +13,6 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { pendingRpc } from '@/lib/supabase/pending-rpc';
 import { revalidatePath } from 'next/cache';
 import { runAdminAction } from '@/lib/admin/action';
 import { getAdminActor } from '@/lib/admin/guard';
@@ -206,7 +205,7 @@ export async function uploadVerificationDocument(
 
     // ── Submit for review once the required documents are present ────────────
     // Idempotent: returns changed=false (with what is still missing) rather than failing.
-    const { error: statusError } = await pendingRpc(supabase).rpc('submit_professional_verification');
+    const { error: statusError } = await supabase.rpc('submit_professional_verification');
     if (statusError) {
       console.error('[Verification] Failed to submit verification:', statusError);
       return { success: false, error: 'Document saved, but submitting for review failed. Please try again.' };
@@ -374,7 +373,7 @@ async function transitionProfessional(args: {
   reason: string;
 }): Promise<AdminResult<null>> {
   const supabase = await createClient();
-  const { error } = await pendingRpc(supabase).rpc('admin_transition_professional_verification', {
+  const { error } = await supabase.rpc('admin_transition_professional_verification', {
     p_professional_id: args.professionalId,
     p_action: args.action,
     p_expected_status: args.expectedStatus,
