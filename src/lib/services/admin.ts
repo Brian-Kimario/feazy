@@ -544,87 +544,8 @@ export async function adminCancelJob(jobId: string): Promise<{
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. Suspend / reactivate professional
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function suspendProfessional(professionalId: string): Promise<{
-  success: boolean;
-  error: string | null;
-}> {
-  const auth = await requireAdmin();
-  if ('error' in auth) return { success: false, error: auth.error };
-
-  try {
-    const supabase = await createClient();
-
-    // Use state machine to transition verification status
-    // @ts-ignore
-    const { error } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'suspended',
-      p_admin_user_id: auth.userId,
-      p_reason: 'Professional suspended by admin',
-      p_metadata: { admin_user: auth.userId },
-    });
-
-    if (error) return { success: false, error: (error as any).message };
-
-    // Audit log
-    const admin = await createAdminClient();
-    // @ts-ignore
-    await (admin as any).from('audit_logs').insert({
-      user_id: professionalId,
-      action: 'professional_suspended',
-      changes: { verification_status: 'suspended' },
-      created_by: auth.userId,
-    });
-
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('[Admin] suspendProfessional error:', err);
-    return { success: false, error: 'Failed to suspend professional' };
-  }
-}
-
-export async function reactivateProfessional(professionalId: string): Promise<{
-  success: boolean;
-  error: string | null;
-}> {
-  const auth = await requireAdmin();
-  if ('error' in auth) return { success: false, error: auth.error };
-
-  try {
-    const supabase = await createClient();
-
-    // Use state machine to transition verification status
-    // @ts-ignore
-    const { error } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'verified',
-      p_admin_user_id: auth.userId,
-      p_reason: 'Professional reactivated by admin',
-      p_metadata: { admin_user: auth.userId },
-    });
-
-    if (error) return { success: false, error: (error as any).message };
-
-    // Audit log
-    const admin = await createAdminClient();
-    // @ts-ignore
-    await (admin as any).from('audit_logs').insert({
-      user_id: professionalId,
-      action: 'professional_reactivated',
-      changes: { verification_status: 'verified' },
-      created_by: auth.userId,
-    });
-
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('[Admin] reactivateProfessional error:', err);
-    return { success: false, error: 'Failed to reactivate professional' };
-  }
-}
+// 7. Suspend / reactivate professional: see suspendProfessional / reactivateProfessional in
+//    services/verification.ts (state machine + audited runner).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 8. Full Job Detail Inspector

@@ -15,13 +15,13 @@ import { useRouter } from 'next/navigation';
 import {
   approveProfessional,
   rejectProfessional,
+  suspendProfessional,
+  reactivateProfessional,
   getDocumentSignedUrl,
   type PendingProfessional,
   type VerificationDocument,
 } from '@/lib/services/verification';
 import {
-  suspendProfessional,
-  reactivateProfessional,
   type AdminProfessional,
 } from '@/lib/services/admin';
 import { SuccessState } from '@/components/ui/SuccessState';
@@ -262,7 +262,7 @@ function ProfessionalCard({
   const handleApprove = () => {
     setActionError(null);
     startTransition(async () => {
-      const result = await approveProfessional(professional.user_id);
+      const result = await approveProfessional(professional.user_id, professional.verification_status);
       if (result.success) {
         setShowSuccessState(true);
       } else {
@@ -278,7 +278,7 @@ function ProfessionalCard({
     }
     setActionError(null);
     startTransition(async () => {
-      const result = await rejectProfessional(professional.user_id, rejectReason);
+      const result = await rejectProfessional(professional.user_id, professional.verification_status, rejectReason);
       if (result.success) {
         setShowRejectModal(false);
         onActionDone(professional.user_id);
@@ -462,7 +462,10 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
   const [actionErr, setActionErr] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
 
-  const handleToggleSuspend = (pro: AdminProfessional) => {
+  const [reasonFor, setReasonFor] = useState<AdminProfessional | null>(null);
+  const [reasonText, setReasonText] = useState('');
+
+  const handleToggleSuspend = (pro: AdminProfessional, reason: string) => {
     setActioningId(pro.user_id);
     setActionErr((prev) => {
       const n = { ...prev };
@@ -473,8 +476,8 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
     startTransition(async () => {
       const isSuspended = pro.verification_status === 'suspended';
       const res = isSuspended
-        ? await reactivateProfessional(pro.user_id)
-        : await suspendProfessional(pro.user_id);
+        ? await reactivateProfessional(pro.user_id, reason)
+        : await suspendProfessional(pro.user_id, reason);
 
       setActioningId(null);
       if (res.success) {
@@ -574,8 +577,12 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                           {actionErr[pro.user_id]}
                         </span>
                       )}
+                      {(pro.verification_status === 'verified' || pro.verification_status === 'suspended') && (
                       <button
-                        onClick={() => handleToggleSuspend(pro)}
+                        onClick={() => {
+                          setReasonText('');
+                          setReasonFor(pro);
+                        }}
                         disabled={actioningId === pro.user_id || isPending}
                         className={`px-3 py-1 text-xs font-bold rounded-lg border transition disabled:opacity-50 ${
                           pro.verification_status === 'suspended'
@@ -589,11 +596,51 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                           ? 'Reactivate'
                           : 'Suspend'}
                       </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {reasonFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-[#18211F]/40" onClick={() => setReasonFor(null)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-[#FFFEFA] p-5 space-y-3">
+            <h3 className="font-bold text-[#18211F]">
+              {reasonFor.verification_status === 'suspended' ? 'Reactivate' : 'Suspend'} {reasonFor.display_name}
+            </h3>
+            <p className="text-xs text-[#5A6661]">
+              {reasonFor.verification_status === 'suspended'
+                ? 'They stay unavailable until they switch availability on themselves.'
+                : 'Pending offers are withdrawn and no new work is offered. Active jobs are flagged, not cancelled.'}
+            </p>
+            <textarea
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Reason (required, at least 5 characters)"
+              className="w-full rounded-xl border border-[#D9DED8] p-3 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setReasonFor(null)} className="px-4 py-2 text-sm font-bold rounded-xl border border-[#D9DED8]">
+                Cancel
+              </button>
+              <button
+                disabled={reasonText.trim().length < 5 || isPending}
+                onClick={() => {
+                  const target = reasonFor;
+                  setReasonFor(null);
+                  handleToggleSuspend(target, reasonText.trim());
+                }}
+                className="px-4 py-2 text-sm font-bold rounded-xl bg-[#A9523D] text-white disabled:opacity-50"
+              >
+                Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}

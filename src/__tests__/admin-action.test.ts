@@ -153,10 +153,10 @@ describe('runAdminAction validation and audit', () => {
 
 describe('admin validators', () => {
   it('requires a real id and a reason of at least 5 characters to reject', () => {
-    expect(rejectProfessionalInput.safeParse({ professionalId: TARGET, reason: 'bad' }).success).toBe(false);
-    expect(rejectProfessionalInput.safeParse({ professionalId: 'x', reason: 'valid reason' }).success).toBe(false);
-    expect(rejectProfessionalInput.safeParse({ professionalId: TARGET, reason: '  valid reason ' }).data?.reason).toBe('valid reason');
-    expect(approveProfessionalInput.safeParse({ professionalId: TARGET }).success).toBe(true);
+    expect(rejectProfessionalInput.safeParse({ professionalId: TARGET, expectedStatus: 'pending', reason: 'bad' }).success).toBe(false);
+    expect(rejectProfessionalInput.safeParse({ professionalId: 'x', expectedStatus: 'pending', reason: 'valid reason' }).success).toBe(false);
+    expect(rejectProfessionalInput.safeParse({ professionalId: TARGET, expectedStatus: 'pending', reason: '  valid reason ' }).data?.reason).toBe('valid reason');
+    expect(approveProfessionalInput.safeParse({ professionalId: TARGET, expectedStatus: 'pending' }).success).toBe(true);
   });
 
   it.each(['../x/y', `${TARGET}/../other/doc.pdf`, '/abs/path', `${TARGET}//a`, `${TARGET}/./a`])(

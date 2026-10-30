@@ -6,22 +6,27 @@
  * Security model:
  * - Professionals can upload their own documents (RLS + user check).
  * - Only admin can approve / reject (server-side role check + admin client).
- * - All approve / reject actions are written to audit_logs.
- *
- * NOTE: @ts-ignore comments below suppress Supabase SDK "never" type errors that
- * occur because no generated database types are present in this project. This is
- * consistent with the pattern used throughout the codebase (see admin.ts).
+ * - Status changes go only through admin_transition_professional_verification and
+ *   submit_professional_verification; the database records the history.
+ * - Admin attempts and outcomes are written to audit_logs by runAdminAction.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { pendingRpc } from '@/lib/supabase/pending-rpc';
 import { revalidatePath } from 'next/cache';
 import { runAdminAction } from '@/lib/admin/action';
 import { getAdminActor } from '@/lib/admin/guard';
 import { logAuditEvent, AuditSeverity } from '@/lib/audit';
 import { adminFailure, isAdminFailure, type AdminResult } from '@/lib/admin/result';
 import { uuid } from '@/validators/common';
-import { approveProfessionalInput, rejectProfessionalInput, verificationDocumentPath } from '@/validators/admin';
+import {
+  approveProfessionalInput,
+  rejectProfessionalInput,
+  suspendProfessionalInput,
+  reactivateProfessionalInput,
+  verificationDocumentPath,
+} from '@/validators/admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -134,27 +139,23 @@ export async function uploadVerificationDocument(
       return { success: false, error: 'Unsupported file type. Use JPEG, PNG, WEBP or PDF.' };
     }
 
-    // ── Ensure verification record ────────────────────────────────────────────
-    // @ts-ignore - Supabase SDK type inference issue (no generated DB types)
-    const { data: verification } = await supabase
+    // ── Ensure an open verification round ─────────────────────────────────────
+    // A rejected round is kept as history; resubmission opens a new one.
+    const { data: latest } = await supabase
       .from('professional_verifications')
-      .select('id')
+      .select('id, status')
       .eq('professional_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     let verificationId: string;
+    const latestRow = latest as { id: string; status: string } | null;
 
-    if (!verification) {
-      // @ts-ignore - Supabase SDK type inference issue
+    if (!latestRow || latestRow.status === 'rejected') {
       const { data: newVerification, error: insertError } = await (adminClient as any)
         .from('professional_verifications')
-        .insert({
-          professional_id: user.id,
-          status: 'documents_submitted',
-          submitted_at: new Date().toISOString(),
-        })
+        .insert({ professional_id: user.id, status: 'pending' })
         .select('id')
         .single();
 
@@ -162,9 +163,9 @@ export async function uploadVerificationDocument(
         console.error('[Verification] Failed to create verification record:', insertError);
         return { success: false, error: 'Failed to initialise verification record' };
       }
-      verificationId = (newVerification as any).id;
+      verificationId = (newVerification as { id: string }).id;
     } else {
-      verificationId = (verification as any).id;
+      verificationId = latestRow.id;
     }
 
     // ── Upload to Storage ─────────────────────────────────────────────────────
@@ -203,30 +204,13 @@ export async function uploadVerificationDocument(
       return { success: false, error: 'Failed to record document. Contact support.' };
     }
 
-    // ── Update verification + profile statuses via state machine ─────────────
-    // Use RPC to transition verification status with authorization and audit
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: statusError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: user.id,
-      p_new_status: 'documents_submitted',
-      p_admin_user_id: user.id,  // Professional action, so mark as self-initiated
-      p_reason: 'Professional uploaded verification documents',
-      p_metadata: { verification_id: verificationId },
-    });
-
+    // ── Submit for review once the required documents are present ────────────
+    // Idempotent: returns changed=false (with what is still missing) rather than failing.
+    const { error: statusError } = await pendingRpc(supabase).rpc('submit_professional_verification');
     if (statusError) {
-      console.error('[Verification] Failed to transition verification status:', statusError);
-      return { success: false, error: 'Failed to update verification status. Contact support.' };
+      console.error('[Verification] Failed to submit verification:', statusError);
+      return { success: false, error: 'Document saved, but submitting for review failed. Please try again.' };
     }
-
-    // @ts-ignore - Supabase SDK type inference issue
-    await (adminClient as any)
-      .from('professional_verifications')
-      .update({
-        status: 'documents_submitted',
-        submitted_at: new Date().toISOString(),
-      })
-      .eq('id', verificationId);
 
     revalidatePath('/professional/onboarding');
     return { success: true, error: null, documentId: (docRecord as any).id };
@@ -372,119 +356,139 @@ export async function getUnverifiedProfessionals(): Promise<{
 // 3 & 4. Approve / reject a professional (admin actions)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Close out the latest professional_verifications row after the state machine has moved the
- * professional. A failure here is reported, not swallowed: the status has already changed, so
- * the admin needs to know the review record is out of step.
- */
-async function recordVerificationReview(
-  professionalId: string,
-  reviewerId: string,
-  status: 'verified' | 'rejected',
-  rejectionReason?: string,
-): Promise<AdminResult<null>> {
-  const adminClient = await createAdminClient();
-
-  const { data: latest, error: findError } = await adminClient
-    .from('professional_verifications')
-    .select('id')
-    .eq('professional_id', professionalId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (findError) return adminFailure('FAILED', 'Status changed but the review record could not be read');
-  const latestId = (latest as { id: string } | null)?.id;
-  if (!latestId) return { ok: true, data: null };
-
-  const { error: updateError } = await adminClient
-    .from('professional_verifications')
-    .update({
-      status,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewerId,
-      ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
-    } as never)
-    .eq('id', latestId);
-  if (updateError) return adminFailure('FAILED', 'Status changed but the review record could not be updated');
-  return { ok: true, data: null };
-}
-
 function toActionResult(result: AdminResult<null>): VerificationActionResult {
   return isAdminFailure(result) ? { success: false, error: result.error } : { success: true, error: null };
 }
 
+type TransitionAction = 'approve' | 'reject' | 'suspend' | 'reactivate';
+
 /**
- * Set professional_profiles.verification_status → 'verified' through the state machine.
- * Admin-only, validated and audited via runAdminAction.
+ * One call into the state machine. The function derives the admin from the session, locks the
+ * row, checks the expected status, records the history event and (for suspension) withdraws
+ * pending offers, all in one transaction. The review record is updated inside it too.
+ */
+async function transitionProfessional(args: {
+  professionalId: string;
+  action: TransitionAction;
+  expectedStatus: string;
+  reason: string;
+}): Promise<AdminResult<null>> {
+  const supabase = await createClient();
+  const { error } = await pendingRpc(supabase).rpc('admin_transition_professional_verification', {
+    p_professional_id: args.professionalId,
+    p_action: args.action,
+    p_expected_status: args.expectedStatus,
+    p_reason: args.reason,
+    p_metadata: {},
+  });
+  if (error) {
+    // 23514: required documents missing, 55000: stale or invalid transition. Both are actionable.
+    const actionable = error.code === '23514' || error.code === '55000' || error.code === '22023';
+    return adminFailure('FAILED', actionable ? error.message : 'The status change could not be completed');
+  }
+  revalidatePath('/admin/professionals');
+  return { ok: true, data: null };
+}
+
+/**
+ * Approve a professional (pending / documents_submitted / under_review → verified).
+ * Refused by the database unless the required documents are on file.
  */
 export async function approveProfessional(
   professionalId: string,
+  expectedStatus: string,
 ): Promise<VerificationActionResult> {
   return toActionResult(
     await runAdminAction({
       name: 'admin.professional.approve',
       schema: approveProfessionalInput,
-      input: { professionalId },
+      input: { professionalId, expectedStatus },
       subjectUserId: (i) => i.professionalId,
       targetType: 'professional',
       targetId: (i) => i.professionalId,
-      execute: async ({ actorId, input }) => {
-        const supabase = await createClient();
-        // @ts-ignore - New RPC function not yet in generated types
-        const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-          p_professional_id: input.professionalId,
-          p_new_status: 'verified',
-          p_admin_user_id: actorId,
-          p_reason: 'Admin approved professional verification',
-          p_metadata: { admin_user: actorId },
-        });
-        if (stateError) return adminFailure('FAILED', stateError.message);
-
-        const review = await recordVerificationReview(input.professionalId, actorId, 'verified');
-        if (!isAdminFailure(review)) revalidatePath('/admin/professionals');
-        return review;
-      },
+      execute: ({ input }) =>
+        transitionProfessional({
+          professionalId: input.professionalId,
+          action: 'approve',
+          expectedStatus: input.expectedStatus,
+          reason: 'Verification approved by admin',
+        }),
     }),
   );
 }
 
-/**
- * Set professional_profiles.verification_status → 'rejected' with a mandatory reason.
- */
+/** Reject a professional with a mandatory reason. */
 export async function rejectProfessional(
   professionalId: string,
+  expectedStatus: string,
   reason: string,
 ): Promise<VerificationActionResult> {
   return toActionResult(
     await runAdminAction({
       name: 'admin.professional.reject',
       schema: rejectProfessionalInput,
+      input: { professionalId, expectedStatus, reason },
+      subjectUserId: (i) => i.professionalId,
+      targetType: 'professional',
+      targetId: (i) => i.professionalId,
+      reason: (i) => i.reason,
+      execute: ({ input }) =>
+        transitionProfessional({
+          professionalId: input.professionalId,
+          action: 'reject',
+          expectedStatus: input.expectedStatus,
+          reason: input.reason,
+        }),
+    }),
+  );
+}
+
+/** Suspend a verified professional: blocks new work, withdraws pending offers, flags active jobs. */
+export async function suspendProfessional(
+  professionalId: string,
+  reason: string,
+): Promise<VerificationActionResult> {
+  return toActionResult(
+    await runAdminAction({
+      name: 'admin.professional.suspend',
+      schema: suspendProfessionalInput,
       input: { professionalId, reason },
       subjectUserId: (i) => i.professionalId,
       targetType: 'professional',
       targetId: (i) => i.professionalId,
       reason: (i) => i.reason,
-      execute: async ({ actorId, input }) => {
-        const supabase = await createClient();
-        // @ts-ignore - New RPC function not yet in generated types
-        const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-          p_professional_id: input.professionalId,
-          p_new_status: 'rejected',
-          p_admin_user_id: actorId,
-          p_reason: input.reason,
-          p_metadata: { admin_user: actorId },
-        });
-        if (stateError) return adminFailure('FAILED', stateError.message);
+      execute: ({ input }) =>
+        transitionProfessional({
+          professionalId: input.professionalId,
+          action: 'suspend',
+          expectedStatus: 'verified',
+          reason: input.reason,
+        }),
+    }),
+  );
+}
 
-        const review = await recordVerificationReview(
-          input.professionalId,
-          actorId,
-          'rejected',
-          input.reason,
-        );
-        if (!isAdminFailure(review)) revalidatePath('/admin/professionals');
-        return review;
-      },
+/** Reactivate a suspended professional. Availability is not restored; they switch it on themselves. */
+export async function reactivateProfessional(
+  professionalId: string,
+  reason: string,
+): Promise<VerificationActionResult> {
+  return toActionResult(
+    await runAdminAction({
+      name: 'admin.professional.reactivate',
+      schema: reactivateProfessionalInput,
+      input: { professionalId, reason },
+      subjectUserId: (i) => i.professionalId,
+      targetType: 'professional',
+      targetId: (i) => i.professionalId,
+      reason: (i) => i.reason,
+      execute: ({ input }) =>
+        transitionProfessional({
+          professionalId: input.professionalId,
+          action: 'reactivate',
+          expectedStatus: 'suspended',
+          reason: input.reason,
+        }),
     }),
   );
 }

@@ -435,16 +435,26 @@ export async function verifyProfessional(
       return { success: false, error: 'Reason required for rejection' };
     }
 
+    // The case drawer does not carry the status it was opened at, so read it here; the database
+    // still locks the row and refuses the change if it moved in between.
+    const supabase = await createClient();
+    const { data: current } = await supabase
+      .from('professional_profiles')
+      .select('verification_status')
+      .eq('user_id', profId)
+      .maybeSingle();
+    const expected = current?.verification_status ?? '';
+
     // Use service layer functions which handle authorization, persistence, and audit logging
     if (decision === 'approved') {
       const { approveProfessional } = await import('@/lib/services/verification');
-      const result = await approveProfessional(profId);
+      const result = await approveProfessional(profId, expected);
       if (!result.success) {
         return { success: false, error: result.error || 'Failed to approve professional' };
       }
     } else {
       const { rejectProfessional } = await import('@/lib/services/verification');
-      const result = await rejectProfessional(profId, reason!);
+      const result = await rejectProfessional(profId, expected, reason!);
       if (!result.success) {
         return { success: false, error: result.error || 'Failed to reject professional' };
       }
