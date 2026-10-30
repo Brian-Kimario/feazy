@@ -12,6 +12,7 @@ export const NOTIFICATION_KINDS = [
   'quote_approved',
   'quote_declined',
   'job_cancelled',
+  'job_cancelled_by_admin',
   'job_completed',
   'new_message',
 ] as const;

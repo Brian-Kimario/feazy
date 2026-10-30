@@ -43,7 +43,13 @@ vi.mock('@/lib/audit', async () => {
 
 import { runAdminAction } from '@/lib/admin/action';
 import { isAdminFailure } from '@/lib/admin/result';
-import { approveProfessionalInput, rejectProfessionalInput, verificationDocumentPath } from '@/validators/admin';
+import {
+  approveProfessionalInput,
+  rejectProfessionalInput,
+  verificationDocumentPath,
+  cancelJobInput,
+  CANCEL_CUSTOMER_REASONS,
+} from '@/validators/admin';
 
 const ADMIN = '11111111-1111-4111-8111-111111111111';
 const TARGET = '22222222-2222-4222-8222-222222222222';
@@ -168,6 +174,34 @@ describe('admin validators', () => {
   });
 });
 
+describe('cancelJobInput', () => {
+  const ok = { jobId: TARGET, expectedState: 'accepted', reason: ' pro no-show ', customerReasonCategory: 'scheduling_issue' };
+
+  it('accepts a valid cancellation and trims the internal reason', () => {
+    expect(cancelJobInput.safeParse(ok).data?.reason).toBe('pro no-show');
+  });
+
+  it.each([
+    ['bad job id', { ...ok, jobId: 'x' }],
+    ['short reason', { ...ok, reason: 'no' }],
+    ['terminal expected state', { ...ok, expectedState: 'completed' }],
+    ['cancelled expected state', { ...ok, expectedState: 'cancelled' }],
+    ['unknown category', { ...ok, customerReasonCategory: 'because' }],
+    ['missing category', { ...ok, customerReasonCategory: undefined }],
+  ])('rejects %s', (_n, input) => expect(cancelJobInput.safeParse(input).success).toBe(false));
+
+  it('offers every category the database accepts', () => {
+    expect(CANCEL_CUSTOMER_REASONS.map((r) => r.value).sort()).toEqual([
+      'customer_request',
+      'other',
+      'professional_unavailable',
+      'safety_or_operational',
+      'scheduling_issue',
+      'service_not_fulfillable',
+    ]);
+  });
+});
+
 describe('admin authorization is consolidated (static)', () => {
   const root = path.resolve(__dirname, '../..');
   const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -180,6 +214,14 @@ describe('admin authorization is consolidated (static)', () => {
       expect(src).not.toMatch(/\.from\('profiles'\)\s*\.select\('role/);
     },
   );
+
+  it('admin job cancel is audited, uses the RPC, and never updates current_state directly', () => {
+    const src = read('src/lib/services/admin.ts');
+    expect(src).toContain("name: 'admin.job.cancel'");
+    expect(src).toContain("rpc('admin_cancel_job'");
+    expect(src).not.toMatch(/current_state:\s*'cancelled'/);
+    expect(src).not.toMatch(/rpc\('transition_job_state'/);
+  });
 
   it('verification approve/reject go through runAdminAction and do not insert audit rows by hand', () => {
     const src = read('src/lib/services/verification.ts');

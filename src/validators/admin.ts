@@ -36,3 +36,40 @@ export const verificationDocumentPath = z
     (p) => !p.startsWith('/') && !p.split('/').some((seg) => seg === '..' || seg === '.' || seg === ''),
     'Invalid document path',
   );
+
+/** Customer-facing reason categories for an admin cancellation. The database enforces the same set. */
+export const CANCEL_CUSTOMER_REASONS = [
+  { value: 'professional_unavailable', label: 'Professional unavailable' },
+  { value: 'scheduling_issue', label: 'Scheduling issue' },
+  { value: 'service_not_fulfillable', label: 'Service could not be fulfilled' },
+  { value: 'customer_request', label: 'Customer request' },
+  { value: 'safety_or_operational', label: 'Safety or operational concern' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export const cancelJobInput = z.object({
+  jobId: uuid,
+  /** The state the admin was looking at; a changed job is refused rather than cancelled blindly. */
+  expectedState: z.enum(['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending']),
+  /** Internal and private: stored for admins only, never shown to the customer or professional. */
+  reason: adminReason,
+  customerReasonCategory: z.enum([
+    'professional_unavailable',
+    'scheduling_issue',
+    'service_not_fulfillable',
+    'customer_request',
+    'safety_or_operational',
+    'other',
+  ]),
+});
+
+export type CancelJobResult = {
+  job_id: string;
+  booking_id: string;
+  from_state: string;
+  to_state: string;
+  offer_withdrawn: boolean;
+  payment_review_required: boolean;
+  paid_payment_count: number;
+  pending_payment_count: number;
+};

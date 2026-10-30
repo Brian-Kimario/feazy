@@ -19,6 +19,7 @@ import {
   adminCancelJob,
   type AdminJobDetail,
 } from '@/lib/services/admin';
+import CancelJobDialog from '@/components/admin/CancelJobDialog';
 
 interface JobDetailModalProps {
   jobId: string | null;
@@ -88,6 +89,7 @@ export default function JobDetailModal({
   const [error, setError] = useState<string | null>(null);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Load detail whenever opened or jobId changes
@@ -131,10 +133,10 @@ export default function JobDetailModal({
 
   if (!isOpen) return null;
 
-  const handleAdminCancel = () => {
+  const handleAdminCancel = (category: string, reason: string) => {
     if (!detail) return;
     startTransition(async () => {
-      const res = await adminCancelJob(detail.id);
+      const res = await adminCancelJob(detail.id, detail.current_state, reason, category);
       if (res.success) {
         setDetail((prev) =>
           prev ? { ...prev, current_state: 'cancelled', cancelled_at: new Date().toISOString() } : prev
@@ -142,7 +144,7 @@ export default function JobDetailModal({
         setConfirmCancel(false);
         onJobUpdated?.({ id: detail.id, current_state: 'cancelled' });
       } else {
-        setError(res.error ?? 'Failed to cancel job');
+        setCancelError(res.error ?? 'Failed to cancel job');
       }
     });
   };
@@ -479,31 +481,12 @@ export default function JobDetailModal({
         <div className="px-6 py-4 border-t border-[#D9DED8] bg-[#F7F4EC] flex items-center justify-between gap-3">
           {detail && !isTerminal && (
             <div>
-              {confirmCancel ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#A9523D] font-bold">Are you sure?</span>
-                  <button
-                    onClick={handleAdminCancel}
-                    disabled={isPending}
-                    className="px-3 py-1.5 bg-[#A9523D] text-white text-xs font-bold rounded-lg hover:bg-[#8E3F2C] transition disabled:opacity-50"
-                  >
-                    {isPending ? 'Cancelling…' : 'Yes, Cancel Job'}
-                  </button>
-                  <button
-                    onClick={() => setConfirmCancel(false)}
-                    className="px-2.5 py-1.5 border border-[#D9DED8] text-xs font-semibold text-[#5A6661] rounded-lg hover:bg-white transition"
-                  >
-                    Abort
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmCancel(true)}
-                  className="px-3.5 py-2 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition"
-                >
-                  Admin Cancel Job
-                </button>
-              )}
+              <button
+                onClick={() => { setCancelError(null); setConfirmCancel(true); }}
+                className="px-3.5 py-2 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition"
+              >
+                Admin Cancel Job
+              </button>
             </div>
           )}
 
@@ -517,6 +500,17 @@ export default function JobDetailModal({
           </div>
         </div>
       </div>
+      {detail && confirmCancel && (
+        <CancelJobDialog
+          reference={detail.booking.reference}
+          state={detail.current_state}
+          hasProfessional={!!detail.professional}
+          pending={isPending}
+          error={cancelError}
+          onConfirm={handleAdminCancel}
+          onClose={() => setConfirmCancel(false)}
+        />
+      )}
     </div>
   );
 }

@@ -15,7 +15,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminActor } from '@/lib/admin/guard';
-import { isAdminFailure } from '@/lib/admin/result';
+import { isAdminFailure, adminFailure, type AdminResult } from '@/lib/admin/result';
+import { runAdminAction } from '@/lib/admin/action';
+import { cancelJobInput, type CancelJobResult } from '@/validators/admin';
+import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { missingProfessional } from '@/lib/shell/rules';
 
@@ -514,34 +517,47 @@ export async function getRecentPayments(limit = 20): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Cancel a job (admin only). Sets current_state → 'cancelled' via the state
- * machine function so the job_events log is written correctly.
+ * Cancel a job (admin only). Goes through `admin_cancel_job`, which locks the job, checks the
+ * expected state, uses the canonical `transition_job_state`, records the admin on an immutable
+ * job event, notifies the customer and the assigned professional, and leaves payments untouched.
+ * The internal reason is private to admins; the customer only sees the chosen category.
  */
-export async function adminCancelJob(jobId: string): Promise<{
-  success: boolean;
-  error: string | null;
-}> {
-  const auth = await requireAdmin();
-  if ('error' in auth) return { success: false, error: auth.error };
-
-  try {
-    const supabase = await createClient();
-    const { error } = await supabase.rpc('transition_job_state', {
-      p_job_id: jobId,
-      p_new_state: 'cancelled',
-      p_actor_user_id: auth.userId,
-    });
-
-    if (error) {
-      console.error('[Admin] adminCancelJob error:', error);
-      return { success: false, error: (error as any).message };
-    }
-
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('[Admin] adminCancelJob error:', err);
-    return { success: false, error: 'Failed to cancel job' };
-  }
+export async function adminCancelJob(
+  jobId: string,
+  expectedState: string,
+  reason: string,
+  customerReasonCategory: string,
+): Promise<{ success: boolean; error: string | null; paymentReviewRequired?: boolean }> {
+  const result = await runAdminAction({
+    name: 'admin.job.cancel',
+    schema: cancelJobInput,
+    input: { jobId, expectedState, reason, customerReasonCategory },
+    targetType: 'job',
+    targetId: (i) => i.jobId,
+    reason: (i) => i.reason,
+    execute: async ({ input }): Promise<AdminResult<CancelJobResult>> => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_cancel_job', {
+        p_job_id: input.jobId,
+        p_expected_state: input.expectedState,
+        p_reason: input.reason,
+        p_customer_reason_category: input.customerReasonCategory,
+      });
+      if (error) {
+        // 55000 stale or terminal state, 22023 bad input, 42501 not an admin: all safe to show.
+        const actionable = ['55000', '22023', '42501', 'P0002'].includes(error.code);
+        return adminFailure('FAILED', actionable ? error.message : 'The job could not be cancelled');
+      }
+      revalidatePath('/admin/jobs');
+      return { ok: true, data: data as unknown as CancelJobResult };
+    },
+  });
+  if (isAdminFailure(result)) return { success: false, error: result.error };
+  return {
+    success: true,
+    error: null,
+    paymentReviewRequired: result.data.payment_review_required,
+  };
 }
 
 // 7. Suspend / reactivate professional: see suspendProfessional / reactivateProfessional in

@@ -14,6 +14,7 @@ import { useState, useTransition, useMemo } from 'react';
 import type { AdminJob } from '@/lib/services/admin';
 import { adminCancelJob } from '@/lib/services/admin';
 import JobDetailModal from '@/components/admin/JobDetailModal';
+import CancelJobDialog from '@/components/admin/CancelJobDialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -122,19 +123,26 @@ export default function AdminJobsClient({ initialJobs, total, initialSelectedId 
     return result;
   }, [jobs, statusFilter, search]);
 
+  const cancelTarget = jobs.find((j) => j.id === cancellingId) ?? null;
+
   const handleCancel = (jobId: string) => {
-    setCancellingId(jobId);
     setErrorMap((p) => { const n = { ...p }; delete n[jobId]; return n; });
+    setCancellingId(jobId);
+  };
+
+  const confirmCancel = (category: string, reason: string) => {
+    if (!cancelTarget) return;
+    const target = cancelTarget;
     startTransition(async () => {
-      const result = await adminCancelJob(jobId);
+      const result = await adminCancelJob(target.id, target.current_state, reason, category);
       if (result.success) {
         setJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, current_state: 'cancelled' } : j)),
+          prev.map((j) => (j.id === target.id ? { ...j, current_state: 'cancelled' } : j)),
         );
+        setCancellingId(null);
       } else {
-        setErrorMap((p) => ({ ...p, [jobId]: result.error ?? 'Failed' }));
+        setErrorMap((p) => ({ ...p, [target.id]: result.error ?? 'Failed' }));
       }
-      setCancellingId(null);
     });
   };
 
@@ -296,10 +304,10 @@ export default function AdminJobsClient({ initialJobs, total, initialSelectedId 
                         {!['completed', 'cancelled', 'closed'].includes(job.current_state) && (
                           <button
                             onClick={() => handleCancel(job.id)}
-                            disabled={cancellingId === job.id || isPending}
+                            disabled={isPending}
                             className="px-3 py-1.5 border border-[#DFC0B7] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#F3E1DA] transition disabled:opacity-50"
                           >
-                            {cancellingId === job.id ? 'Cancelling…' : 'Cancel'}
+                            Cancel
                           </button>
                         )}
                       </div>
@@ -363,10 +371,10 @@ export default function AdminJobsClient({ initialJobs, total, initialSelectedId 
                   {!['completed', 'cancelled', 'closed'].includes(job.current_state) && (
                     <button
                       onClick={() => handleCancel(job.id)}
-                      disabled={cancellingId === job.id || isPending}
+                      disabled={isPending}
                       className="py-1.5 px-3 border border-[#DFC0B7] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#F3E1DA] transition disabled:opacity-50"
                     >
-                      {cancellingId === job.id ? '…' : 'Cancel'}
+                      Cancel
                     </button>
                   )}
                 </div>
@@ -374,6 +382,19 @@ export default function AdminJobsClient({ initialJobs, total, initialSelectedId 
             ))}
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <CancelJobDialog
+          key={cancelTarget.id}
+          reference={cancelTarget.booking_reference ?? null}
+          state={cancelTarget.current_state}
+          hasProfessional={!!cancelTarget.professional_name}
+          pending={isPending}
+          error={errorMap[cancelTarget.id] ?? null}
+          onConfirm={confirmCancel}
+          onClose={() => setCancellingId(null)}
+        />
       )}
 
       {/* Full Job Details Inspector Modal */}
