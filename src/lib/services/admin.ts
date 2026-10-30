@@ -24,9 +24,10 @@ import { missingProfessional } from '@/lib/shell/rules';
 export interface AdminMetrics {
   openJobs: number;
   pendingVerifications: number;
-  totalRevenuePaise: number;       // sum of paid payments (stored in smallest unit)
+  totalRevenuePaise: number;       // sum of payments.amount where status = 'paid' (in paise)
   revenueFormatted: string;        // e.g. "₹1,23,456"
-  activeDisputes: number;          // placeholder — complaints table not in MVP schema
+  paidPaymentsCount: number;       // payments with status = 'paid'
+  openNoShowReports: number;       // job_exceptions with status = 'open'
   jobsAddedToday: number;
   completedJobsTotal: number;
 }
@@ -126,6 +127,7 @@ export async function getAdminMetrics(): Promise<{
       paidPaymentsRes,
       completedJobsRes,
       todayJobsRes,
+      openExceptionsRes,
     ] = await Promise.all([
       // Open (non-terminal) jobs
       // @ts-ignore
@@ -156,6 +158,11 @@ export async function getAdminMetrics(): Promise<{
       (admin as any).from('jobs')
         .select('id', { count: 'exact', head: true })
         .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+
+      // Open no-show reports awaiting an admin decision
+      admin.from('job_exceptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open'),
     ]);
 
     // Revenue: sum amounts from paid payments
@@ -173,7 +180,8 @@ export async function getAdminMetrics(): Promise<{
         pendingVerifications: pendingVerifRes.count ?? 0,
         totalRevenuePaise: Math.round(totalAmount * 100),
         revenueFormatted,
-        activeDisputes: 0, // complaints table not in MVP schema
+        paidPaymentsCount: ((paidPaymentsRes.data as unknown[]) ?? []).length,
+        openNoShowReports: openExceptionsRes.count ?? 0,
         jobsAddedToday: todayJobsRes.count ?? 0,
         completedJobsTotal: completedJobsRes.count ?? 0,
       },
@@ -973,8 +981,8 @@ export async function getAllCustomers(): Promise<{
       // @ts-ignore
       (admin as any)
         .from('properties')
-        .select('owner_id')
-        .in('owner_id', customerIds),
+        .select('owner_customer_id')
+        .in('owner_customer_id', customerIds),
       // @ts-ignore
       (admin as any)
         .from('bookings')
@@ -984,7 +992,7 @@ export async function getAllCustomers(): Promise<{
 
     const propCounts = new Map<string, number>();
     for (const p of (propsRes.data as any[]) ?? []) {
-      propCounts.set(p.owner_id, (propCounts.get(p.owner_id) ?? 0) + 1);
+      propCounts.set(p.owner_customer_id, (propCounts.get(p.owner_customer_id) ?? 0) + 1);
     }
 
     const bookingCounts = new Map<string, number>();

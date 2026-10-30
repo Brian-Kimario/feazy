@@ -147,20 +147,19 @@ async function AdminPageContent() {
           <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
             {metrics?.revenueFormatted ?? '—'}
           </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Total revenue</div>
+          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Payments received</div>
           {metrics && (
             <div className="text-xs text-[#176B5B] mt-2 font-semibold">
-              {metrics.completedJobsTotal} completed jobs
+              {metrics.paidPaymentsCount} paid {metrics.paidPaymentsCount === 1 ? 'payment' : 'payments'}
             </div>
           )}
         </div>
 
         <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-lg p-4 md:p-5">
           <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
-            {metrics?.activeDisputes ?? 0}
+            {metrics?.openNoShowReports ?? '—'}
           </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Active disputes</div>
-          <div className="text-xs text-[#7C8681] mt-2 font-semibold">Complaints MVP</div>
+          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Open no-show reports</div>
         </div>
       </div>
 
