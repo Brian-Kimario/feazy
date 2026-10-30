@@ -60,6 +60,9 @@ export enum AuditAction {
   DEVICE_FINGERPRINT_MISMATCH = "security.device_fingerprint_mismatch",
 }
 
+/** Privileged admin operations, recorded as `admin.<domain>.<verb>.<requested|succeeded|failed>`. */
+export type AdminAuditAction = `admin.${string}`;
+
 export enum AuditSeverity {
   INFO = "info",
   WARNING = "warning",
@@ -69,7 +72,7 @@ export enum AuditSeverity {
 export interface AuditLogEntry {
   id?: string;
   user_id: string;
-  action: AuditAction;
+  action: AuditAction | AdminAuditAction;
   severity: AuditSeverity;
   resource_type?: string; // "user", "booking", "payment", etc.
   resource_id?: string;

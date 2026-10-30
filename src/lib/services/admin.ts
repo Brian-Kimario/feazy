@@ -14,6 +14,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAdminActor } from '@/lib/admin/guard';
+import { isAdminFailure } from '@/lib/admin/result';
 import { z } from 'zod';
 import { missingProfessional } from '@/lib/shell/rules';
 
@@ -85,21 +87,8 @@ export interface AttentionItem {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: 'Not authenticated' };
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || (profile as any).role !== 'admin') return { error: 'Not authorised' };
-  return { userId: user.id };
+  const actor = await getAdminActor();
+  return isAdminFailure(actor) ? { error: actor.error } : actor.data;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

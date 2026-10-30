@@ -16,6 +16,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { runAdminAction } from '@/lib/admin/action';
+import { getAdminActor } from '@/lib/admin/guard';
+import { logAuditEvent, AuditSeverity } from '@/lib/audit';
+import { adminFailure, isAdminFailure, type AdminResult } from '@/lib/admin/result';
+import { uuid } from '@/validators/common';
+import { approveProfessionalInput, rejectProfessionalInput, verificationDocumentPath } from '@/validators/admin';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -363,185 +369,124 @@ export async function getUnverifiedProfessionals(): Promise<{
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Approve a professional (admin action)
+// 3 & 4. Approve / reject a professional (admin actions)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Set professional_profiles.verification_status → 'verified'.
- * Updates the verification record and writes an audit log.
- *
- * Security rules:
- * - Professional CANNOT call this on themselves (server role check).
- * - Uses admin client to bypass RLS for write.
+ * Close out the latest professional_verifications row after the state machine has moved the
+ * professional. A failure here is reported, not swallowed: the status has already changed, so
+ * the admin needs to know the review record is out of step.
+ */
+async function recordVerificationReview(
+  professionalId: string,
+  reviewerId: string,
+  status: 'verified' | 'rejected',
+  rejectionReason?: string,
+): Promise<AdminResult<null>> {
+  const adminClient = await createAdminClient();
+
+  const { data: latest, error: findError } = await adminClient
+    .from('professional_verifications')
+    .select('id')
+    .eq('professional_id', professionalId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (findError) return adminFailure('FAILED', 'Status changed but the review record could not be read');
+  const latestId = (latest as { id: string } | null)?.id;
+  if (!latestId) return { ok: true, data: null };
+
+  const { error: updateError } = await adminClient
+    .from('professional_verifications')
+    .update({
+      status,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: reviewerId,
+      ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
+    } as never)
+    .eq('id', latestId);
+  if (updateError) return adminFailure('FAILED', 'Status changed but the review record could not be updated');
+  return { ok: true, data: null };
+}
+
+function toActionResult(result: AdminResult<null>): VerificationActionResult {
+  return isAdminFailure(result) ? { success: false, error: result.error } : { success: true, error: null };
+}
+
+/**
+ * Set professional_profiles.verification_status → 'verified' through the state machine.
+ * Admin-only, validated and audited via runAdminAction.
  */
 export async function approveProfessional(
   professionalId: string,
 ): Promise<VerificationActionResult> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: 'Not authenticated' };
+  return toActionResult(
+    await runAdminAction({
+      name: 'admin.professional.approve',
+      schema: approveProfessionalInput,
+      input: { professionalId },
+      subjectUserId: (i) => i.professionalId,
+      targetType: 'professional',
+      targetId: (i) => i.professionalId,
+      execute: async ({ actorId, input }) => {
+        const supabase = await createClient();
+        // @ts-ignore - New RPC function not yet in generated types
+        const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
+          p_professional_id: input.professionalId,
+          p_new_status: 'verified',
+          p_admin_user_id: actorId,
+          p_reason: 'Admin approved professional verification',
+          p_metadata: { admin_user: actorId },
+        });
+        if (stateError) return adminFailure('FAILED', stateError.message);
 
-    // Must be admin
-    const { data: actorProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    if (!actorProfile || (actorProfile as any).role !== 'admin') {
-      return { success: false, error: 'Not authorised — admin only' };
-    }
-
-    // Use state machine to transition verification status with admin authorization
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'verified',
-      p_admin_user_id: user.id,
-      p_reason: 'Admin approved professional verification',
-      p_metadata: { admin_user: user.id },
-    });
-
-    if (stateError) {
-      console.error('[Verification] Failed to transition verification status:', stateError);
-      return { success: false, error: (stateError as any).message };
-    }
-
-    const adminClient = await createAdminClient();
-
-    // Update the latest verification record
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data: latestVerif } = await (adminClient as any)
-      .from('professional_verifications')
-      .select('id')
-      .eq('professional_id', professionalId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestVerif?.id) {
-      // @ts-ignore - Supabase SDK type inference issue
-      await (adminClient as any)
-        .from('professional_verifications')
-        .update({
-          status: 'verified',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-        })
-        .eq('id', latestVerif.id);
-    }
-
-    // Audit log
-    // @ts-ignore - Supabase SDK type inference issue
-    await (adminClient as any).from('audit_logs').insert({
-      user_id: professionalId,
-      action: 'professional_verified',
-      changes: { verification_status: 'verified', reviewed_by: user.id },
-      created_by: user.id,
-    });
-
-    revalidatePath('/admin/professionals');
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('[Verification] Unexpected error in approveProfessional:', err);
-    return { success: false, error: 'Failed to approve professional' };
-  }
+        const review = await recordVerificationReview(input.professionalId, actorId, 'verified');
+        if (!isAdminFailure(review)) revalidatePath('/admin/professionals');
+        return review;
+      },
+    }),
+  );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. Reject a professional (admin action)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Set professional_profiles.verification_status → 'rejected'.
- * Persists rejection_reason and writes an audit log.
+ * Set professional_profiles.verification_status → 'rejected' with a mandatory reason.
  */
 export async function rejectProfessional(
   professionalId: string,
   reason: string,
 ): Promise<VerificationActionResult> {
-  try {
-    if (!reason || reason.trim().length < 5) {
-      return { success: false, error: 'Please provide a rejection reason (min 5 characters)' };
-    }
+  return toActionResult(
+    await runAdminAction({
+      name: 'admin.professional.reject',
+      schema: rejectProfessionalInput,
+      input: { professionalId, reason },
+      subjectUserId: (i) => i.professionalId,
+      targetType: 'professional',
+      targetId: (i) => i.professionalId,
+      reason: (i) => i.reason,
+      execute: async ({ actorId, input }) => {
+        const supabase = await createClient();
+        // @ts-ignore - New RPC function not yet in generated types
+        const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
+          p_professional_id: input.professionalId,
+          p_new_status: 'rejected',
+          p_admin_user_id: actorId,
+          p_reason: input.reason,
+          p_metadata: { admin_user: actorId },
+        });
+        if (stateError) return adminFailure('FAILED', stateError.message);
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: 'Not authenticated' };
-
-    // Must be admin
-    const { data: actorProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    if (!actorProfile || (actorProfile as any).role !== 'admin') {
-      return { success: false, error: 'Not authorised — admin only' };
-    }
-
-    // Use state machine to transition verification status with admin authorization
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'rejected',
-      p_admin_user_id: user.id,
-      p_reason: reason,
-      p_metadata: { admin_user: user.id },
-    });
-
-    if (stateError) {
-      console.error('[Verification] Failed to transition verification status:', stateError);
-      return { success: false, error: (stateError as any).message };
-    }
-
-    const adminClient = await createAdminClient();
-
-    // Update verification record
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data: latestVerif } = await (adminClient as any)
-      .from('professional_verifications')
-      .select('id')
-      .eq('professional_id', professionalId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestVerif?.id) {
-      // @ts-ignore - Supabase SDK type inference issue
-      await (adminClient as any)
-        .from('professional_verifications')
-        .update({
-          status: 'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-          rejection_reason: reason.trim(),
-        })
-        .eq('id', latestVerif.id);
-    }
-
-    // Audit log
-    // @ts-ignore - Supabase SDK type inference issue
-    await (adminClient as any).from('audit_logs').insert({
-      user_id: professionalId,
-      action: 'professional_rejected',
-      changes: {
-        verification_status: 'rejected',
-        rejection_reason: reason.trim(),
-        reviewed_by: user.id,
+        const review = await recordVerificationReview(
+          input.professionalId,
+          actorId,
+          'rejected',
+          input.reason,
+        );
+        if (!isAdminFailure(review)) revalidatePath('/admin/professionals');
+        return review;
       },
-      created_by: user.id,
-    });
-
-    revalidatePath('/admin/professionals');
-    return { success: true, error: null };
-  } catch (err) {
-    console.error('[Verification] Unexpected error in rejectProfessional:', err);
-    return { success: false, error: 'Failed to reject professional' };
-  }
+    }),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -557,34 +502,42 @@ export async function getDocumentSignedUrl(storagePath: string): Promise<{
   error: string | null;
 }> {
   try {
+    const parsedPath = verificationDocumentPath.safeParse(storagePath);
+    if (!parsedPath.success) return { url: null, error: 'Invalid document path' };
+    const path = parsedPath.data;
+
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { url: null, error: 'Not authenticated' };
 
-    const { data: actorProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const isOwner = path.startsWith(`${user.id}/`);
+    if (!isOwner) {
+      const actor = await getAdminActor();
+      if (isAdminFailure(actor)) return { url: null, error: 'Not authorised' };
 
-    const isOwner = storagePath.startsWith(`${user.id}/`);
-    const isAdmin = (actorProfile as any)?.role === 'admin';
-
-    if (!isOwner && !isAdmin) {
-      return { url: null, error: 'Not authorised' };
+      const ownerSegment = path.split('/')[0];
+      // Reading another person's identity documents is recorded; fail closed if it cannot be.
+      const audit = await logAuditEvent({
+        user_id: uuid.safeParse(ownerSegment).success ? ownerSegment : actor.data.userId,
+        created_by: actor.data.userId,
+        action: 'admin.verification_document.view',
+        severity: AuditSeverity.INFO,
+        success: true,
+        changes: { target_type: 'verification_document', target_id: path },
+      });
+      if (!audit.success) return { url: null, error: 'Could not record the audit trail' };
     }
 
     const adminClient = await createAdminClient();
     const { data, error } = await adminClient.storage
       .from('verification-documents')
-      .createSignedUrl(storagePath, 3600); // 1 hour
+      .createSignedUrl(path, 3600); // 1 hour
 
     if (error) return { url: null, error: error.message };
     return { url: data.signedUrl, error: null };
-  } catch (err) {
-    console.error('[Verification] Error creating signed URL:', err);
+  } catch {
     return { url: null, error: 'Failed to generate document URL' };
   }
 }

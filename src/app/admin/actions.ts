@@ -17,6 +17,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAdminActor } from '@/lib/admin/guard';
+import { isAdminFailure } from '@/lib/admin/result';
 import { revalidatePath } from 'next/cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,24 +49,9 @@ export interface ActionResult<T = Record<string, unknown>> {
  * Returns userId if admin, throws error otherwise.
  */
 async function requireAdmin(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error('Unauthorized: not authenticated');
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError || !profile) throw new Error('Unauthorized: profile not found');
-  const profileData = profile as { role: string };
-  if (profileData.role !== 'admin') throw new Error('Unauthorized: not an admin');
-
-  return user.id;
+  const actor = await getAdminActor();
+  if (isAdminFailure(actor)) throw new Error(`Unauthorized: ${actor.error}`);
+  return actor.data.userId;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
