@@ -137,6 +137,67 @@ export type Database = {
           },
         ]
       }
+      admin_reconciliations: {
+        Row: {
+          booking_id: string
+          booking_status_at_time: string
+          created_at: string
+          had_outstanding_offer: boolean
+          id: string
+          internal_reason: string
+          job_id: string
+          job_state_before: string
+          kind: string
+          performed_by: string
+        }
+        Insert: {
+          booking_id: string
+          booking_status_at_time: string
+          created_at?: string
+          had_outstanding_offer: boolean
+          id?: string
+          internal_reason: string
+          job_id: string
+          job_state_before: string
+          kind: string
+          performed_by: string
+        }
+        Update: {
+          booking_id?: string
+          booking_status_at_time?: string
+          created_at?: string
+          had_outstanding_offer?: boolean
+          id?: string
+          internal_reason?: string
+          job_id?: string
+          job_state_before?: string
+          kind?: string
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_reconciliations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_reconciliations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_reconciliations_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2385,6 +2446,10 @@ export type Database = {
           p_job_id: string
           p_reason: string
         }
+        Returns: Json
+      }
+      admin_reconcile_job: {
+        Args: { p_expected_state: string; p_job_id: string; p_reason: string }
         Returns: Json
       }
       admin_transition_professional_verification: {

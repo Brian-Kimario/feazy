@@ -19,6 +19,8 @@ import { createClient } from '@/lib/supabase/server';
 import type { AdminResult } from '@/lib/admin/result';
 import { getOperationsCaseDetail, type OpsCaseDetail } from '@/lib/services/admin-operations';
 import { revalidatePath } from 'next/cache';
+import { adminReconcileJob } from '@/lib/services/admin';
+import type { ReconcileJobResult } from '@/validators/admin';
 
 export interface ActionResult<T = Record<string, unknown>> {
   success: boolean;
@@ -34,6 +36,11 @@ export interface ActionResult<T = Record<string, unknown>> {
 
 export async function loadOperationsCaseDetail(input: unknown): Promise<AdminResult<OpsCaseDetail>> {
   return getOperationsCaseDetail(input);
+}
+
+/** Repair a cancelled-booking / assigned-job mismatch. Guarded, validated and audited in the service. */
+export async function reconcileOperationsJob(input: unknown): Promise<AdminResult<ReconcileJobResult>> {
+  return adminReconcileJob(input);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -191,7 +191,7 @@ export function classifyBooking(b: OpsBookingRow, now: Date, t: OperationsThresh
       'Booking and job statuses disagree',
       mismatch,
       job?.updatedAt ?? b.createdAt,
-      'Review the history. Reconciliation is added in the next recovery step; do not edit either record by hand.',
+      'Review the history. If the job is only assigned, close the leftover job from this panel; any other state needs a cancellation decision. Do not edit either record by hand.',
     );
   }
   if (b.status !== 'pending' && b.status !== 'confirmed') return null;

@@ -3,13 +3,14 @@
 /**
  * OperationsQueue — the exception list and a read-only case drawer. The list is computed on the
  * server (getOperationsQueue); this component only renders it and loads case detail on demand.
- * There are no state-changing actions here: recovery actions arrive in A3.2/A4.
+ * The only state-changing action is the guarded repair for a cancelled booking with a leftover assigned job.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { isAdminFailure } from '@/lib/admin/result';
 import { loadOperationsCaseDetail } from '@/app/admin/actions';
+import { ReconcileJobPanel } from '@/components/admin/ReconcileJobPanel';
 import type { OpsCaseDetail } from '@/lib/services/admin-operations';
 import { OPS_TYPE_LABELS, formatDuration, type OpsCase, type OpsSeverity } from '@/lib/admin/operations';
 
@@ -221,6 +222,11 @@ function CaseDrawer({ item, onClose }: { item: OpsCase; onClose: () => void }) {
             </p>
           )}
           {state.status === 'ready' && <DetailBody item={item} detail={state.detail} />}
+          {state.status === 'ready' && item.type === 'state_mismatch' && item.jobId && item.jobState === 'assigned' && (
+            <div className="mt-5">
+              <ReconcileJobPanel jobId={item.jobId} reference={item.reference} />
+            </div>
+          )}
         </div>
       </aside>
     </>

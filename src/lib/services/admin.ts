@@ -17,7 +17,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminActor } from '@/lib/admin/guard';
 import { isAdminFailure, adminFailure, type AdminResult } from '@/lib/admin/result';
 import { runAdminAction } from '@/lib/admin/action';
-import { cancelJobInput, type CancelJobResult } from '@/validators/admin';
+import {
+  cancelJobInput,
+  reconcileJobInput,
+  type CancelJobResult,
+  type ReconcileJobRefusal,
+  type ReconcileJobResult,
+} from '@/validators/admin';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { missingProfessional } from '@/lib/shell/rules';
@@ -378,6 +384,45 @@ export async function getRecentPayments(limit = 20): Promise<{
     console.error('[Admin] getRecentPayments error:', err);
     return { data: [], error: 'Failed to load payments' };
   }
+}
+
+/**
+ * Reconcile a job whose booking was already cancelled (admin only). The database function
+ * re-verifies the admin, locks booking then job, rejects a stale or ineligible job as a typed value,
+ * moves the job through `transition_job_state`, and never touches payments. It runs on the
+ * user-scoped client so `auth.uid()` is the admin. The customer is not messaged.
+ */
+export async function adminReconcileJob(
+  input: unknown,
+): Promise<AdminResult<ReconcileJobResult>> {
+  return runAdminAction({
+    name: 'admin.job.reconcile',
+    schema: reconcileJobInput,
+    input,
+    targetType: 'job',
+    targetId: (i) => i.jobId,
+    reason: (i) => i.reason,
+    execute: async ({ input: i }): Promise<AdminResult<ReconcileJobResult>> => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_reconcile_job', {
+        p_job_id: i.jobId,
+        p_expected_state: i.expectedState,
+        p_reason: i.reason,
+      });
+      if (error) {
+        const actionable = ['22023', '42501', 'P0002'].includes(error.code);
+        return adminFailure('FAILED', actionable ? error.message : 'The job could not be reconciled');
+      }
+      const result = data as unknown as ReconcileJobResult | ReconcileJobRefusal | null;
+      if (!result || !result.ok) {
+        const refusal = result as ReconcileJobRefusal | null;
+        return adminFailure('FAILED', refusal?.message ?? 'The job could not be reconciled');
+      }
+      revalidatePath('/admin/operations');
+      revalidatePath('/admin/jobs');
+      return { ok: true, data: result as ReconcileJobResult };
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -227,3 +227,15 @@ unreconciled to verify the UI action later).
 
 Caveat: the RPC was called directly with the admin identity claimed in the session, so no app-level
 `admin.job.reconcile.*` audit rows exist for this one; the app layer will add them. The database-level record and event exist.
+
+## 12. App layer (built and verified 2026-10-30)
+
+- `reconcileJobInput` (Zod: job id, `expectedState: 'assigned'` only, reason 5–500) in `src/validators/admin.ts`.
+- `adminReconcileJob` in `src/lib/services/admin.ts`: `runAdminAction` (`admin.job.reconcile`) → user-scoped RPC.
+  A typed refusal (`STALE_STATE`/`NOT_ELIGIBLE`) becomes a failure and is audited as `.failed`; unexpected DB errors are hidden.
+- Server action `reconcileOperationsJob`; drawer panel `ReconcileJobPanel`, shown only for `state_mismatch` with an `assigned` job. Two-step confirm; states the customer is not messaged and payments are untouched.
+- Types regenerated (`admin_reconcile_job`, `admin_reconciliations`).
+- Tests: 20 new in `src/__tests__/admin-reconcile.test.ts` (roles, validation, fail-closed audit, refusals, error handling, static wiring). Suite: 330 passed, 16 skipped; `tsc` clean; new files lint clean (older files carry pre-existing lint debt).
+- Browser verification on fixture `bb392dfc`: short reason keeps the button disabled; confirm step; success; queue went to 0 mismatches.
+  Database: 1 `admin_reconcile` event, 2 reconciliation records total, audit `requested` + `succeeded`, 0 in-app and 0 WhatsApp notifications.
+  Both preserved fixtures are now `cancelled` and out of the queue. Not covered: the refusal paths in the browser, 375px layout, Playwright.

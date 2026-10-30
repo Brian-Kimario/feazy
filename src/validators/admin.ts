@@ -73,3 +73,26 @@ export type CancelJobResult = {
   paid_payment_count: number;
   pending_payment_count: number;
 };
+
+/**
+ * Reconcile a live job whose booking was already cancelled. Only an unmatched or offered job
+ * (`assigned`) is auto-repairable; anything further along needs a human decision (cancellation).
+ */
+export const reconcileJobInput = z.object({
+  jobId: uuid,
+  expectedState: z.literal('assigned'),
+  /** Internal and private: stored for admins only. */
+  reason: adminReason,
+});
+
+export type ReconcileJobResult = {
+  ok: true;
+  job_id: string;
+  booking_id: string;
+  from_state: string;
+  to_state: string;
+  offer_withdrawn: boolean;
+};
+
+/** Refusal returned by `admin_reconcile_job` as a value (not a thrown error). */
+export type ReconcileJobRefusal = { ok: false; code: 'STALE_STATE' | 'NOT_ELIGIBLE'; message: string };
