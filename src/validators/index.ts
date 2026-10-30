@@ -9,3 +9,4 @@ export * from './property';
 export * from './professional-profile';
 export * from './job-codes';
 export * from './admin';
+export * from './auth';
