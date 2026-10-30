@@ -1,0 +1,471 @@
+{
+ "cases": [
+  {
+   "case": "d01 unauthenticated caller",
+   "checks": {},
+   "raised": "Not authenticated",
+   "raised_sqlstate": "42501"
+  },
+  {
+   "case": "d02 anon role has no execute",
+   "checks": {},
+   "raised": "permission denied for function customer_cancel_booking",
+   "raised_sqlstate": "42501"
+  },
+  {
+   "case": "d03 another customer: reported as not found, booking untouched",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "raised": "Booking not found",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "d04 the assigned professional cannot use the customer call",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "raised": "Booking not found",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "d05 an admin cannot use the customer call (admin_cancel_job is theirs)",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "raised": "Booking not found",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "d06 invalid reason category",
+   "checks": {},
+   "raised": "A valid cancellation reason is required",
+   "raised_sqlstate": "22023"
+  },
+  {
+   "case": "d07 note over 300 characters",
+   "checks": {},
+   "raised": "The note must be 300 characters or fewer",
+   "raised_sqlstate": "22023"
+  },
+  {
+   "case": "d08 null expected state",
+   "checks": {},
+   "raised": "Booking and expected state are required",
+   "raised_sqlstate": "22023"
+  },
+  {
+   "case": "d09 unknown booking",
+   "checks": {},
+   "raised": "Booking not found",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "d10 stale expected state: refused, nothing written",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending",
+    "booking_events": 0
+   },
+   "result": {
+    "ok": false,
+    "code": "STALE_STATE",
+    "message": "This booking has changed since you opened it. Refresh and review before cancelling.",
+    "actual_state": "accepted"
+   }
+  },
+  {
+   "case": "d11 HAPPY: no professional matched yet (no job)",
+   "checks": {
+    "job": null,
+    "event": {
+     "to": "cancelled",
+     "from": "pending",
+     "role": "customer",
+     "type": "customer_cancel",
+     "actor": "9b681bca-520d-462a-bd50-521c42f2b098",
+     "reason": "changed_my_mind"
+    },
+    "booking": "cancelled",
+    "booking_events": 1,
+    "unmatched_since": null
+   },
+   "result": {
+    "ok": true,
+    "job_id": null,
+    "to_state": "cancelled",
+    "booking_id": "e6fd3def-d75b-4bb1-8fe0-e51e23886e92",
+    "from_state": "no_job",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d12 HAPPY: job assigned, no offer holder",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "attempts": 0,
+    "booking_events": 1,
+    "job_cancel_events": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "6f657f3f-d150-4783-ac1e-bb675f9d82a6",
+    "to_state": "cancelled",
+    "booking_id": "9f84fe01-fdde-4e97-8a25-eeb81030b6b5",
+    "from_state": "assigned",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d13 HAPPY: outstanding offer withdrawn, professional notified",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "withdrawn": 1,
+    "booking_events": 1,
+    "offer_expires_at": null,
+    "job_cancel_events": 1,
+    "pro_notifications": 1,
+    "customer_notifications": 0
+   },
+   "result": {
+    "ok": true,
+    "job_id": "5ac03962-be17-46c7-bcff-39a5933ae4bb",
+    "to_state": "cancelled",
+    "booking_id": "4e56bb29-88f6-41dc-a1c0-c39647757a29",
+    "from_state": "assigned",
+    "offer_withdrawn": true,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d14 HAPPY: accepted job cancelled, professional notified",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "active_codes": 0,
+    "booking_events": 1,
+    "job_cancel_events": 1,
+    "pro_notifications": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "4e92a73c-1847-4a82-8f97-b64a1f25adca",
+    "to_state": "cancelled",
+    "booking_id": "8d941807-c68b-4317-a695-2b66d040304d",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d14 HAPPY: on_the_way job cancelled, professional notified",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "active_codes": 0,
+    "booking_events": 1,
+    "job_cancel_events": 1,
+    "pro_notifications": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "f2673117-5923-4fe2-abb2-4574f1b10642",
+    "to_state": "cancelled",
+    "booking_id": "0f920c65-956c-4614-813e-84e068f16b8c",
+    "from_state": "on_the_way",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d14 HAPPY: arrived job cancelled, professional notified",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "active_codes": 0,
+    "booking_events": 1,
+    "job_cancel_events": 1,
+    "pro_notifications": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "b50adb06-c744-4d3e-beb7-27e7e78aaee4",
+    "to_state": "cancelled",
+    "booking_id": "ae937c26-2697-472a-ad2e-874fe6fd8cea",
+    "from_state": "arrived",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d14 HAPPY: quote_pending job cancelled, professional notified",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "active_codes": 0,
+    "booking_events": 1,
+    "job_cancel_events": 1,
+    "pro_notifications": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "9f222e83-5abe-4846-ad49-df330d112583",
+    "to_state": "cancelled",
+    "booking_id": "fe32d7b1-5a69-4ed8-9d76-2c57790fa834",
+    "from_state": "quote_pending",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d15 in_progress: refused, untouched",
+   "checks": {
+    "job": "in_progress",
+    "booking": "pending",
+    "booking_events": 0
+   },
+   "result": {
+    "ok": false,
+    "code": "NOT_ELIGIBLE",
+    "message": "Work has already started, so it cannot be cancelled here. Please contact Fixify support.",
+    "actual_state": "in_progress"
+   }
+  },
+  {
+   "case": "d16 completed job: refused, untouched",
+   "checks": {
+    "job": "completed",
+    "booking": "pending",
+    "booking_events": 0
+   },
+   "result": {
+    "ok": false,
+    "code": "NOT_ELIGIBLE",
+    "message": "This booking is already complete and can no longer be cancelled.",
+    "actual_state": "completed"
+   }
+  },
+  {
+   "case": "d17 duplicate request: second is ALREADY_CANCELLED, one event each",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "booking_events": 1,
+    "job_cancel_events": 1
+   },
+   "result": {
+    "first": {
+     "ok": true,
+     "job_id": "71ee7d3f-bd74-486b-9de9-d7c5321f7569",
+     "to_state": "cancelled",
+     "booking_id": "87316add-532c-4bd3-85e5-8b4f2bebcc93",
+     "from_state": "accepted",
+     "offer_withdrawn": false,
+     "paid_payment_count": 0,
+     "pending_payment_count": 0,
+     "payment_review_required": false
+    },
+    "second": {
+     "ok": false,
+     "code": "ALREADY_CANCELLED",
+     "message": "This booking is already cancelled."
+    }
+   }
+  },
+  {
+   "case": "d18 already cancelled booking and job",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "booking_events": 0
+   },
+   "result": {
+    "ok": false,
+    "code": "ALREADY_CANCELLED",
+    "message": "This booking is already cancelled."
+   }
+  },
+  {
+   "case": "d19 historical drift (booking pending, job cancelled): booking synced, job untouched",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "booking_events": 1,
+    "job_cancel_events": 0
+   },
+   "result": {
+    "ok": true,
+    "job_id": "3bd9177d-639f-4e01-9d2e-e9051b14a3a6",
+    "to_state": "cancelled",
+    "booking_id": "553e4314-d347-4d49-b8d0-6907bf0e89b1",
+    "from_state": "cancelled",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d20 captured (paid) payment is preserved and flagged",
+   "checks": {
+    "job": "cancelled",
+    "paid": 1,
+    "booking": "cancelled",
+    "event_flag": "true"
+   },
+   "result": {
+    "ok": true,
+    "job_id": "4786bed2-58c8-430c-b9eb-eebd523e9876",
+    "to_state": "cancelled",
+    "booking_id": "d9fdfca5-1f18-4d19-9a8b-f41275155313",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 1,
+    "pending_payment_count": 0,
+    "payment_review_required": true
+   }
+  },
+  {
+   "case": "d21 pending payment is preserved",
+   "checks": {
+    "job": "cancelled",
+    "other": 0,
+    "booking": "cancelled",
+    "pending": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "cbeb01fd-8a19-4e80-9417-9975a3285c6d",
+    "to_state": "cancelled",
+    "booking_id": "80bfdc9a-e07f-4297-bde8-3a38233fd27a",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 1,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d22 owner reads their booking_events; another customer reads none",
+   "checks": {},
+   "result": {
+    "owner_sees": 1
+   }
+  },
+  {
+   "case": "d23 another customer reads none",
+   "checks": {},
+   "result": {
+    "other_sees": 0
+   }
+  },
+  {
+   "case": "d24 admin reads",
+   "checks": {},
+   "result": {
+    "admin_sees": 1
+   }
+  },
+  {
+   "case": "d25 customer cannot write booking_events",
+   "checks": {},
+   "raised": "permission denied for table booking_events",
+   "raised_sqlstate": "42501"
+  },
+  {
+   "case": "d26 customer cannot call transition_booking_state",
+   "checks": {},
+   "raised": "permission denied for function transition_booking_state",
+   "raised_sqlstate": "42501"
+  },
+  {
+   "case": "d27 customer cannot update booking_status directly",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "result": {
+    "rows_updated": 0
+   }
+  },
+  {
+   "case": "d28 transition_booking_state allow-list: cancelled -> pending refused",
+   "checks": {},
+   "raised": "Invalid booking transition from cancelled to pending",
+   "raised_sqlstate": "55000"
+  },
+  {
+   "case": "d29 matcher skips a cancelled booking (no new job, no offer)",
+   "checks": {
+    "job": null,
+    "booking": "cancelled",
+    "jobs_for_booking": 0
+   },
+   "result": {
+    "ok": true,
+    "job_id": null,
+    "to_state": "cancelled",
+    "booking_id": "7a7beb93-c274-4367-b801-fd9e4779bd02",
+    "from_state": "no_job",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d30 compat: admin_cancel_job still works (unchanged)",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "customer_kind": "job_cancelled_by_admin"
+   },
+   "result": {
+    "job_id": "fddcd0fd-561c-4e93-8361-20072cd4981e",
+    "to_state": "cancelled",
+    "booking_id": "2f30c028-bde5-47ae-97be-7b0fdb514278",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "d31 compat: professional cancel via transition_job_state still notifies customer",
+   "checks": {
+    "job": "cancelled",
+    "booking": "pending",
+    "customer_kind": "job_cancelled"
+   },
+   "result": true
+  },
+  {
+   "case": "d32 compat: customer cannot cancel in_progress through transition_job_state",
+   "checks": {},
+   "raised": "Not allowed to change this job",
+   "raised_sqlstate": "P0001"
+  }
+ ]
+}
