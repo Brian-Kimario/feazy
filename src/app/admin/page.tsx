@@ -2,10 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import {
-  getAdminMetrics,
-  getAttentionQueue,
-} from '@/lib/services/admin';
+import { getAdminMetrics } from '@/lib/services/admin';
+import { getOperationsQueue } from '@/lib/services/admin-operations';
+import { isAdminFailure } from '@/lib/admin/result';
+import { OPS_TYPE_LABELS } from '@/lib/admin/operations';
 import { getUnverifiedProfessionals as getVerifQueue } from '@/lib/services/verification';
 import { SkeletonDashboard } from '@/components/ui/SkeletonDashboard';
 
@@ -88,16 +88,24 @@ async function AdminPageContent() {
   // Parallel data fetch
   const [metricsResult, attentionResult, verifQueueResult] = await Promise.all([
     getAdminMetrics(),
-    getAttentionQueue(),
+    getOperationsQueue(),
     getVerifQueue(),
   ]);
 
   const metrics = metricsResult.data;
-  const attentionItems = attentionResult.data;
+  const attentionFailed = isAdminFailure(attentionResult);
+  const attentionAll = isAdminFailure(attentionResult) ? [] : attentionResult.data.cases;
+  const attentionItems = attentionAll.slice(0, 10).map((c) => ({
+    id: c.key,
+    label: `${OPS_TYPE_LABELS[c.type]}: ${c.title}`,
+    sub: `${c.reference} · ${c.reason}`,
+    priority: c.severity,
+    link: c.type === 'verification' ? '/admin/professionals' : `/admin/operations?type=${c.type}`,
+  }));
   const verifQueue = verifQueueResult.data.slice(0, 5); // show top 5 in sidebar
 
   // Detect empty state
-  const isEmpty = attentionItems.length === 0 && verifQueue.length === 0;
+  const isEmpty = !attentionFailed && attentionItems.length === 0 && verifQueue.length === 0;
 
   return (
     <div className="px-4 md:px-6 py-6 md:py-8 max-w-7xl mx-auto">
@@ -192,11 +200,16 @@ async function AdminPageContent() {
                 </h2>
               </div>
               <span className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mt-1 flex-shrink-0">
-                {attentionItems.length} ITEM{attentionItems.length !== 1 ? 'S' : ''}
+                {attentionFailed ? 'UNAVAILABLE' : `${attentionAll.length} ITEM${attentionAll.length !== 1 ? 'S' : ''}`}
               </span>
             </div>
 
-            {attentionItems.length === 0 ? (
+            {attentionFailed ? (
+              <div role="alert" className="px-6 py-10 text-center">
+                <p className="font-bold text-[#A9523D]">Could not load the attention queue</p>
+                <p className="text-sm text-[#7C8681]">This is not an empty queue. Reload, or open Operations.</p>
+              </div>
+            ) : attentionItems.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <div className="text-3xl mb-2">✓</div>
                 <p className="font-bold text-[#18211F]">All clear</p>
@@ -231,10 +244,10 @@ async function AdminPageContent() {
             {/* Footer quick links */}
             <div className="px-5 md:px-6 py-3 border-t border-[#D9DED8] bg-[#F7F4EC]">
               <Link
-                href="/admin/jobs"
+                href="/admin/operations"
                 className="text-xs font-bold text-[#0D5144] hover:underline"
               >
-                View all jobs →
+                Open Operations →
               </Link>
             </div>
           </div>

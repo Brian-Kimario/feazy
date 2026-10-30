@@ -1,151 +1,135 @@
-'use client';
-
-/**
- * /admin/operations — Dedicated operations queue page
- *
- * Displays all cases needing admin attention with filterable queue and slide-over drawer.
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { fetchNeedsAttention, type AttentionItem } from '@/app/admin/actions';
+import { z } from 'zod';
+import { getAssignmentQueueStatus } from '@/lib/services/admin';
+import { getOperationsQueue } from '@/lib/services/admin-operations';
+import { OPS_CASE_TYPES, OPS_SEVERITIES, OPS_TYPE_LABELS } from '@/lib/admin/operations';
+import { isAdminFailure } from '@/lib/admin/result';
 import { OperationsQueue } from '@/components/admin/OperationsQueue';
-import { CaseDrawer } from '@/components/admin/CaseDrawer';
 
-export default function OperationsPage() {
-  const [cases, setCases] = useState<AttentionItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCase, setSelectedCase] = useState<AttentionItem | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<'dispute' | 'reassignment' | 'verification' | 'all'>('all');
-  const [priorityFilter, setPriorityFilter] = useState<'high' | 'medium' | 'low' | 'all'>('all');
+export const metadata = {
+  title: 'Operations — Feasy Admin',
+};
 
-  const loadCases = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await fetchNeedsAttention({
-        type: typeFilter === 'all' ? undefined : (typeFilter as 'dispute' | 'reassignment' | 'verification'),
-        priority: priorityFilter === 'all' ? undefined : (priorityFilter as 'high' | 'medium' | 'low'),
-      });
+export const dynamic = 'force-dynamic';
 
-      if (result.success && result.data) {
-        setCases(result.data);
-      } else {
-        setError(result.error || 'Failed to load cases');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [typeFilter, priorityFilter]);
+const filters = z.object({
+  type: z.enum(OPS_CASE_TYPES).optional().catch(undefined),
+  severity: z.enum(OPS_SEVERITIES).optional().catch(undefined),
+});
 
-  // Load cases on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    void loadCases();
-  }, [loadCases]);
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 
-  const handleSelectCase = (item: AttentionItem) => {
-    setSelectedCase(item);
-    setIsDrawerOpen(true);
-  };
+function href(type?: string, severity?: string): string {
+  const q = new URLSearchParams();
+  if (type) q.set('type', type);
+  if (severity) q.set('severity', severity);
+  const s = q.toString();
+  return s ? `/admin/operations?${s}` : '/admin/operations';
+}
 
-  const handleDrawerClose = () => {
-    setIsDrawerOpen(false);
-    setSelectedCase(null);
-  };
+function Chip({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={to}
+      aria-current={active ? 'true' : undefined}
+      className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm font-semibold ${
+        active ? 'border-teal bg-teal-soft text-teal-deep' : 'border-line bg-paper text-ink-3 hover:bg-paper-2'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
 
-  const handleActionSuccess = () => {
-    // Refresh the list after action succeeds
-    loadCases();
-  };
+export default async function OperationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const raw = await searchParams;
+  const { type, severity } = filters.parse({
+    type: Array.isArray(raw.type) ? raw.type[0] : raw.type,
+    severity: Array.isArray(raw.severity) ? raw.severity[0] : raw.severity,
+  });
+
+  const [result, queue] = await Promise.all([getOperationsQueue(), getAssignmentQueueStatus()]);
+  const queueFailing = queue != null && (!queue.scheduled || queue.lastStatus === 'failed' || queue.failures24h > 0);
+
+  const failure = isAdminFailure(result) ? result : null;
+  const loaded = isAdminFailure(result) ? null : result.data;
+  const all = loaded?.cases ?? [];
+  const visible = all.filter((c) => (!type || c.type === type) && (!severity || c.severity === severity));
+  const countOf = (t: string) => all.filter((c) => c.type === t).length;
 
   return (
-    <div className="px-4 md:px-6 py-6 md:py-8 max-w-7xl mx-auto">
-      {/* Page header */}
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
       <div className="mb-6">
-        <div className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mb-2">
-          ADMIN · OPERATIONS
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-[#18211F] mb-2">Operations Queue</h1>
-        <p className="text-[#5A6661]">Manage exceptions and operational decisions.</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">Admin · Operations</p>
+        <h1 className="mb-2 text-3xl font-bold text-ink md:text-4xl">Operations</h1>
+        <p className="text-ink-3">
+          Bookings, jobs and professionals that need a person. Flags are alerts for review, not automatic actions.
+        </p>
         <Link href="/admin/operations/unmatched" className="mt-2 inline-block text-sm font-semibold text-teal hover:underline">
           Unmatched bookings →
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-2xl p-4 mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#7C8681] mb-2">Type</label>
-          <select
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value as any);
-              loadCases();
-            }}
-            className="w-full px-3 py-2.5 border border-[#D9DED8] rounded-lg text-sm bg-white text-[#18211F] focus:outline-none focus:ring-2 focus:ring-[#176B5B]"
-          >
-            <option value="all">All Cases</option>
-            <option value="dispute">Disputes</option>
-            <option value="reassignment">Reassignments</option>
-            <option value="verification">Verifications</option>
-          </select>
-        </div>
-
-        <div className="flex-1">
-          <label className="block text-xs font-bold uppercase tracking-wider text-[#7C8681] mb-2">Priority</label>
-          <select
-            value={priorityFilter}
-            onChange={(e) => {
-              setPriorityFilter(e.target.value as any);
-              loadCases();
-            }}
-            className="w-full px-3 py-2.5 border border-[#D9DED8] rounded-lg text-sm bg-white text-[#18211F] focus:outline-none focus:ring-2 focus:ring-[#176B5B]"
-          >
-            <option value="all">All Priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
-
-        <div className="flex items-end">
-          <button
-            onClick={loadCases}
-            disabled={isLoading}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-bold text-[#176B5B] bg-[#E2EEE9] hover:bg-[#D0E5E0] disabled:opacity-50 rounded-lg transition-colors"
-          >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div>
-        {error && (
-          <div className="bg-[#FDF5F3] border border-[#D9534F] rounded-lg p-4 mb-6 text-sm text-[#D9534F]">
-            {error}
-          </div>
+      <div
+        role={queue == null || queueFailing ? 'alert' : undefined}
+        className={`mb-6 rounded-xl border p-4 text-sm ${
+          queue == null || queueFailing ? 'border-danger/25 bg-danger-soft text-danger' : 'border-line bg-paper text-ink-2'
+        }`}
+      >
+        {queue == null ? (
+          'Could not read the assignment queue status.'
+        ) : !queue.scheduled ? (
+          'The assignment queue is not scheduled. Offers will not expire or be retried.'
+        ) : (
+          <>
+            Assignment queue{' '}
+            {queue.lastRunAt ? `last ran ${formatDateTime(queue.lastRunAt)} (${queue.lastStatus ?? 'unknown'})` : 'has not run yet'}
+            {' · '}
+            {queue.failures24h === 1 ? '1 failed run' : `${queue.failures24h} failed runs`} in the last 24 hours
+          </>
         )}
-
-        <OperationsQueue
-          items={cases}
-          isLoading={isLoading}
-          onSelectCase={handleSelectCase}
-        />
       </div>
 
-      {/* Drawer */}
-      <CaseDrawer
-        isOpen={isDrawerOpen}
-        case={selectedCase}
-        onClose={handleDrawerClose}
-        onActionSuccess={handleActionSuccess}
-      />
+      {failure || !loaded ? (
+        <div role="alert" className="rounded-xl border border-danger/25 bg-danger-soft p-5 text-danger">
+          <p className="font-bold">The Operations queue could not be loaded.</p>
+          <p className="mt-1 text-sm">{failure?.error ?? 'Unknown error.'} Nothing is being shown, so this is not an empty queue. Reload to try again.</p>
+        </div>
+      ) : (
+        <>
+          {loaded.truncated && (
+            <p role="status" className="mb-4 rounded-xl border border-warning/30 bg-warning-soft p-3 text-sm text-warning">
+              A query hit its row limit, so this list may be incomplete.
+            </p>
+          )}
+
+          <nav aria-label="Filter by type" className="mb-3 flex flex-wrap gap-2">
+            <Chip to={href(undefined, severity)} active={!type}>All ({all.length})</Chip>
+            {OPS_CASE_TYPES.filter((t) => countOf(t) > 0 || t === type).map((t) => (
+              <Chip key={t} to={href(t, severity)} active={type === t}>
+                {OPS_TYPE_LABELS[t]} ({countOf(t)})
+              </Chip>
+            ))}
+          </nav>
+          <nav aria-label="Filter by severity" className="mb-6 flex flex-wrap gap-2">
+            <Chip to={href(type)} active={!severity}>Any severity</Chip>
+            {OPS_SEVERITIES.map((s) => (
+              <Chip key={s} to={href(type, s)} active={severity === s}>
+                <span className="capitalize">{s}</span>
+              </Chip>
+            ))}
+          </nav>
+
+          <OperationsQueue cases={visible} generatedAt={loaded.generatedAt} />
+          <p className="mt-4 text-xs text-ink-4">Generated {formatDateTime(loaded.generatedAt)}.</p>
+        </>
+      )}
     </div>
   );
 }

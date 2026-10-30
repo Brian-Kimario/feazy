@@ -206,7 +206,7 @@ describe('admin authorization is consolidated (static)', () => {
   const root = path.resolve(__dirname, '../..');
   const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
 
-  it.each(['src/lib/services/admin.ts', 'src/app/admin/actions.ts'])(
+  it.each(['src/lib/services/admin.ts', 'src/lib/services/admin-operations.ts'])(
     '%s delegates the role check to getAdminActor',
     (p) => {
       const src = read(p);
@@ -214,6 +214,13 @@ describe('admin authorization is consolidated (static)', () => {
       expect(src).not.toMatch(/\.from\('profiles'\)\s*\.select\('role/);
     },
   );
+
+  it('admin server actions hold no role check of their own and delegate to guarded services', () => {
+    const src = read('src/app/admin/actions.ts');
+    expect(src).not.toMatch(/\.from\('profiles'\)\s*\.select\('role/);
+    expect(src).toContain('getOperationsCaseDetail');
+    expect(src).toContain("@/lib/services/verification");
+  });
 
   it('admin job cancel is audited, uses the RPC, and never updates current_state directly', () => {
     const src = read('src/lib/services/admin.ts');

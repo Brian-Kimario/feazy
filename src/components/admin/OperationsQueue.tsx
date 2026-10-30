@@ -1,199 +1,279 @@
 'use client';
 
 /**
- * OperationsQueue — Table view of admin cases needing attention
- *
- * Desktop: HTML table with type badge, case ID, participants, status, created time
- * Mobile: Card stack (one case per card, scrollable)
- *
- * Props:
- *   items: AttentionItem[] — cases to display
- *   isLoading: boolean — show skeleton rows while loading
- *   onSelectCase: (item) => void — click handler to open drawer
+ * OperationsQueue — the exception list and a read-only case drawer. The list is computed on the
+ * server (getOperationsQueue); this component only renders it and loads case detail on demand.
+ * There are no state-changing actions here: recovery actions arrive in A3.2/A4.
  */
 
-import React from 'react';
-import type { AttentionItem } from '@/app/admin/actions';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { isAdminFailure } from '@/lib/admin/result';
+import { loadOperationsCaseDetail } from '@/app/admin/actions';
+import type { OpsCaseDetail } from '@/lib/services/admin-operations';
+import { OPS_TYPE_LABELS, formatDuration, type OpsCase, type OpsSeverity } from '@/lib/admin/operations';
 
-interface OperationsQueueProps {
-  items: AttentionItem[];
-  isLoading?: boolean;
-  onSelectCase?: (item: AttentionItem) => void;
+const SEVERITY_STYLE: Record<OpsSeverity, string> = {
+  high: 'bg-clay-soft text-clay border-clay/30',
+  medium: 'bg-warning-soft text-warning border-warning/30',
+  low: 'bg-info-soft text-info border-info/30',
+};
+
+function when(iso: string): string {
+  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-// Type badge styling
-function getTypeBadge(type: 'dispute' | 'reassignment' | 'verification') {
-  const styles: Record<typeof type, { label: string; cls: string }> = {
-    dispute: {
-      label: 'Dispute',
-      cls: 'bg-[#F3E1DA] text-[#A9523D] border border-[#DFC0B7]',
-    },
-    reassignment: {
-      label: 'Reassignment',
-      cls: 'bg-[#E6EEF2] text-[#416B84] border border-[#BCD0DB]',
-    },
-    verification: {
-      label: 'Verification',
-      cls: 'bg-[#C7DCCF] text-[#2F7D5B] border border-[#B0C9B8]',
-    },
-  };
-  const s = styles[type];
+function label(value: string | null): string {
+  return value ? value.replace(/_/g, ' ') : '—';
+}
+
+function SeverityBadge({ severity }: { severity: OpsSeverity }) {
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${s.cls}`}>
-      {s.label}
+    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold capitalize ${SEVERITY_STYLE[severity]}`}>
+      {severity}
     </span>
   );
 }
 
-// Priority badge styling
-function getPriorityBadge(priority: 'high' | 'medium' | 'low') {
-  const styles = {
-    high: { label: 'High', cls: 'bg-[#F3E1DA] text-[#A9523D]' },
-    medium: { label: 'Medium', cls: 'bg-[#F5EBD7] text-[#9B6A1E]' },
-    low: { label: 'Low', cls: 'bg-[#E6EEF2] text-[#416B84]' },
-  };
-  const s = styles[priority];
+type DetailState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; detail: OpsCaseDetail };
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${s.cls}`}>
-      {s.label}
-    </span>
+    <section className="border-t border-line pt-4">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">{title}</h3>
+      {children}
+    </section>
   );
 }
 
-// Format relative time ("2h ago", "3d ago", etc.)
-function formatRelativeTime(isoStr: string): string {
-  const date = new Date(isoStr);
-  const now = new Date();
-  const ms = now.getTime() - date.getTime();
-
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(ms / 3600000);
-  const days = Math.floor(ms / 86400000);
-
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-
-  return date.toLocaleDateString();
-}
-
-// Skeleton row for loading state
-function SkeletonRow() {
+function DetailBody({ item, detail }: { item: OpsCase; detail: OpsCaseDetail }) {
+  const b = detail.booking;
   return (
-    <tr className="border-b border-[#E8E6E0] hover:bg-[#FAFAF8]">
-      <td className="px-4 py-3">
-        <div className="h-6 w-16 bg-[#E8E6E0] rounded animate-pulse" />
-      </td>
-      <td className="px-4 py-3">
-        <div className="h-4 w-20 bg-[#E8E6E0] rounded animate-pulse" />
-      </td>
-      <td className="px-4 py-3">
-        <div className="h-4 w-32 bg-[#E8E6E0] rounded animate-pulse" />
-      </td>
-      <td className="px-4 py-3">
-        <div className="h-4 w-24 bg-[#E8E6E0] rounded animate-pulse" />
-      </td>
-      <td className="px-4 py-3">
-        <div className="h-4 w-16 bg-[#E8E6E0] rounded animate-pulse" />
-      </td>
-    </tr>
+    <div className="space-y-5 text-sm text-ink-2">
+      {detail.current == null && (
+        <p className="rounded-lg border border-line bg-paper-2 p-3 text-ink-3">
+          This case no longer meets its alert rule. It will leave the queue on the next refresh.
+        </p>
+      )}
+      <Section title="Why it was flagged">
+        <p>{(detail.current ?? item).reason}</p>
+        <p className="mt-2 text-ink-3">Available today: {(detail.current ?? item).nextStep}</p>
+      </Section>
+
+      {b && (
+        <Section title="Booking and job">
+          <dl className="grid grid-cols-[8rem_1fr] gap-y-1">
+            <dt className="text-ink-4">Reference</dt>
+            <dd className="font-mono text-xs">{b.reference}</dd>
+            <dt className="text-ink-4">Service</dt>
+            <dd>{b.serviceName}{b.city ? ` · ${b.city}` : ''}</dd>
+            <dt className="text-ink-4">Booking status</dt>
+            <dd className="capitalize">{label(b.status)}</dd>
+            <dt className="text-ink-4">Job state</dt>
+            <dd className="capitalize">{detail.job ? label(detail.job.state) : 'No job'}</dd>
+            <dt className="text-ink-4">Professional</dt>
+            <dd>{detail.job?.professionalName ?? 'None assigned'}</dd>
+            <dt className="text-ink-4">Scheduled start</dt>
+            <dd>{when(b.scheduledStart)}</dd>
+            <dt className="text-ink-4">Created</dt>
+            <dd>{when(b.createdAt)}</dd>
+            {b.unmatchedSince && (
+              <>
+                <dt className="text-ink-4">Unmatched since</dt>
+                <dd>{when(b.unmatchedSince)}</dd>
+              </>
+            )}
+          </dl>
+        </Section>
+      )}
+
+      {detail.verification && (
+        <Section title="Verification">
+          <p>
+            {detail.verification.displayName} · {label(detail.verification.status)} · submitted {when(detail.verification.submittedAt)}
+          </p>
+          <Link href="/admin/professionals" className="mt-2 inline-block font-semibold text-teal hover:underline">
+            Review documents →
+          </Link>
+        </Section>
+      )}
+
+      {b && (
+        <Section title="Assignment history">
+          {detail.attempts.length === 0 && detail.decisions.length === 0 ? (
+            <p className="text-ink-3">No matching decisions or offer attempts recorded.</p>
+          ) : (
+            <ul className="space-y-1">
+              {detail.decisions.map((d, i) => (
+                <li key={`d${i}`}>
+                  {when(d.at)} · matcher: <span className="capitalize">{label(d.kind)}</span> (pool {d.poolSize})
+                  {d.professionalName ? ` · ${d.professionalName}` : ''}
+                </li>
+              ))}
+              {detail.attempts.map((a, i) => (
+                <li key={`a${i}`}>
+                  {when(a.at)} · offer <span className="capitalize">{label(a.outcome)}</span>
+                  {a.reasonCode ? ` (${label(a.reasonCode)})` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
+
+      {b && (
+        <Section title="Job history">
+          {detail.events.length === 0 ? (
+            <p className="text-ink-3">No job events recorded.</p>
+          ) : (
+            <ul className="space-y-1">
+              {detail.events.map((e, i) => (
+                <li key={i}>
+                  {when(e.at)} · {e.actor} · <span className="capitalize">{label(e.kind)}</span>
+                  {e.toState ? ` (${label(e.fromState)} → ${label(e.toState)})` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
+
+      {b && (
+        <Section title="Payments">
+          {detail.payments.length === 0 ? (
+            <p className="text-ink-3">No payments recorded for this booking.</p>
+          ) : (
+            <ul className="space-y-1">
+              {detail.payments.map((p, i) => (
+                <li key={i}>
+                  <span className="capitalize">{label(p.type)}</span> · ₹{p.amount.toLocaleString('en-IN')} · {p.status}
+                  {p.paidAt ? ` · paid ${when(p.paidAt)}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      )}
+    </div>
   );
 }
 
-// Mobile card view
-function CaseCard({ item, onSelect }: { item: AttentionItem; onSelect?: (item: AttentionItem) => void }) {
+function CaseDrawer({ item, onClose }: { item: OpsCase; onClose: () => void }) {
+  const [state, setState] = useState<DetailState>({ status: 'loading' });
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadOperationsCaseDetail({ type: item.type, id: item.subjectId })
+      .then((r) => {
+        if (cancelled) return;
+        setState(isAdminFailure(r) ? { status: 'error', message: r.error } : { status: 'ready', detail: r.data });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error', message: 'Could not load case details.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.type, item.subjectId]);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
-    <button
-      onClick={() => onSelect?.(item)}
-      className="w-full bg-white rounded-lg border border-[#E8E6E0] p-4 text-left hover:shadow-sm transition-shadow"
-    >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="flex-1">
-          <div className="flex flex-wrap gap-2 mb-1">
-            {getTypeBadge(item.type)}
-            {getPriorityBadge(item.priority)}
+    <>
+      <div className="fixed inset-0 z-40 bg-ink/40" onClick={onClose} aria-hidden="true" />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${item.reference} — ${item.title}`}
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-paper shadow-xl"
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-line p-5">
+          <div className="min-w-0">
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">{OPS_TYPE_LABELS[item.type]}</p>
+            <h2 className="text-lg font-bold text-ink">{item.title}</h2>
+            <p className="mt-1 font-mono text-xs text-ink-3">{item.reference}</p>
           </div>
-          <h3 className="text-sm font-bold text-[#18211F]">{item.label}</h3>
-          <p className="text-xs text-[#666] mt-1">{item.sub}</p>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="min-h-11 min-w-11 rounded-lg text-sm font-semibold text-ink-3 hover:bg-paper-2"
+          >
+            Close
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-5">
+          {state.status === 'loading' && <p className="text-sm text-ink-3">Loading case details…</p>}
+          {state.status === 'error' && (
+            <p role="alert" className="rounded-lg border border-danger/25 bg-danger-soft p-3 text-sm text-danger">
+              {state.message}
+            </p>
+          )}
+          {state.status === 'ready' && <DetailBody item={item} detail={state.detail} />}
         </div>
-      </div>
-      <p className="text-xs text-[#999]">{formatRelativeTime(item.createdAt)}</p>
-    </button>
+      </aside>
+    </>
   );
 }
 
-export function OperationsQueue({
-  items,
-  isLoading = false,
-  onSelectCase,
-}: OperationsQueueProps) {
-  // Empty state
-  if (!isLoading && items.length === 0) {
+export function OperationsQueue({ cases, generatedAt }: { cases: OpsCase[]; generatedAt: string }) {
+  const [selected, setSelected] = useState<OpsCase | null>(null);
+  const now = new Date(generatedAt).getTime();
+  const age = (iso: string) => formatDuration(now - new Date(iso).getTime());
+
+  if (cases.length === 0) {
     return (
-      <div className="w-full bg-white rounded-lg border border-[#E8E6E0] p-8 text-center">
-        <div className="text-[#999] text-sm">
-          <p className="font-medium">All caught up</p>
-          <p className="text-xs mt-1">No cases need attention right now</p>
-        </div>
+      <div className="rounded-xl border border-line bg-paper p-8 text-center">
+        <p className="font-bold text-ink">No exceptions match these filters</p>
+        <p className="mt-1 text-sm text-ink-3">The queue loaded successfully and nothing currently meets an alert rule.</p>
       </div>
     );
   }
 
-  // Desktop table view (hidden on mobile)
   return (
     <>
-      {/* Desktop: Table */}
-      <div className="hidden md:block w-full bg-white rounded-lg border border-[#E8E6E0] overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-[#F7F4EC] border-b border-[#E8E6E0]">
-              <th className="px-4 py-3 text-left font-bold text-[#18211F]">Type</th>
-              <th className="px-4 py-3 text-left font-bold text-[#18211F]">Case ID</th>
-              <th className="px-4 py-3 text-left font-bold text-[#18211F]">Details</th>
-              <th className="px-4 py-3 text-left font-bold text-[#18211F]">Priority</th>
-              <th className="px-4 py-3 text-left font-bold text-[#18211F]">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-              : items.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => onSelectCase?.(item)}
-                    className="border-b border-[#E8E6E0] hover:bg-[#FAFAF8] cursor-pointer transition-colors"
-                  >
-                    <td className="px-4 py-3">{getTypeBadge(item.type)}</td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs text-[#666]">{item.id.slice(0, 12)}</code>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-xs text-[#18211F]">{item.label}</div>
-                      <div className="text-xs text-[#999]">{item.sub}</div>
-                    </td>
-                    <td className="px-4 py-3">{getPriorityBadge(item.priority)}</td>
-                    <td className="px-4 py-3 text-xs text-[#999]">
-                      {formatRelativeTime(item.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile: Card stack */}
-      <div className="md:hidden space-y-3 w-full">
-        {isLoading
-          ? Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border border-[#E8E6E0] p-4 space-y-2">
-                <div className="h-6 w-16 bg-[#E8E6E0] rounded animate-pulse" />
-                <div className="h-4 w-full bg-[#E8E6E0] rounded animate-pulse" />
-                <div className="h-3 w-3/4 bg-[#E8E6E0] rounded animate-pulse" />
+      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-paper">
+        {cases.map((c) => (
+          <li key={c.key}>
+            <button
+              type="button"
+              onClick={() => setSelected(c)}
+              className="flex w-full min-h-11 flex-col gap-2 p-4 text-left hover:bg-paper-2 md:flex-row md:items-center md:gap-4"
+            >
+              <div className="flex items-center gap-2 md:w-44 md:shrink-0">
+                <SeverityBadge severity={c.severity} />
+                <span className="text-xs font-semibold text-ink-3">{OPS_TYPE_LABELS[c.type]}</span>
               </div>
-            ))
-          : items.map((item) => <CaseCard key={item.id} item={item} onSelect={onSelectCase} />)}
-      </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-ink">{c.title}</p>
+                <p className="mt-0.5 text-sm text-ink-3">{c.reason}</p>
+                <p className="mt-1 font-mono text-xs text-ink-4">
+                  {c.reference}
+                  {c.serviceName ? ` · ${c.serviceName}` : ''}
+                  {c.city ? ` · ${c.city}` : ''}
+                  {c.jobState ? ` · job ${label(c.jobState)}` : ''}
+                </p>
+              </div>
+              <div className="shrink-0 text-xs text-ink-3 md:text-right">
+                <p className="font-semibold text-ink-2">{age(c.since)} ago</p>
+                <p>since {when(c.since)}</p>
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {selected && <CaseDrawer item={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }
