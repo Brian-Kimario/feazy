@@ -1,6 +1,6 @@
 # P1 — Customer booking cancellation (migration 107)
 
-Status: **APPLIED to the shared database on 2026-10-30 with owner approval** (`supabase db query --linked -f`). App layer and UI not yet built.
+Status: **APPLIED to the shared database on 2026-10-30 with owner approval** (`supabase db query --linked -f`). App layer built (§10); no UI control yet.
 
 Migration: `supabase/migrations/20261030_107_customer_cancel_booking.sql`
 Dry run: `supabase/dry-runs/gen_107.py` → `20261030_107_customer_cancel_booking.dryrun.sql`, report in `…dryrun.report.json` (35 cases, rolled back).
@@ -123,11 +123,16 @@ DROP FUNCTION IF EXISTS public.transition_booking_state(uuid, text, uuid, text, 
 
 Bookings already cancelled through the call stay cancelled; that is a legitimate customer decision, not damage.
 
-## 10. App layer (after approval)
+## 10. App layer (built, no UI)
 
-Replace the dead `cancelBooking()` with a Zod-validated server action that calls `customer_cancel_booking` through the user-scoped client, maps refusals to typed
-errors (never `{success:true}` from a catch, `40P01` → retry), and revalidates the booking pages. A customer UI control (booking detail page, confirm dialog with reason
-category) is an owner decision. Remove the `@ts-ignore`, regenerate types, add tests.
+- `cancelBookingSchema` / `CUSTOMER_CANCEL_REASONS` in `src/validators/booking.ts` (booking id, expected state, one of six reason categories, optional note ≤ 300).
+- `cancelBooking()` in `src/lib/services/bookings.ts` replaces the dead function (no `@ts-ignore`, no console). Zod → signed-in check → `customer_cancel_booking` via the user-scoped client → typed `ActionResult`.
+  Refusals (`STALE_STATE`, `NOT_ELIGIBLE`, `ALREADY_CANCELLED`) → `rejected` with the database message; `42501` → unauthenticated; `P0002` → not_found; `22023` → invalid_input;
+  `40P01`/`40001` → retry message; anything else → generic `failed` (details not leaked); malformed payloads never count as success.
+  The outcome carries `paymentReviewRequired` so the UI can say nothing was refunded.
+- `cancelBookingAction()` in `src/app/customer/actions.ts` revalidates `/customer` only on success.
+- Tests: `src/__tests__/customer-cancel-booking.test.ts` (validation, RPC arguments, error mapping, refusals, revalidation, static wiring).
+- Still owner decisions: the customer UI control (booking detail, confirm dialog with reason category, payment-review copy) and `c779c0d4`.
 
 ## 11. Open items still tracked
 

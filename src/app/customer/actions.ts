@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import { clearSessionCookies } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { cancelBooking, type CancelBookingOutcome } from '@/lib/services/bookings';
 import { ACTIVE_STATES } from '@/lib/jobs/states';
 import { fail, ok, parseInput, type ActionResult } from '@/lib/actions/result';
 import {
   problemIntakeSchema,
+  type CancelBookingInput,
   respondToQuoteSchema,
   type ProblemIntakeInput,
   type RespondToQuoteInput,
@@ -234,6 +236,21 @@ export async function respondToQuoteAction(
   // The quote also drives the top-bar bell and the action inbox, so refresh the layout.
   revalidatePath('/customer', 'layout');
   return ok();
+}
+
+/**
+ * Server Action: customer cancels their own booking.
+ * Delegates to customer_cancel_booking() through the bookings service; the database checks ownership,
+ * the state the customer saw, and cancels the job in one transaction. Payments are never changed.
+ */
+export async function cancelBookingAction(
+  payload: CancelBookingInput
+): Promise<ActionResult<CancelBookingOutcome>> {
+  const result = await cancelBooking(payload);
+  if (result.success) {
+    revalidatePath('/customer', 'layout');
+  }
+  return result;
 }
 
 /**
