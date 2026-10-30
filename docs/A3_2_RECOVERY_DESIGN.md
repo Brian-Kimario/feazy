@@ -207,3 +207,23 @@ bodies are reproduced in the migration comments and git history).
 3. Approve the P1 `transition_booking_state` + `cancelBooking` fix as the next slice, before A4, and the
    customer-consent reschedule as a follow-on.
 4. Confirm: reconciliation sends no customer message; professional is told only if holding an offer.
+
+## 11. Applied 2026-10-30 (owner approval) and live verification
+
+Applied to the shared database in one transaction via `supabase db query --linked -f` (not `db push`).
+Pre-apply function snapshot: `supabase/rollbacks/20261030_106_rollback.sql`.
+
+Post-apply: function and table exist; RLS on; `anon` and `PUBLIC` cannot execute; `authenticated` can (the
+function itself enforces admin); `authenticated` has no INSERT on `admin_reconciliations`;
+`on_job_state_transition` carries the `admin_reconcile` skip; before any use: 0 records, 0 events, both fixtures unchanged.
+
+**Two-session concurrency test (real, committed) on fixture job `7153294b…`:** session A called the RPC and held
+its transaction open 6 s; session B started 2.5 s later with the same expected state. B blocked on the row lock
+(started 11:27:36.09, returned 11:27:39.607, two ms after A committed at 11:27:39.605) and then got
+`STALE_STATE`. A: `ok:true, assigned → cancelled, offer_withdrawn:false`.
+Final state: exactly 1 `admin_reconcile` event, 1 `admin_reconciliations` row, 0 in-app notifications,
+0 WhatsApp rows, 0 payments touched. Remaining mismatch count: 1 (fixture `bb392dfc…`, deliberately left
+unreconciled to verify the UI action later).
+
+Caveat: the RPC was called directly with the admin identity claimed in the session, so no app-level
+`admin.job.reconcile.*` audit rows exist for this one; the app layer will add them. The database-level record and event exist.
