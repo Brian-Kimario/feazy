@@ -268,6 +268,17 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
             <JobMessages userId={user.id} jobId={job.id} jobState={job.state} otherName={proName} />
           )}
 
+          {booking.status === 'cancelled' && (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">This booking is cancelled</p>
+              {kase.paidAt && (
+                <p className="mt-1 text-ink-2">
+                  You paid for this booking. Cancelling does not refund it automatically. Feasy support reviews it and
+                  will contact you.
+                </p>
+              )}
+            </Panel>
+          )}
           {cancel === 'offer' && (
             <CancelBookingButton
               bookingId={booking.id}
