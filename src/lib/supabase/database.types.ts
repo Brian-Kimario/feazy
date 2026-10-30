@@ -287,6 +287,60 @@ export type Database = {
           },
         ]
       }
+      booking_events: {
+        Row: {
+          actor_role: string | null
+          actor_user_id: string | null
+          booking_id: string
+          created_at: string | null
+          event_type: string
+          from_status: string
+          id: string
+          metadata: Json | null
+          reason: string | null
+          to_status: string
+        }
+        Insert: {
+          actor_role?: string | null
+          actor_user_id?: string | null
+          booking_id: string
+          created_at?: string | null
+          event_type?: string
+          from_status: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          to_status: string
+        }
+        Update: {
+          actor_role?: string | null
+          actor_user_id?: string | null
+          booking_id?: string
+          created_at?: string | null
+          event_type?: string
+          from_status?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_events_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           booking_reference: string
@@ -2489,6 +2543,15 @@ export type Database = {
         Args: { p_items: Json; p_job_id: string; p_reason: string }
         Returns: string
       }
+      customer_cancel_booking: {
+        Args: {
+          p_booking_id: string
+          p_expected_state: string
+          p_note?: string
+          p_reason_category: string
+        }
+        Returns: Json
+      }
       decline_job: {
         Args: { p_job_id: string; p_note?: string; p_reason_code: string }
         Returns: Json
@@ -2578,6 +2641,18 @@ export type Database = {
         Returns: string
       }
       submit_professional_verification: { Args: never; Returns: Json }
+      transition_booking_state: {
+        Args: {
+          p_actor_role: string
+          p_actor_user_id: string
+          p_booking_id: string
+          p_event_type: string
+          p_metadata?: Json
+          p_new_status: string
+          p_reason: string
+        }
+        Returns: boolean
+      }
       transition_job_state: {
         Args: {
           p_actor_user_id: string

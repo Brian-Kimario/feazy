@@ -1,6 +1,6 @@
 # P1 — Customer booking cancellation (migration 107)
 
-Status: **designed and dry-run only. NOT applied to the shared database.** Apply needs explicit owner approval.
+Status: **APPLIED to the shared database on 2026-10-30 with owner approval** (`supabase db query --linked -f`). App layer and UI not yet built.
 
 Migration: `supabase/migrations/20261030_107_customer_cancel_booking.sql`
 Dry run: `supabase/dry-runs/gen_107.py` → `20261030_107_customer_cancel_booking.dryrun.sql`, report in `…dryrun.report.json` (35 cases, rolled back).
@@ -102,6 +102,13 @@ Allow-list: `cancelled → pending` refused (d28). Regression: matcher skips can
 Observation (pre-existing, not changed): when a **professional** cancels, the job becomes `cancelled` but the booking stays `pending` (d31). That is the source of the five historical drift rows. A customer can now clear it with this call (d19); whether a professional cancel should instead re-offer the booking is a product decision for A4.
 
 Not yet done: a real two-session concurrency test (needs approval to apply), a UI control, 375 px checks.
+
+## 8b. Apply and concurrency verification
+
+- Applied; verified live: `customer_cancel_booking` EXECUTE for `authenticated`/`service_role` only (no PUBLIC/anon); `transition_booking_state` owner-only; `booking_events` RLS on with one SELECT policy.
+- Real two-session test on a synthetic assigned job: session A cancelled and held its transaction 6 s; session B started 2.5 s later, blocked until A committed, then returned `ALREADY_CANCELLED`. Result: one `booking_events` row, one job cancel event, booking and job `cancelled`.
+- Synthetic bookings, jobs, notifications and the queued (pending) WhatsApp rows they produced were deleted afterwards; `booking_events` is empty again.
+- Not verified: UI, 375 px, `40P01` against a concurrent admin cancel.
 
 ## 9. Rollback plan
 
