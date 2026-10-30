@@ -132,7 +132,8 @@ Bookings already cancelled through the call stay cancelled; that is a legitimate
   The outcome carries `paymentReviewRequired` so the UI can say nothing was refunded.
 - `cancelBookingAction()` in `src/app/customer/actions.ts` revalidates `/customer` only on success.
 - Tests: `src/__tests__/customer-cancel-booking.test.ts` (validation, RPC arguments, error mapping, refusals, revalidation, static wiring).
-- Still owner decisions: the customer UI control (booking detail, confirm dialog with reason category, payment-review copy) and `c779c0d4`.
+- UI: `CancelBookingButton` (`src/components/customer/CancelBookingButton.tsx`) on the booking detail page, shown by `cancelOffer()` (`src/lib/bookings/cancel-rules.ts`): offered for open bookings with no job or a job in assigned/accepted/on_the_way/arrived/quote_pending; `in_progress` shows a contact-support note; nothing otherwise. Inline reason picker (six categories), optional note, payment copy (no automatic refund), 44px targets. Not yet checked in a browser (needs a customer sign-in) or at 375px.
+- Still open: `c779c0d4` (no customer-consented path yet).
 
 ## 11. Open items still tracked
 

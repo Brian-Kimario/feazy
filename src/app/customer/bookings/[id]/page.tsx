@@ -26,6 +26,8 @@ import { QuoteReviewButton } from '@/components/customer/QuoteReviewButton';
 import { JobCodeCard } from '@/components/customer/JobCodeCard';
 import { NoShowReport } from '@/components/customer/NoShowReport';
 import { JobMessages } from '@/components/messages/JobMessages';
+import { CancelBookingButton } from '@/components/customer/CancelBookingButton';
+import { cancelOffer, expectedCancelState } from '@/lib/bookings/cancel-rules';
 import { UPIIntentCheckout } from '@/components/customer/UPIIntentCheckout';
 
 export const metadata: Metadata = {
@@ -68,6 +70,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
         reported: noShowReport != null,
       })
     : null;
+  const cancel = cancelOffer(booking.status, jobState);
   const isOpen = booking.status !== 'cancelled' && booking.status !== 'completed';
   // The matcher only offers bookings whose start is still ahead, so don't promise matching after it.
   const startPassed = new Date(booking.scheduledStart) < new Date();
@@ -263,6 +266,22 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
 
           {job && professional && (
             <JobMessages userId={user.id} jobId={job.id} jobState={job.state} otherName={proName} />
+          )}
+
+          {cancel === 'offer' && (
+            <CancelBookingButton
+              bookingId={booking.id}
+              expectedState={expectedCancelState(jobState)}
+              professionalAssigned={professional != null}
+            />
+          )}
+          {cancel === 'contact_support' && (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">Need to stop the work?</p>
+              <p className="mt-1 text-ink-2">
+                Work has already started, so it cannot be cancelled here. Please contact Feasy support.
+              </p>
+            </Panel>
           )}
 
           <CaseCard title="Booking">
