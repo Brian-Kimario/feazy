@@ -1,110 +1,50 @@
-'use client';
-
 import Link from 'next/link';
-import { useState } from 'react';
-import { CheckCircle2, ArrowLeft } from 'lucide-react';
-import { SupportForm } from '@/components/shared/SupportForm';
-import { Button } from '@/components/ui/Button';
+import { ArrowRight, BookOpen, ShieldAlert } from 'lucide-react';
+import { ContactForm } from '@/components/contact/ContactForm';
 
-export function ContactPageClient() {
-  const [referenceNumber, setReferenceNumber] = useState<string | null>(null);
+interface ContactPageClientProps {
+  defaultName: string;
+  defaultEmail: string;
+  signedIn: boolean;
+}
 
-  const handleSuccess = (refNum: string) => {
-    setReferenceNumber(refNum);
-  };
-
-  const handleNewRequest = () => {
-    setReferenceNumber(null);
-  };
-
+export function ContactPageClient(props: ContactPageClientProps) {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-b from-primary/5 via-primary/2 to-background border-b border-border">
-        <div className="container max-w-4xl mx-auto px-4 py-12 sm:py-16">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Get in Touch</h1>
-          <p className="text-muted-foreground text-lg">
-            Have questions? We're here to help. Submit your message and we'll get back to you as soon as possible.
+    <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:pt-12">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-teal">Contact</p>
+      <h1 className="mt-3 font-editorial text-[clamp(32px,6vw,48px)] font-normal leading-[1.05] tracking-[-0.02em]">
+        Talk to a person.
+      </h1>
+      <p className="mt-3 max-w-xl text-[15px] text-ink-3">
+        Tell us what happened and we will read it and reply by email.
+      </p>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+        <ContactForm {...props} />
+
+        <aside className="space-y-4 lg:order-last">
+          <div className="rounded-2xl border border-clay/30 bg-clay/10 p-5">
+            <ShieldAlert size={20} aria-hidden="true" className="text-clay" />
+            <h2 className="mt-2 text-[15px] font-semibold">Emergency?</h2>
+            <p className="mt-1 text-[14px] text-ink-2">
+              For a gas leak, exposed wiring or flooding, leave the area and call 112. Do not wait for a reply.
+            </p>
+          </div>
+          <Link
+            href="/help"
+            className="block rounded-2xl border border-line bg-paper p-5 transition-colors hover:border-ink-3"
+          >
+            <BookOpen size={20} aria-hidden="true" className="text-teal" />
+            <h2 className="mt-2 text-[15px] font-semibold">Check the help centre first</h2>
+            <p className="mt-1 text-[14px] text-ink-3">Codes, quotes, payment and no-shows are answered there.</p>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-semibold text-teal">
+              Open help <ArrowRight size={15} aria-hidden="true" />
+            </span>
+          </Link>
+          <p className="px-1 text-[13px] text-ink-3">
+            Prefer email? Write to <span className="font-semibold text-ink">support@feasy.com</span>.
           </p>
-        </div>
-      </div>
-
-      <div className="container max-w-2xl mx-auto px-4 py-12">
-        {referenceNumber ? (
-          /* Success State */
-          <div className="space-y-8">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="bg-primary/10 rounded-full p-6">
-                  <CheckCircle2 className="w-12 h-12 text-primary" />
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold">Thank You!</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Your message has been received. We will review it and respond as soon as possible.
-              </p>
-            </div>
-
-            {/* Reference Number Card */}
-            <div className="bg-muted/50 border border-border rounded-lg p-6">
-              <p className="text-sm text-muted-foreground mb-2">Reference Number</p>
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-mono text-lg font-bold text-primary">{referenceNumber}</p>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(referenceNumber);
-                  }}
-                  className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-
-            {/* Next Steps */}
-            <div className="space-y-4">
-              <h3 className="font-bold">What happens next?</h3>
-              <ul className="space-y-3">
-                <li className="flex gap-3">
-                  <span className="font-bold text-primary text-sm min-w-6">1</span>
-                  <span className="text-sm text-muted-foreground">
-                    We have received your message and assigned it a reference number.
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-primary text-sm min-w-6">2</span>
-                  <span className="text-sm text-muted-foreground">
-                    Our team will review your inquiry and respond via email within the expected timeframe.
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="font-bold text-primary text-sm min-w-6">3</span>
-                  <span className="text-sm text-muted-foreground">
-                    Keep your reference number handy for follow-up communications.
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-6">
-              <Button variant="secondary" className="flex-1" onClick={handleNewRequest}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Send Another Message
-              </Button>
-              <Link href="/help" className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Browse Help
-                </Button>
-              </Link>
-            </div>
-          </div>
-        ) : (
-          /* Form State */
-          <div className="bg-card border border-border rounded-lg p-6 sm:p-8">
-            <SupportForm onSuccess={handleSuccess} />
-          </div>
-        )}
+        </aside>
       </div>
     </div>
   );

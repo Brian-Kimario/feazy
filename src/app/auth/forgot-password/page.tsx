@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, MailCheck } from 'lucide-react';
+import { ArrowRight, MailCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthShell, authInput } from '@/components/auth/auth-shell';
 import { forgotPasswordSchema } from '@/validators';
@@ -83,14 +82,7 @@ export default function ForgotPasswordPage() {
   const canResend = !isLoading && secondsLeft === 0;
 
   return (
-    <AuthShell audience="customer">
-      <Link
-        href="/auth/login"
-        className="inline-flex w-fit items-center gap-2 text-[14px] text-ink-3 transition-colors hover:text-ink"
-      >
-        <ArrowLeft size={16} aria-hidden="true" /> Back to sign in
-      </Link>
-
+    <AuthShell audience="customer" backHref="/auth/login" backLabel="Back to sign in">
       {sentTo ? (
         <div className="mt-8">
           <span className="grid size-14 place-items-center rounded-2xl bg-teal-wash text-teal">
@@ -189,16 +181,7 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
-          <p className="mt-7 text-center text-[14px] text-ink-3">
-            Remembered it?{' '}
-            <Link
-              href="/auth/login"
-              className="font-semibold text-teal underline decoration-teal/30 underline-offset-4 hover:decoration-teal"
-            >
-              Sign in
-            </Link>
-          </p>
-          <p className="mt-6 text-center text-[12px] leading-relaxed text-ink-4">
+          <p className="mt-8 text-center text-[12px] leading-relaxed text-ink-4">
             For your security, Feasy never asks you to share your password by email or message.
           </p>
         </>

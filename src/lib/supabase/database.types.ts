@@ -289,6 +289,36 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_messages: {
+        Row: {
+          booking_ref: string | null
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          reference: string
+          status: string
+          topic: string
+          user_id: string | null
+        }
+        Insert: {
+          booking_ref?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          reference?: never
+          status?: string
+          topic: string
+          user_id?: string | null
+        }
+        Update: {
+          status?: string
+        }
+        Relationships: []
+      }
       inspections: {
         Row: {
           created_at: string | null

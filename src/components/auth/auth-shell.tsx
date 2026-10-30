@@ -42,7 +42,18 @@ export function GoogleIcon() {
  * surface (paper/teal for customers, dark ink for professionals) so each door
  * is recognisable on desktop (side panel) and on phones (top band).
  */
-export function AuthShell({ audience, children }: { audience: AuthAudience; children: ReactNode }) {
+export function AuthShell({
+  audience,
+  children,
+  backHref = '/',
+  backLabel = 'Back to home',
+}: {
+  audience: AuthAudience;
+  children: ReactNode;
+  /** The page this screen belongs to. Sign-in related screens point it back at sign-in. */
+  backHref?: string;
+  backLabel?: string;
+}) {
   const isPro = audience === 'professional';
   const panel = AUDIENCE_PANEL[audience];
   const accent = isPro ? 'text-[#7FC4B1]' : 'text-teal';
@@ -92,8 +103,8 @@ export function AuthShell({ audience, children }: { audience: AuthAudience; chil
         </div>
 
         <div className="flex flex-1 flex-col px-5 pb-6 pt-5 sm:px-10 lg:px-14 lg:pt-6">
-          <Link href="/" className="inline-flex w-fit items-center gap-2 text-[14px] text-ink-3 transition-colors hover:text-ink">
-            <ArrowLeft size={16} aria-hidden="true" /> Back to home
+          <Link href={backHref} className="inline-flex min-h-11 w-fit items-center gap-2 text-[14px] text-ink-3 transition-colors hover:text-ink">
+            <ArrowLeft size={16} aria-hidden="true" /> {backLabel}
           </Link>
           <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center py-8">{children}</div>
         </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ContactPageClient } from '@/components/pages/ContactPageClient';
+import { getCurrentProfile, getCurrentUser } from '@/lib/auth';
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fixify.vercel.app';
 
@@ -31,6 +32,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ContactPage() {
-  return <ContactPageClient />;
+export default async function ContactPage() {
+  const user = await getCurrentUser();
+  const profile = user ? await getCurrentProfile() : null;
+  return (
+    <ContactPageClient
+      defaultName={profile?.full_name ?? ''}
+      defaultEmail={user?.email ?? ''}
+      signedIn={Boolean(user)}
+    />
+  );
 }
