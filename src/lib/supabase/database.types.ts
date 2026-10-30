@@ -297,7 +297,7 @@ export type Database = {
           id: string
           message: string
           name: string
-          reference: string
+          reference: string | null
           status: string
           topic: string
           user_id: string | null
@@ -309,13 +309,22 @@ export type Database = {
           id?: string
           message: string
           name: string
-          reference?: never
+          reference?: string | null
           status?: string
           topic: string
           user_id?: string | null
         }
         Update: {
+          booking_ref?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          reference?: string | null
           status?: string
+          topic?: string
+          user_id?: string | null
         }
         Relationships: []
       }
