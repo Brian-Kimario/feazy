@@ -73,6 +73,70 @@ export type Database = {
           },
         ]
       }
+      admin_job_cancellations: {
+        Row: {
+          booking_id: string
+          cancelled_by: string
+          created_at: string
+          customer_reason_category: string
+          from_state: string
+          id: string
+          internal_reason: string
+          job_id: string
+          paid_payment_count: number
+          payment_review_required: boolean
+          pending_payment_count: number
+        }
+        Insert: {
+          booking_id: string
+          cancelled_by: string
+          created_at?: string
+          customer_reason_category: string
+          from_state: string
+          id?: string
+          internal_reason: string
+          job_id: string
+          paid_payment_count?: number
+          payment_review_required: boolean
+          pending_payment_count?: number
+        }
+        Update: {
+          booking_id?: string
+          cancelled_by?: string
+          created_at?: string
+          customer_reason_category?: string
+          from_state?: string
+          id?: string
+          internal_reason?: string
+          job_id?: string
+          paid_payment_count?: number
+          payment_review_required?: boolean
+          pending_payment_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_job_cancellations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_job_cancellations_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_job_cancellations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2259,6 +2323,7 @@ export type Database = {
       _matching_setting: { Args: { p_key: string }; Returns: number }
       _notify: {
         Args: {
+          p_body?: string
           p_job: Database["public"]["Tables"]["jobs"]["Row"]
           p_kind: string
           p_source_id: string
@@ -2312,6 +2377,15 @@ export type Database = {
       add_job_media: {
         Args: { p_job_id: string; p_kind: string; p_storage_path: string }
         Returns: string
+      }
+      admin_cancel_job: {
+        Args: {
+          p_customer_reason_category: string
+          p_expected_state: string
+          p_job_id: string
+          p_reason: string
+        }
+        Returns: Json
       }
       admin_transition_professional_verification: {
         Args: {
