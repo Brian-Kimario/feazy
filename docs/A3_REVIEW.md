@@ -67,7 +67,7 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
   | Unauthorized (customer and professional, rolled-back SQL) | `42501` both | job unchanged |
 
   Layout: no horizontal overflow at 1280px or 375px; drawer fills 375px; Close and action buttons are 44px high. Cleanup confirmed: no fixtures left, `booking_events` empty, `c779c0d4` still `pending`.
-- **A1 approve/reject journeys** (rejection reason, history, audit events, unauthorized attempts): same dependency, plus synthetic pending-verification fixtures that cannot qualify for real work.
+- ~~A1 approve/reject journeys~~ **verified 2026-11-01** with unmatchable synthetic professionals; results and the document-integrity findings are in `docs/A1_DOCUMENT_INTEGRITY.md`. Summary: reject (reason, history, audit), approve, stale, no-documents and unauthorized cases all behave correctly; the verification buttons are under 44px at 375px; approval does not check that a document file exists, a professional can insert arbitrary document rows, and the `verification-documents` bucket is not on the live database.
 - **Playwright:** `tests/e2e/a1-a3-access-and-cancel.spec.ts` written (admin pages closed to customer and professional; customer cancel needs a reason, then cancels). **Execution BLOCKED**: no `E2E_TEST_PASSWORD` in this environment. It type-checks, lints and lists 9 tests across 3 browsers; it has not run and no pass is claimed. Admin approve/reject and reconcile journeys are **not written yet**. External testing stays blocked until a green run (release blocker).
 
 ## 4. Open items (kept visible)
@@ -95,9 +95,9 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 
 1. Assigned-professional cancellation: verified (section 3).
 2. Reconcile panel browser results: verified (section 3), 375px and 1280px.
-3. A1 approve/reject browser results: pending your admin sign-in; document-integrity gap still to be investigated separately.
+3. A1 approve/reject browser results: verified; document-integrity investigation and proposed fix in `docs/A1_DOCUMENT_INTEGRITY.md` (awaiting your decision).
 4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journeys not yet written.
 5. Deadlock root cause: `docs/A3_LOCK_ORDER_DESIGN.md` section 1.
 6. Lock-order migrations 108 and 109: **applied** with approval; rollbacks `supabase/rollbacks/20261031_108_rollback.sql`, `20261101_109_rollback.sql`; concurrency tests 1-5 pass.
 7. This document updated.
-8. Release blockers:  green Playwright run; A1 browser verification (reconcile is done); isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
+8. Release blockers:  green Playwright run (reconcile and A1 browser verification are done); isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
