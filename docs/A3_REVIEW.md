@@ -26,13 +26,20 @@ Design records: `docs/A3_2_RECOVERY_DESIGN.md`, `docs/P1_BOOKING_CANCEL_DESIGN.m
 
 Suite at last run: `pnpm tsc --noEmit` clean; Vitest 366 passed, 16 skipped.
 
-## 3. Not verified (be explicit)
+## 3. Re-verification (2026-10-31) and what is still not verified
 
-- **40P01 deadlock** between a customer cancel and `admin_cancel_job` (opposite lock order). The app shows a retry message; never reproduced live.
-- Customer cancel of a booking **with an assigned professional** and a **paid payment** through the UI (covered by dry run and unit tests only). The paid-booking notice relies on `kase.paidAt`, which covers job payments only.
-- Reconcile panel refusal paths and 375px layout.
-- A1 approve/reject journeys (Playwright blocked).
-- No Playwright coverage of any A3 flow.
+**Now verified live** (synthetic, past-dated rows on the shared database, all deleted afterwards; `c779c0d4` untouched, `booking_events` empty):
+
+- **40P01 deadlock.** Reproduced with the real functions: one session held the job lock then called `admin_cancel_job`; a second ran `customer_cancel_booking` on the same booking (booking→job vs job→booking). PostgreSQL aborted the **admin cancel** with `40P01` and the customer cancel committed. End state was consistent: booking and job `cancelled`, one `booking_events` row, one job cancel event, **no** `admin_job_cancellations` row (the loser rolled back whole). No corruption.
+  - The customer path shows its retry message for `40P01`. The admin path (`adminCancelJob`) shows the generic "The job could not be cancelled" and records the audit row as failed. Safe, but it does not say "try again". Aligning the lock order (open item 1) removes the case.
+- **Paid booking through the UI.** A synthetic job with a job-level `paid` payment (provider `synthetic`, no real transaction): the cancel panel showed the no-automatic-refund copy; confirm cancelled the booking and job, the page showed "This booking is cancelled" with "You paid for this booking. Cancelling does not refund it automatically…", the payment row was untouched (`paid`), and `booking_events` recorded `payment_review_required: true`, `paid_payment_count: 1`. So `kase.paidAt` does cover job payments, as designed.
+  - Cosmetic: a cancelled-and-paid page still shows the green "Payment received" block above the cancelled notice. Consider hiding it once cancelled (A5 polish).
+
+**Still not verified:**
+
+- Customer cancel with an **assigned professional** through the UI. There is no designated test professional account, and using a real one would notify them. Covered by the dry run (d11–d14, notifications included) and unit tests only. Needs either a designated test professional or owner consent to a synthetic one.
+- Reconcile panel refusal paths and 375px layout: needs the owner signed in as admin.
+- A1 approve/reject journeys and any Playwright coverage of A3: blocked without `E2E_TEST_PASSWORD`.
 
 ## 4. Open items (kept visible)
 
