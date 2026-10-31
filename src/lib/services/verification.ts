@@ -24,6 +24,7 @@ import {
   rejectProfessionalInput,
   suspendProfessionalInput,
   reactivateProfessionalInput,
+  reviewVerificationDocumentInput,
   verificationDocumentPath,
 } from '@/validators/admin';
 
@@ -440,6 +441,55 @@ export async function rejectProfessional(
         }),
     }),
   );
+}
+
+export interface DocumentReviewOutcome {
+  documentId: string;
+  documentType: string;
+  status: 'accepted' | 'rejected';
+}
+
+/**
+ * Accept or reject one pending document. The database checks the caller is an admin, that the
+ * document is still pending, and for acceptance that the file exists in storage.
+ */
+export async function reviewVerificationDocument(
+  input: unknown,
+): Promise<AdminResult<DocumentReviewOutcome>> {
+  return runAdminAction({
+    name: 'admin.verification_document.review',
+    schema: reviewVerificationDocumentInput,
+    input,
+    targetType: 'verification_document',
+    targetId: (i) => i.documentId,
+    reason: (i) => i.note,
+    execute: async ({ input: i }) => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_review_verification_document', {
+        p_document_id: i.documentId,
+        p_decision: i.decision,
+        p_note: i.note,
+      });
+      if (error) {
+        // 22023 bad input, P0002 unknown, 55000 already reviewed, 23514 file missing: all actionable.
+        const actionable = ['22023', 'P0002', '55000', '23514'].includes(error.code ?? '');
+        return adminFailure('FAILED', actionable ? error.message : 'The document could not be reviewed');
+      }
+      const result = data as { document_type?: unknown; to_status?: unknown } | null;
+      if (!result || (result.to_status !== 'accepted' && result.to_status !== 'rejected')) {
+        return adminFailure('FAILED', 'The document could not be reviewed');
+      }
+      revalidatePath('/admin/professionals');
+      return {
+        ok: true,
+        data: {
+          documentId: i.documentId,
+          documentType: String(result.document_type ?? ''),
+          status: result.to_status,
+        },
+      };
+    },
+  });
 }
 
 /** Suspend a verified professional: blocks new work, withdraws pending offers, flags active jobs. */

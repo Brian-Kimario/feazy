@@ -2506,6 +2506,10 @@ export type Database = {
         Args: { p_expected_state: string; p_job_id: string; p_reason: string }
         Returns: Json
       }
+      admin_review_verification_document: {
+        Args: { p_decision: string; p_document_id: string; p_note?: string }
+        Returns: Json
+      }
       admin_transition_professional_verification: {
         Args: {
           p_action: string

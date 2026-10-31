@@ -27,6 +27,18 @@ export const suspendProfessionalInput = z.object({ professionalId: uuid, reason:
 
 export const reactivateProfessionalInput = z.object({ professionalId: uuid, reason: adminReason });
 
+/** A reviewer's call on one uploaded document. A rejection must say why; the database enforces the same. */
+export const reviewVerificationDocumentInput = z
+  .object({
+    documentId: uuid,
+    decision: z.enum(['accepted', 'rejected']),
+    note: z.string().trim().max(500, 'Note must be 500 characters or fewer').optional(),
+  })
+  .refine((v) => v.decision === 'accepted' || (v.note?.length ?? 0) >= 5, {
+    message: 'Please say why the document is rejected (at least 5 characters)',
+    path: ['note'],
+  });
+
 /** Verification documents live at `<owner uid>/<file>`; refuse traversal and absolute paths. */
 export const verificationDocumentPath = z
   .string()

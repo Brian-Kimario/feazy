@@ -18,6 +18,7 @@ import {
   suspendProfessional,
   reactivateProfessional,
   getDocumentSignedUrl,
+  reviewVerificationDocument,
   type PendingProfessional,
   type VerificationDocument,
 } from '@/lib/services/verification';
@@ -25,6 +26,7 @@ import {
   type AdminProfessional,
 } from '@/lib/services/admin';
 import { SuccessState } from '@/components/ui/SuccessState';
+import { isAdminFailure } from '@/lib/admin/result';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -164,13 +166,23 @@ function DocumentPreviewModal({
 
 function DocumentList({
   documents,
+  inspected,
+  busy,
   onOpenPreview,
+  onInspected,
+  onReview,
 }: {
   documents: VerificationDocument[];
+  /** Ids of documents the reviewer has opened this session; acceptance needs it. */
+  inspected: ReadonlySet<string>;
+  busy: boolean;
   onOpenPreview: (doc: DocPreview) => void;
+  onInspected: (documentId: string) => void;
+  onReview: (documentId: string, decision: 'accepted' | 'rejected', note: string) => Promise<string | null>;
 }) {
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const [errorMap, setErrorMap] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const handleView = async (doc: VerificationDocument) => {
     setLoadingPath(doc.storage_path);
@@ -184,10 +196,16 @@ function DocumentList({
     setLoadingPath(null);
 
     if (url) {
+      onInspected(doc.id);
       onOpenPreview({ url, type: doc.document_type, path: doc.storage_path });
     } else {
       setErrorMap((prev) => ({ ...prev, [doc.storage_path]: error ?? 'Failed to get URL' }));
     }
+  };
+
+  const handleReview = async (doc: VerificationDocument, decision: 'accepted' | 'rejected') => {
+    const failure = await onReview(doc.id, decision, (notes[doc.id] ?? '').trim());
+    if (failure) setErrorMap((prev) => ({ ...prev, [doc.storage_path]: failure }));
   };
 
   if (documents.length === 0) {
@@ -196,42 +214,87 @@ function DocumentList({
 
   return (
     <ul className="space-y-2 mt-2">
-      {documents.map((doc) => (
-        <li
-          key={doc.id}
-          className="flex items-center justify-between gap-3 bg-[#F7F4EC] rounded-lg px-3 py-2"
-        >
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-[#18211F] truncate">
-              {docTypeLabel(doc.document_type)}
-            </div>
-            <div className="text-[11px] text-[#7C8681]">
-              Uploaded {timeAgo(doc.uploaded_at)} ·{' '}
-              <span
-                className={
-                  doc.status === 'accepted'
-                    ? 'text-[#2F7D5B]'
-                    : doc.status === 'rejected'
-                    ? 'text-[#A9523D]'
-                    : 'text-[#9B6A1E]'
-                }
+      {documents.map((doc) => {
+        const note = notes[doc.id] ?? '';
+        const canJudge = doc.status === 'pending' && inspected.has(doc.id);
+        const noteLength = note.trim().length;
+        return (
+          <li key={doc.id} className="bg-[#F7F4EC] rounded-lg px-3 py-2 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-[#18211F] truncate">
+                  {docTypeLabel(doc.document_type)}
+                </div>
+                <div className="text-[11px] text-[#7C8681]">
+                  Uploaded {timeAgo(doc.uploaded_at)} ·{' '}
+                  <span
+                    className={
+                      doc.status === 'accepted'
+                        ? 'text-[#2F7D5B]'
+                        : doc.status === 'rejected'
+                        ? 'text-[#A9523D]'
+                        : 'text-[#9B6A1E]'
+                    }
+                  >
+                    {doc.status}
+                  </span>
+                </div>
+                {doc.reviewer_notes && (
+                  <p className="text-[11px] text-[#5A6661] mt-0.5">Reviewer note: {doc.reviewer_notes}</p>
+                )}
+                {errorMap[doc.storage_path] && (
+                  <p className="text-[11px] text-[#A9523D] mt-0.5" role="alert">
+                    {errorMap[doc.storage_path]}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleView(doc)}
+                disabled={loadingPath === doc.storage_path}
+                className="flex-shrink-0 min-h-11 px-3 py-1.5 border border-[#D9DED8] rounded-lg text-xs font-semibold text-[#5A6661] hover:bg-[#F1EEE5] hover:text-[#0D5144] transition disabled:opacity-50"
               >
-                {doc.status}
-              </span>
+                {loadingPath === doc.storage_path ? 'Loading…' : 'Inspect Document'}
+              </button>
             </div>
-            {errorMap[doc.storage_path] && (
-              <p className="text-[11px] text-[#A9523D] mt-0.5">{errorMap[doc.storage_path]}</p>
+
+            {doc.status === 'pending' && !canJudge && (
+              <p className="text-[11px] text-[#7C8681]">Open the document before you accept or reject it.</p>
             )}
-          </div>
-          <button
-            onClick={() => handleView(doc)}
-            disabled={loadingPath === doc.storage_path}
-            className="flex-shrink-0 px-3 py-1.5 border border-[#D9DED8] rounded-lg text-xs font-semibold text-[#5A6661] hover:bg-[#F1EEE5] hover:text-[#0D5144] transition disabled:opacity-50"
-          >
-            {loadingPath === doc.storage_path ? 'Loading…' : 'Inspect Document'}
-          </button>
-        </li>
-      ))}
+
+            {canJudge && (
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-[#18211F]" htmlFor={`doc-note-${doc.id}`}>
+                  Note (required to reject, at least 5 characters)
+                </label>
+                <textarea
+                  id={`doc-note-${doc.id}`}
+                  rows={2}
+                  maxLength={500}
+                  value={note}
+                  onChange={(e) => setNotes((prev) => ({ ...prev, [doc.id]: e.target.value }))}
+                  className="w-full resize-none rounded-lg border border-[#D9DED8] bg-white px-3 py-2 text-xs text-[#18211F] focus:outline-none focus:border-[#5FE3B0]"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => handleReview(doc, 'rejected')}
+                    disabled={busy || noteLength < 5}
+                    className="min-h-11 px-3.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
+                  >
+                    Reject document
+                  </button>
+                  <button
+                    onClick={() => handleReview(doc, 'accepted')}
+                    disabled={busy}
+                    className="min-h-11 px-3.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
+                  >
+                    Accept document
+                  </button>
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -258,6 +321,26 @@ function ProfessionalCard({
   const [actionError, setActionError] = useState<string | null>(null);
   const [showSuccessState, setShowSuccessState] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [inspected, setInspected] = useState<ReadonlySet<string>>(new Set());
+  const [reviewed, setReviewed] = useState<Record<string, { status: 'accepted' | 'rejected'; note: string | null }>>({});
+
+  // Reviews made here show at once; the database stays the authority when Approve is pressed.
+  const documents: VerificationDocument[] = professional.documents.map((d) =>
+    reviewed[d.id] ? { ...d, status: reviewed[d.id].status, reviewer_notes: reviewed[d.id].note } : d,
+  );
+  const idAccepted = documents.some((d) => d.document_type === 'id' && d.status === 'accepted');
+
+  const handleReviewDocument = async (
+    documentId: string,
+    decision: 'accepted' | 'rejected',
+    note: string,
+  ): Promise<string | null> => {
+    setActionError(null);
+    const result = await reviewVerificationDocument({ documentId, decision, note: note || undefined });
+    if (isAdminFailure(result)) return result.error;
+    setReviewed((prev) => ({ ...prev, [documentId]: { status: result.data.status, note: note || null } }));
+    return null;
+  };
 
   const handleApprove = () => {
     setActionError(null);
@@ -363,15 +446,26 @@ function ProfessionalCard({
             {professional.bio && (
               <p className="text-xs text-[#5A6661] mb-3 italic">&ldquo;{professional.bio}&rdquo;</p>
             )}
-            <DocumentList documents={professional.documents} onOpenPreview={onOpenPreview} />
+            <DocumentList
+              documents={documents}
+              inspected={inspected}
+              busy={isPending}
+              onOpenPreview={onOpenPreview}
+              onInspected={(id) => setInspected((prev) => new Set(prev).add(id))}
+              onReview={handleReviewDocument}
+            />
           </div>
         )}
 
         {/* Action footer */}
         <div className="px-5 py-3 border-t border-[#D9DED8] flex items-center justify-between gap-3 bg-[#F7F4EC]">
-          {actionError && (
-            <p className="text-xs text-[#A9523D] font-medium flex-1">{actionError}</p>
-          )}
+          {actionError ? (
+            <p className="text-xs text-[#A9523D] font-medium flex-1" role="alert">{actionError}</p>
+          ) : !idAccepted ? (
+            <p className="text-xs text-[#7C8681] flex-1">
+              Approve unlocks once the Government ID document has been inspected and accepted.
+            </p>
+          ) : null}
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={() => {
@@ -379,14 +473,14 @@ function ProfessionalCard({
                 setActionError(null);
               }}
               disabled={isPending}
-              className="px-3.5 py-1.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
+              className="min-h-11 px-3.5 py-1.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
             >
               Reject
             </button>
             <button
               onClick={handleApprove}
-              disabled={isPending}
-              className="px-3.5 py-1.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
+              disabled={isPending || !idAccepted}
+              className="min-h-11 px-3.5 py-1.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
             >
               {isPending ? 'Processing…' : 'Approve'}
             </button>
