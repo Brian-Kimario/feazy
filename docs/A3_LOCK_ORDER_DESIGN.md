@@ -1,6 +1,6 @@
 # A3 — Consistent lock order (migration 108)
 
-Status: **APPLIED 2026-10-31 with owner approval** (`supabase db query --linked -f`). Dry run 18 cases passed. Concurrency tests run: 1, 2, 3, 5 pass; **test 4 found a second, pre-existing deadlock (profile row lock vs booking lock) that 108 does not fix**; see section 8.
+Status: **108 and 109 APPLIED 2026-10-31 with owner approval.** Concurrency tests 1-5 now all pass with no 40P01 (test 4 re-run after 109; see sections 8 and 9).
 
 Migration: `supabase/migrations/20261031_108_consistent_lock_order.sql` (generated from the live definitions by `supabase/dry-runs/gen_108_migration.py`, every replacement asserted to match exactly once)
 Rollback: `supabase/rollbacks/20261031_108_rollback.sql` (the live bodies captured 2026-10-31)
@@ -84,9 +84,22 @@ Two parallel sessions, one holding the booking lock for 5 s, the other started 1
 
 Proposed fix (migration 109, **not prepared or applied; needs owner approval**): lock the professional row `FOR NO KEY UPDATE` instead. The function only updates non-key columns, `FOR NO KEY UPDATE` does not conflict with `KEY SHARE` (so the FK insert never blocks) and still conflicts with itself (concurrent suspensions still serialise, as test 5 requires). Needs a dry run and re-run of tests 4 and 5 after approval.
 
-## 9. Migration 109 (PREPARED, NOT APPLIED)
+## 9. Migration 109 (APPLIED)
 
 - Migration: `supabase/migrations/20261101_109_suspension_lock_mode.sql`. One-line change to `admin_transition_professional_verification`: `FOR UPDATE` -> `FOR NO KEY UPDATE` on the professional row (diff against the live definition is exactly that line). Rollback: `supabase/rollbacks/20261101_109_rollback.sql` (live pre-109 body).
 - Compatibility: the function updates only non-key columns; signature, grants (anon none, authenticated execute) and behaviour are unchanged. `FOR NO KEY UPDATE` still conflicts with itself, so concurrent verification transitions still serialise (test 5); it no longer conflicts with the attempts-FK `KEY SHARE`, which removes the profile->booking cycle (test 4).
 - Dry run (rolled back, synthetic rows; live definition re-checked unchanged afterwards): definition uses `NO KEY UPDATE` (e01); grants unchanged (e02); non-admin 42501 (e03); stale expected status 55000 (e04); short reason 22023 and status unchanged (e05); valid suspend -> suspended, 1 offer withdrawn, job professional cleared, 1 withdrawn attempt (e06); second suspend 55000 (e07); reactivate still stopped by the document gate 23514 (e08). Report: `supabase/dry-runs/20261101_109_suspension_lock_mode.dryrun.report.txt`.
 - After approval to apply: apply with `supabase db query --linked -f`, verify definition and grants, then re-run concurrency tests 4 and 5 on fresh synthetic rows (a synthetic professional with two assigned past-dated jobs; test 4 expects no 40P01 and a clean outcome for both sessions).
+
+### 9b. Apply and re-test (2026-10-31/11-01)
+Applied with `supabase db query --linked -f`. Verified live: definition uses `FOR NO KEY UPDATE`, anon cannot execute, authenticated can. Fresh synthetic professionals (unavailable, unreachable) with past-dated assigned bookings; two sessions, holder started 1.5 s before the waiter:
+
+| Test | Result |
+|---|---|
+| 4a Admin cancel (holder) vs suspension of the same professional (waiter) | **No 40P01** (was a deadlock). Suspension waited ~6 s, then was refused cleanly with `P0001 Job is no longer awaiting a response` and rolled back whole (professional still `verified`). |
+| 4b Suspension (holder) vs admin cancel of that professional's job (waiter) | No 40P01. Cancel waited ~3.5 s and succeeded; booking and job `cancelled`. |
+| 5 Two concurrent suspensions | Second waited ~6 s, clean `55000 Stale request`. |
+
+Cleanup: all synthetic rows, notifications and auth users deleted; `booking_events` empty; `c779c0d4` still `pending`.
+
+**Remaining rough edge (not a deadlock):** in 4a the suspension aborts when a concurrent admin cancel changes one of the professional's jobs between its job listing and `_release_offer`. Nothing is corrupted and an immediate retry succeeds, but the admin sees an error instead of the suspension. A tolerant version (skip jobs that are no longer `assigned`) is a small follow-up; proposed for A4's suspension work, not applied.

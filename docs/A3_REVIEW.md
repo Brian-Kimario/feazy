@@ -61,7 +61,7 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 
 ## 4. Open items (kept visible)
 
-1. **Deadlock:** migration 108 (consistent booking-then-job lock order) **applied 2026-10-31**; concurrency tests 1, 2, 3, 5 pass with no 40P01. Test 4 (admin cancel vs suspension) deadlocked on a separate pre-existing cycle (professional row `FOR UPDATE` vs the attempts FK `KEY SHARE`). Proposed migration 109 (`FOR NO KEY UPDATE`), awaiting approval. See `docs/A3_LOCK_ORDER_DESIGN.md` sections 7-8.
+1. **Deadlock: closed.** Migrations 108 (lock order) and 109 (suspension row lock `FOR NO KEY UPDATE`) applied 2026-10-31; all five concurrency tests pass with no 40P01. Rough edge: a suspension racing an admin cancel of the same professional's job aborts cleanly with `P0001` and must be retried (see `docs/A3_LOCK_ORDER_DESIGN.md` section 9b).
 2. Five historical drift rows (booking pending/confirmed, job cancelled); cause: a professional cancel leaves the booking `pending`. Customers can now clear them; whether a professional cancel should re-offer the booking is an A4 product decision.
 3. `c779c0d4` (no-job stale booking): preserved, untouched, still `pending`, still visible in the Operations queue. It belongs to `customer.a@fixify.dev` (Priya Sharma), a designated fixify.dev test/seed account, created 2026-10-04: synthetic, not a real customer. No one has been contacted; resolving it needs your explicit direction.
 4. Customer-consented reschedule for expired bookings (design only, A3.3).
@@ -87,6 +87,6 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 3. A1 approve/reject browser results: pending your admin sign-in; document-integrity gap still to be investigated separately.
 4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journeys not yet written.
 5. Deadlock root cause: `docs/A3_LOCK_ORDER_DESIGN.md` section 1.
-6. Lock-order migration 108: **applied** with approval; rollback `supabase/rollbacks/20261031_108_rollback.sql`; dry run 18 cases; concurrency tests 1, 2, 3, 5 pass, test 4 found a separate deadlock (109 proposed, needs approval).
+6. Lock-order migrations 108 and 109: **applied** with approval; rollbacks `supabase/rollbacks/20261031_108_rollback.sql`, `20261101_109_rollback.sql`; concurrency tests 1-5 pass.
 7. This document updated.
-8. Release blockers: approve and apply 109 (suspension lock), then re-run concurrency tests 4 and 5; green Playwright run; reconcile and A1 browser verification; isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
+8. Release blockers:  green Playwright run; reconcile and A1 browser verification; isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
