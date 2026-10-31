@@ -1,6 +1,6 @@
 # A3 — Consistent lock order (migration 108)
 
-Status: **PREPARED, NOT APPLIED.** Dry run done (18 cases, rolled back). Two-session concurrency tests of the fixed functions are **not run**: they need the migration applied. Awaiting owner approval.
+Status: **APPLIED 2026-10-31 with owner approval** (`supabase db query --linked -f`). Dry run 18 cases passed. Concurrency tests run: 1, 2, 3, 5 pass; **test 4 found a second, pre-existing deadlock (profile row lock vs booking lock) that 108 does not fix**; see section 8.
 
 Migration: `supabase/migrations/20261031_108_consistent_lock_order.sql` (generated from the live definitions by `supabase/dry-runs/gen_108_migration.py`, every replacement asserted to match exactly once)
 Rollback: `supabase/rollbacks/20261031_108_rollback.sql` (the live bodies captured 2026-10-31)
@@ -65,3 +65,21 @@ Run `supabase/rollbacks/20261031_108_rollback.sql` through `supabase db query --
 2. Re-check function definitions and grants.
 3. Run the five concurrency tests on synthetic past-dated rows; delete them.
 4. Record results here.
+
+
+## 8. Concurrency results after apply (2026-10-31, synthetic past-dated rows, shared DB)
+
+Two parallel sessions, one holding the booking lock for 5 s, the other started 1.5 s later. Synthetic professionals were unavailable, unreachable accounts; all rows deleted afterwards (0 bookings, jobs, users left; `booking_events` empty; `c779c0d4` still `pending`).
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Customer cancel vs admin cancel, same assigned job | Customer waited 3.7 s on the booking lock, then got `ALREADY_CANCELLED`. No 40P01. |
+| 2 | Customer cancel vs professional `decline_job` | Decline waited ~6 s, then a clean refusal (`P0001`, job no longer awaiting a response). No 40P01. |
+| 3 | Queue expiry vs customer-held booking lock | Queue returned in ~3 s without waiting for the holder (4 s more); the locked job was left untouched (professional still set, 0 expired attempts). (First attempt was invalid: the real matcher had expired that fixture; re-run on a fresh job inside one minute.) |
+| 4 | Admin cancel vs suspension of the assigned professional | **40P01 deadlock** (admin cancel aborted, suspension committed, 2 offers withdrawn). |
+| 5 | Two concurrent suspensions of one professional | Second waited ~6 s, then a clean `Stale request: status is now suspended`. No 40P01. |
+
+### Finding from test 4 (not caused by 108)
+`admin_transition_professional_verification` locks the professional row with `FOR UPDATE` (line ~273 of the migration) and then waits for booking locks. Any path that inserts into `booking_assignment_attempts` (admin cancel, customer cancel, decline, offers) takes `FOR KEY SHARE` on that professional row through the foreign key, and `FOR UPDATE` conflicts with it. That is the cycle profile -> booking against booking -> profile. It existed before 108.
+
+Proposed fix (migration 109, **not prepared or applied; needs owner approval**): lock the professional row `FOR NO KEY UPDATE` instead. The function only updates non-key columns, `FOR NO KEY UPDATE` does not conflict with `KEY SHARE` (so the FK insert never blocks) and still conflicts with itself (concurrent suspensions still serialise, as test 5 requires). Needs a dry run and re-run of tests 4 and 5 after approval.
