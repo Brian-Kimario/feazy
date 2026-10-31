@@ -68,7 +68,7 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 
   Layout: no horizontal overflow at 1280px or 375px; drawer fills 375px; Close and action buttons are 44px high. Cleanup confirmed: no fixtures left, `booking_events` empty, `c779c0d4` still `pending`.
 - ~~A1 approve/reject journeys~~ **verified 2026-11-01** with unmatchable synthetic professionals; results and the document-integrity findings are in `docs/A1_DOCUMENT_INTEGRITY.md`. Summary: reject (reason, history, audit), approve, stale, no-documents and unauthorized cases all behave correctly; the verification buttons are under 44px at 375px; approval does not check that a document file exists, a professional can insert arbitrary document rows, and the `verification-documents` bucket is not on the live database.
-- **Playwright:** `tests/e2e/a1-a3-access-and-cancel.spec.ts` written (admin pages closed to customer and professional; customer cancel needs a reason, then cancels). **Execution BLOCKED**: no `E2E_TEST_PASSWORD` in this environment. It type-checks, lints and lists 9 tests across 3 browsers; it has not run and no pass is claimed. Admin approve/reject and reconcile journeys are **not written yet**. External testing stays blocked until a green run (release blocker).
+- **Playwright:** `tests/e2e/a1-a3-access-and-cancel.spec.ts` written (admin pages closed to customer and professional; customer cancel needs a reason, then cancels). **Execution BLOCKED**: no `E2E_TEST_PASSWORD` in this environment. It type-checks, lints and lists 9 tests across 3 browsers; it has not run and no pass is claimed. `tests/e2e/a1-a3-admin-journeys.spec.ts` now covers admin approve-refused-without-documents, reject (reason minimum, card removed) and reconcile (reason required, confirm, leaves queue); it type-checks, lints and lists 9 tests, **has not run** (needs `E2E_TEST_PASSWORD`, `E2E_ADMIN_EMAIL` and consumable synthetic fixtures; the admin sign-in path is assumed to be the shared login form and is unconfirmed). External testing stays blocked until a green run (release blocker).
 
 ## 4. Open items (kept visible)
 
@@ -96,7 +96,7 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 1. Assigned-professional cancellation: verified (section 3).
 2. Reconcile panel browser results: verified (section 3), 375px and 1280px.
 3. A1 approve/reject browser results: verified; document-integrity investigation and proposed fix in `docs/A1_DOCUMENT_INTEGRITY.md` (awaiting your decision).
-4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journeys not yet written.
+4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journey spec written, also not run.
 5. Deadlock root cause: `docs/A3_LOCK_ORDER_DESIGN.md` section 1.
 6. Lock-order migrations 108 and 109: **applied** with approval; rollbacks `supabase/rollbacks/20261031_108_rollback.sql`, `20261101_109_rollback.sql`; concurrency tests 1-5 pass.
 7. This document updated.
