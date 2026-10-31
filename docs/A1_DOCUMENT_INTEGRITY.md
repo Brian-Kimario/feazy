@@ -32,7 +32,7 @@ Cleanup: synthetic professional, verification, document and notification rows de
 - Add an explicit review step before approve (open each document, accept or reject with a note) and a reason field, replacing the one-click approve.
 - Decide what to do with the two legacy verified professionals (re-verify or suspend), and which document types are required (currently only `id`).
 
-## 4. Migration 110 (prepared, dry-run only; NOT applied)
+## 4. Migration 110 (**APPLIED** to the shared database 2026-11-01 with owner approval)
 
 Owner approved the section 3 design on 2026-11-01. Files:
 `supabase/migrations/20261101_110_verification_document_integrity.sql`, rollback `supabase/rollbacks/20261101_110_rollback.sql`, dry run `supabase/dry-runs/gen_110.py` → `…110….dryrun.sql`, report `…110….dryrun.report.json`.
@@ -71,3 +71,14 @@ Not covered by the dry run, and still to build after the migration is approved a
 - Real upload of a file into the new bucket, end to end, on the isolated staging project (not done on the shared database).
 - The two legacy verified professionals are unchanged. They stay verified; they cannot be re-approved without evidence. Decision still needed: suspend or re-verify.
 - Applying needs the usual explicit owner go-ahead; the storage policies in step 1 should be checked to apply under the CLI's role (the dry run created them inside the transaction, so they do).
+
+### Apply record (2026-11-01)
+
+Applied with `supabase db query --linked -f supabase/migrations/20261101_110_verification_document_integrity.sql` (no error). Before: no bucket, 1 document row, 2 verified professionals. After, checked live:
+
+- Bucket `verification-documents` exists and is private; two storage policies (owner read, admin read); no INSERT policy and no INSERT grant for `authenticated` on `professional_verification_documents`.
+- `admin_review_verification_document`: not executable by anon; `_verification_unaccepted_documents`: not executable by clients.
+- The full dry run was re-run against the live schema (rolled back): all 35 report entries are identical to the pre-apply run.
+- No fixtures remain (0 `dry110` users, 0 objects in the bucket); documents still 1, verified professionals still 2; `c779c0d4` untouched.
+
+Consequence to know about now: until the admin review UI is built, **no professional can be approved**, because approve needs an accepted document with a file and nothing yet creates one through the UI. Real uploads should now work (bucket exists) but are untested end to end. Rollback: `supabase/rollbacks/20261101_110_rollback.sql` (keeps the bucket and files). `database.types.ts` not regenerated; do it with the review action.
