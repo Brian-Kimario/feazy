@@ -55,7 +55,18 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 
 **Still not verified:**
 
-- **Reconcile panel** (375px and 1280px, valid, invalid, stale, terminal, unauthorized, error text, database unchanged after rejection): needs the owner signed in as admin in the browser pane. **Waiting on you.**
+- ~~Reconcile panel~~ **verified 2026-11-01** on the owner's signed-in admin session, with four synthetic past-dated fixtures (deleted afterwards):
+
+  | Case | Result | Database afterwards |
+  |---|---|---|
+  | Valid (job `assigned`, booking cancelled) | Job closed | 1 job event, 1 `admin_reconciliations` row, 0 notifications, payments untouched; item leaves the queue |
+  | Invalid input (reason under 5 chars) | Button stays disabled | nothing written |
+  | Stale (job already cancelled when confirmed) | "The job is now cancelled, not assigned. Refresh and review." | nothing written |
+  | Terminal (job set to `closed` after the confirm step opened) | "The job is now closed, not assigned. Refresh and review." | nothing written |
+  | Paid job | Refused: "A payment was captured for this booking. It needs a person to review the payment before the job is changed." | job still `assigned`, payment still `paid`, no events or records |
+  | Unauthorized (customer and professional, rolled-back SQL) | `42501` both | job unchanged |
+
+  Layout: no horizontal overflow at 1280px or 375px; drawer fills 375px; Close and action buttons are 44px high. Cleanup confirmed: no fixtures left, `booking_events` empty, `c779c0d4` still `pending`.
 - **A1 approve/reject journeys** (rejection reason, history, audit events, unauthorized attempts): same dependency, plus synthetic pending-verification fixtures that cannot qualify for real work.
 - **Playwright:** `tests/e2e/a1-a3-access-and-cancel.spec.ts` written (admin pages closed to customer and professional; customer cancel needs a reason, then cancels). **Execution BLOCKED**: no `E2E_TEST_PASSWORD` in this environment. It type-checks, lints and lists 9 tests across 3 browsers; it has not run and no pass is claimed. Admin approve/reject and reconcile journeys are **not written yet**. External testing stays blocked until a green run (release blocker).
 
@@ -83,10 +94,10 @@ Not run here: a future-dated assigned booking with live matching (needs the isol
 ## 6. A4 gate package
 
 1. Assigned-professional cancellation: verified (section 3).
-2. Reconcile panel browser results: pending your admin sign-in.
+2. Reconcile panel browser results: verified (section 3), 375px and 1280px.
 3. A1 approve/reject browser results: pending your admin sign-in; document-integrity gap still to be investigated separately.
 4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journeys not yet written.
 5. Deadlock root cause: `docs/A3_LOCK_ORDER_DESIGN.md` section 1.
 6. Lock-order migrations 108 and 109: **applied** with approval; rollbacks `supabase/rollbacks/20261031_108_rollback.sql`, `20261101_109_rollback.sql`; concurrency tests 1-5 pass.
 7. This document updated.
-8. Release blockers:  green Playwright run; reconcile and A1 browser verification; isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
+8. Release blockers:  green Playwright run; A1 browser verification (reconcile is done); isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
