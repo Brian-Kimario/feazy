@@ -31,3 +31,43 @@ Cleanup: synthetic professional, verification, document and notification rows de
 - Remove the client INSERT grant; documents are created only by the server upload action (service role) after the file is stored, with `status` fixed to `pending`.
 - Add an explicit review step before approve (open each document, accept or reject with a note) and a reason field, replacing the one-click approve.
 - Decide what to do with the two legacy verified professionals (re-verify or suspend), and which document types are required (currently only `id`).
+
+## 4. Migration 110 (prepared, dry-run only; NOT applied)
+
+Owner approved the section 3 design on 2026-11-01. Files:
+`supabase/migrations/20261101_110_verification_document_integrity.sql`, rollback `supabase/rollbacks/20261101_110_rollback.sql`, dry run `supabase/dry-runs/gen_110.py` → `…110….dryrun.sql`, report `…110….dryrun.report.json`.
+
+What it does:
+1. Creates the private `verification-documents` bucket (10 MB; jpeg, png, webp, pdf) with only two storage policies: a professional reads their own folder, an admin reads all. No client upload policy: the server upload action already uses the service role. `support` is not granted (deferred).
+2. Drops the client INSERT policy and revokes INSERT/UPDATE/DELETE on `professional_verification_documents` from `authenticated` and `anon`.
+3. Adds `admin_review_verification_document(document, 'accepted'|'rejected', note)`: admin only, document must be `pending` (else stale), accept only if the file exists in storage, reject needs a note of 5 or more characters, records reviewer and time.
+4. `approve` now requires, for each required type (`id`), a document that is `accepted`, has a reviewer, and whose file exists in `storage.objects` (`_verification_unaccepted_documents`, error `23514`). Reactivate, reject, suspend and the professional's submission check are unchanged.
+
+Dry run (rolled back; live database re-checked: no bucket, no new functions, no fixtures, insert policy still present, 2 verified professionals):
+
+| Area | Result |
+|---|---|
+| Bucket private; grants | authenticated has no INSERT/UPDATE; review function not executable by anon; helper not executable by clients |
+| Professional inserts a document (any path, status `accepted`) | `42501` (the hole from section 2 is closed) |
+| Professional or admin updates a document row directly | `42501` both |
+| Professional uploads to the bucket | `42501` |
+| Service role insert (what the upload action does) | works |
+| Owner reads own rows; another professional's rows | 2; 0 |
+| Approve with a pending document | `23514` |
+| Approve with an `accepted` row whose file is missing (the legacy shape) | `23514` |
+| Approve with `accepted` but no reviewer | `23514` |
+| Review as customer or professional | `42501` |
+| Review bad decision; reject without a note | `22023` |
+| Review unknown document; accept with file missing | `P0002`; `23514`, row stays `pending` |
+| Review accept, then a second review | ok (reviewer, time, note stored); `55000` |
+| Approve after an accepted, existing file | ok; `verified`, `is_available` stays false, one history event |
+| Reject a document | ok |
+| Reactivate; reject with no documents | unchanged, ok |
+| Professional submission with a pending document | still works (`changed: true`) |
+
+Not covered by the dry run, and still to build after the migration is approved and applied:
+- Admin UI: per-document Accept/Reject with a note, calling the review function through `runAdminAction` (Zod in `src/validators`, audit rows), and the Approve button disabled until the required document is accepted. Inspect Document should be required before Accept. A one-click approve with a fixed reason remains until then.
+- `uploadVerificationDocument` still contains an `@ts-ignore` and `any`; clean up when that file is next touched.
+- Real upload of a file into the new bucket, end to end, on the isolated staging project (not done on the shared database).
+- The two legacy verified professionals are unchanged. They stay verified; they cannot be re-approved without evidence. Decision still needed: suspend or re-verify.
+- Applying needs the usual explicit owner go-ahead; the storage policies in step 1 should be checked to apply under the CLI's role (the dry run created them inside the transaction, so they do).

@@ -1,0 +1,55 @@
+{
+ "a01_bucket_private": true,
+ "a02_grants": {
+  "auth_insert_docs": false,
+  "auth_select_docs": true,
+  "auth_update_docs": false,
+  "helper_authenticated": false,
+  "review_anon": false,
+  "review_authenticated": true
+ },
+ "a03_insert_policy_left": 0,
+ "b01_pro_insert_doc": "42501",
+ "b02_pro_update_own_doc": "42501",
+ "b03_admin_direct_update": "42501",
+ "b04_pro_storage_upload": "42501",
+ "b05_doc1_still_pending": "pending",
+ "b06_service_role_insert": "ok",
+ "b07_owner_reads": 2,
+ "b07b_other_pro_rows_visible": 0,
+ "c01_approve_pending_doc": "23514",
+ "c02_approve_accepted_file_missing": "23514",
+ "c03_approve_accepted_no_reviewer": "23514",
+ "d01_review_nonadmin_customer": "42501",
+ "d02_review_nonadmin_pro": "42501",
+ "d03_review_bad_decision": "22023",
+ "d04_reject_without_note": "22023",
+ "d05_unknown_document": "P0002",
+ "d06_accept_file_missing": "23514",
+ "d06b_d4_still_pending": "pending",
+ "e01_accept_d1": "ok",
+ "e01b_doc": {
+  "note": "Looked at the file.",
+  "reviewed": true,
+  "reviewer_is_admin": true,
+  "status": "accepted"
+ },
+ "e02_review_twice": "55000",
+ "e03_approve_with_evidence": "ok",
+ "e03b_profile": {
+  "available": false,
+  "status": "verified"
+ },
+ "e03c_events": 1,
+ "f01_reject_doc": "ok",
+ "f01b_doc": "rejected",
+ "g01_reactivate_no_new_evidence": "ok",
+ "g01b_status": "verified",
+ "g02_reject_without_docs": "ok",
+ "g02b_status": "rejected",
+ "h01_verified_count_unchanged_in_txn": 2,
+ "i01_submit_still_works": {
+  "changed": true,
+  "status": "documents_submitted"
+ }
+}
