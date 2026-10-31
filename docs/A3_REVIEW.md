@@ -35,17 +35,35 @@ Suite at last run: `pnpm tsc --noEmit` clean; Vitest 366 passed, 16 skipped.
 - **Paid booking through the UI.** A synthetic job with a job-level `paid` payment (provider `synthetic`, no real transaction): the cancel panel showed the no-automatic-refund copy; confirm cancelled the booking and job, the page showed "This booking is cancelled" with "You paid for this booking. Cancelling does not refund it automatically…", the payment row was untouched (`paid`), and `booking_events` recorded `payment_review_required: true`, `paid_payment_count: 1`. So `kase.paidAt` does cover job payments, as designed.
   - Cosmetic: a cancelled-and-paid page still shows the green "Payment received" block above the cancelled notice. Consider hiding it once cancelled (A5 polish).
 
+**Assigned-professional cancellation (verified 2026-10-31).** Isolated fixtures: a synthetic verified professional (`synthetic.pro.a3@fixify.invalid`, `is_available=false`, no skills, no service areas, no phone, no password, so the matcher can never rank or contact them) and two past-dated bookings of `customer.a@fixify.dev`. Cancelled through the real UI (booking page, reason, confirm):
+
+| Check | Accepted job | Assigned job with open offer |
+|---|---|---|
+| Booking / job state | `cancelled` / `cancelled` | `cancelled` / `cancelled` |
+| `booking_events` | one row, customer, `changed_my_mind`, `job_state: accepted`, `payment_review_required: false` | one row, `found_other_help`, `job_state: assigned` |
+| `job_events` | `accepted>cancelled` | `assigned>cancelled` |
+| Offer withdrawal | n/a | one `withdrawn` attempt, `offer_expires_at` cleared |
+| Professional notified | `job_cancelled` (unread) | `job_cancelled` (unread) |
+| Customer notified of own action | 0 | 0 |
+| WhatsApp | one `cancellation/whatsapp` row queued `pending`; the professional has no phone, row deleted in cleanup | same |
+| Active codes | 0 | 0 |
+| Payments | none (paid case verified earlier: preserved, flagged) | none |
+
+Also verified by rolled-back SQL as the real roles: a duplicate customer cancel returns `ALREADY_CANCELLED` (both expected states); the professional's `on_the_way`, `arrived`, `in_progress`, `completed`, `accepted` transitions are all refused (`P0001`) and `decline_job` is refused (`P0002`); the professional can still read the job; the job has exactly one cancel event. Cleanup: all synthetic bookings, jobs, notifications, log rows and the synthetic auth user deleted; `booking_events` empty; no orphans; `c779c0d4` untouched (`pending`).
+
+Not run here: a future-dated assigned booking with live matching (needs the isolated staging database).
+
 **Still not verified:**
 
-- Customer cancel with an **assigned professional** through the UI. There is no designated test professional account, and using a real one would notify them. Covered by the dry run (d11–d14, notifications included) and unit tests only. Needs either a designated test professional or owner consent to a synthetic one.
-- Reconcile panel refusal paths and 375px layout: needs the owner signed in as admin.
-- A1 approve/reject journeys and any Playwright coverage of A3: blocked without `E2E_TEST_PASSWORD`.
+- **Reconcile panel** (375px and 1280px, valid, invalid, stale, terminal, unauthorized, error text, database unchanged after rejection): needs the owner signed in as admin in the browser pane. **Waiting on you.**
+- **A1 approve/reject journeys** (rejection reason, history, audit events, unauthorized attempts): same dependency, plus synthetic pending-verification fixtures that cannot qualify for real work.
+- **Playwright:** `tests/e2e/a1-a3-access-and-cancel.spec.ts` written (admin pages closed to customer and professional; customer cancel needs a reason, then cancels). **Execution BLOCKED**: no `E2E_TEST_PASSWORD` in this environment. It type-checks, lints and lists 9 tests across 3 browsers; it has not run and no pass is claimed. Admin approve/reject and reconcile journeys are **not written yet**. External testing stays blocked until a green run (release blocker).
 
 ## 4. Open items (kept visible)
 
-1. `admin_cancel_job` lock order (job→booking) opposite to matcher/customer cancel (booking→job). Recommended small follow-up.
+1. **Deadlock (required before A4):** `admin_cancel_job` and `_release_offer` (decline, offer expiry, suspension withdraw) lock job→booking, opposite to the matcher and customer cancel. Fix prepared as migration 108, dry-run only, **not applied**; see `docs/A3_LOCK_ORDER_DESIGN.md`. Two-session concurrency tests of the fix run after approval.
 2. Five historical drift rows (booking pending/confirmed, job cancelled); cause: a professional cancel leaves the booking `pending`. Customers can now clear them; whether a professional cancel should re-offer the booking is an A4 product decision.
-3. `c779c0d4` (no-job stale booking): untouched; only resolvable through `customer_cancel_booking` with the customer's consent or owner direction.
+3. `c779c0d4` (no-job stale booking): preserved, untouched, still `pending`, still visible in the Operations queue. It belongs to `customer.a@fixify.dev` (Priya Sharma), a designated fixify.dev test/seed account, created 2026-10-04: synthetic, not a real customer. No one has been contacted; resolving it needs your explicit direction.
 4. Customer-consented reschedule for expired bookings (design only, A3.3).
 5. A quote left `pending_customer` when a job is cancelled is not handled (both cancel paths).
 6. Verification document-integrity gap; legacy verified professionals with 0 documents.
@@ -61,3 +79,14 @@ Suite at last run: `pnpm tsc --noEmit` clean; Vitest 366 passed, 16 skipped.
 3. Align `admin_cancel_job` lock order now (small migration, needs the usual dry run and approval), or leave and rely on retry?
 4. `c779c0d4`: leave, or approach the customer?
 5. Run the A1 journeys and an A3 Playwright pass before A4, or after A5?
+
+## 6. A4 gate package
+
+1. Assigned-professional cancellation: verified (section 3).
+2. Reconcile panel browser results: pending your admin sign-in.
+3. A1 approve/reject browser results: pending your admin sign-in; document-integrity gap still to be investigated separately.
+4. Playwright: spec written, execution BLOCKED (no `E2E_TEST_PASSWORD`); admin journeys not yet written.
+5. Deadlock root cause: `docs/A3_LOCK_ORDER_DESIGN.md` section 1.
+6. Proposed lock-order migration: `supabase/migrations/20261031_108_consistent_lock_order.sql`, rollback `supabase/rollbacks/20261031_108_rollback.sql`, dry run 18 cases passed (rolled back); concurrency tests not run. **Awaiting your approval to apply.**
+7. This document updated.
+8. Release blockers: apply 108 and run its concurrency tests; green Playwright run; reconcile and A1 browser verification; isolated staging Supabase project (shared database serves localhost, production traffic, matcher and test data); document-integrity gap; legacy verified professionals with 0 documents; professional-cancel policy implementation (A4 design approved, not built).
