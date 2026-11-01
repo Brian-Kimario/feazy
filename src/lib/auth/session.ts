@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { type User } from '@supabase/supabase-js';
+import { createTypedAdminClient } from '@/lib/admin/client';
 import { type Profile } from '@/types/auth';
 
 /**
@@ -19,6 +20,32 @@ export async function getCurrentUser(): Promise<User | null> {
   } = await supabase.auth.getUser();
 
   return user;
+}
+
+async function createMissingCustomerProfile(user: User): Promise<Profile | null> {
+  const adminClient = await createTypedAdminClient();
+  // ignoreDuplicates makes this INSERT ... ON CONFLICT DO NOTHING: an existing row, with whatever
+  // role it holds, is left untouched.
+  const { error: insertError } = await adminClient.from('profiles').upsert(
+    [
+      {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        role: 'customer',
+      },
+    ],
+    { onConflict: 'id', ignoreDuplicates: true },
+  );
+  if (insertError) {
+    console.error('Failed to create profile:', { code: String(insertError.code || 'UNKNOWN'), userId: user.id });
+    return null;
+  }
+  const { data, error } = await adminClient.from('profiles').select('*').eq('id', user.id).single();
+  if (error) {
+    console.error('Failed to read profile after create:', { code: String(error.code || 'UNKNOWN'), userId: user.id });
+    return null;
+  }
+  return data as Profile;
 }
 
 export async function getCurrentProfile(): Promise<Profile | null> {
@@ -48,77 +75,19 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     console.warn('Profile fetch error details:', errorObj);
 
     if (error.code === 'PGRST116') {
+      // No visible row. profiles are created by the handle_new_user trigger at signup, so this
+      // means the row is genuinely missing. Create it only if absent and never overwrite a row
+      // that appears meanwhile: an upsert here would reset an existing admin or professional to
+      // customer.
       console.warn('Profile record not found, attempting to create');
-
-      const { createAdminClient } = await import('@/lib/supabase/admin');
-      const adminClient = await createAdminClient();
-
-      // @ts-ignore - Supabase SDK type inference issue
-      const { data: newProfile, error: createError } = await (adminClient as any)
-        .from('profiles')
-        .upsert(
-          [
-            {
-              id: user.id,
-              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-              role: 'customer',
-            },
-          ],
-          { onConflict: 'id' }
-        )
-        .select('*')
-        .single();
-
-      if (createError) {
-        const createErrorObj = {
-          message: String(createError.message || 'Unknown error'),
-          code: String(createError.code || 'UNKNOWN'),
-          details: String(createError.details || ''),
-          userId: user.id,
-        };
-        console.error('Failed to create profile:', createErrorObj);
-        return null;
-      }
-
-      console.info('Profile created successfully for user:', user.id);
-      return newProfile as Profile;
-    } else if (error.code === 'PGRST201') {
-      console.warn('Profile access denied by RLS policy, attempting to create via admin');
-
-      const { createAdminClient } = await import('@/lib/supabase/admin');
-      const adminClient = await createAdminClient();
-
-      // @ts-ignore - Supabase SDK type inference issue
-      const { data: newProfile, error: createError } = await (adminClient as any)
-        .from('profiles')
-        .upsert(
-          [
-            {
-              id: user.id,
-              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-              role: 'customer',
-            },
-          ],
-          { onConflict: 'id' }
-        )
-        .select('*')
-        .single();
-
-      if (createError) {
-        const createErrorObj = {
-          message: String(createError.message || 'Unknown error'),
-          code: String(createError.code || 'UNKNOWN'),
-          details: String(createError.details || ''),
-          userId: user.id,
-        };
-        console.error('Failed to create profile via admin:', createErrorObj);
-        return null;
-      }
-
-      console.info('Profile created via admin client for user:', user.id);
-      return newProfile as Profile;
+      const created = await createMissingCustomerProfile(user);
+      if (!created) return null;
+      console.info('Profile ready for user:', user.id);
+      return created;
     }
 
+    // Any other error (including PGRST201, which is a relationship ambiguity, not an RLS denial)
+    // falls through to a read-only fetch. It never writes the role.
     console.warn('Trying to fetch profile as admin due to error:', errorObj.code);
     const { createAdminClient } = await import('@/lib/supabase/admin');
     const adminClient = await createAdminClient();
