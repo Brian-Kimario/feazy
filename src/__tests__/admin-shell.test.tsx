@@ -126,7 +126,7 @@ describe('admin navigation data', () => {
   it('has unique hrefs and keeps the planned section names for what exists', () => {
     const hrefs = ADMIN_NAV_ITEMS.map((i) => i.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(ADMIN_NAV.map((s) => s.label)).toEqual(['Overview', 'Operations', 'Jobs & Bookings', 'People', 'Activity & Audit']);
+    expect(ADMIN_NAV.map((s) => s.label)).toEqual(['Overview', 'Operations', 'Jobs & Bookings', 'People', 'Finance', 'Activity & Audit']);
   });
 
   it('highlights exactly one item, and Overview only on /admin', () => {

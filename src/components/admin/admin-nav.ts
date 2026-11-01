@@ -28,6 +28,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { href: '/admin/customers', label: 'Customers', icon: 'people' },
     ],
   },
+  { label: 'Finance', items: [{ href: '/admin/finance', label: 'Payments', icon: 'jobs' }] },
   { label: 'Activity & Audit', items: [{ href: '/admin/audit', label: 'Audit log', icon: 'verification' }] },
 ];
 

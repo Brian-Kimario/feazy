@@ -82,3 +82,16 @@ describe('audit log', () => {
     expect(src).not.toMatch(/\.(insert|update|delete|upsert)\(/);
   });
 });
+
+describe('finance payments', () => {
+  it('defaults bad filters', async () => {
+    const { paymentDirectoryInput } = await import('@/lib/admin/finance-directory');
+    expect(paymentDirectoryInput.parse({ status: 'x', from: 'now', page: '-1' })).toEqual({ status: 'all', from: undefined, to: undefined, page: 1 });
+  });
+  it('service is read-only and checks the admin role first', () => {
+    const src = read('src/lib/services/admin-payments.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+    expect(src).not.toMatch(/\.(insert|update|delete|upsert|rpc)\(/);
+  });
+});
