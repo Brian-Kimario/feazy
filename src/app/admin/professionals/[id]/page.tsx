@@ -13,6 +13,7 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 const words = (v: string | null | undefined): string => (v ? v.replace(/_/g, ' ') : '—');
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const pct = (v: number | null): string => (v === null ? '—' : `${Math.round(v * 100)}%`);
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -88,6 +89,36 @@ export default async function ProfessionalAccountPage({ params }: { params: Prom
             </p>
             <RetryRecoveryButton professionalId={p.userId} />
           </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-line bg-paper p-5">
+        <h2 className="text-sm font-bold text-ink">Contact, availability and coverage</h2>
+        <p className="mt-2 text-sm text-ink-2">{p.contact.email ?? 'No email'} · {p.contact.phone ?? 'No phone'}</p>
+        <p className="mt-2 text-sm text-ink-2">
+          <span className="font-semibold text-ink">Weekly hours: </span>
+          {p.availability.length === 0 ? 'none set' : p.availability.map((w) => `${DAYS[w.day] ?? w.day} ${w.start}–${w.end}`).join(', ')}
+        </p>
+        <p className="mt-1 text-sm text-ink-2">
+          <span className="font-semibold text-ink">Service areas: </span>
+          {p.serviceAreas.length === 0 ? 'none set' : p.serviceAreas.map((a) => `${a.area ? `${a.area}, ` : ''}${a.city}${a.radiusKm ? ` (${a.radiusKm} km)` : ''}`).join('; ')}
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-line bg-paper p-5">
+        <h2 className="text-sm font-bold text-ink">Verification documents</h2>
+        {p.documents.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-3">No documents uploaded. Files are opened from the verification queue, not here.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-line text-sm">
+            {p.documents.map((d) => (
+              <li key={d.id} className="flex flex-wrap justify-between gap-2 py-2">
+                <span className="capitalize text-ink">{words(d.type)}</span>
+                <span className="capitalize text-ink-2">{words(d.status)}</span>
+                <span className="text-xs text-ink-3">Uploaded {formatDateTime(d.uploadedAt)}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 

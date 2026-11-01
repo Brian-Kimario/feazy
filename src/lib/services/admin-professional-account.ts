@@ -43,6 +43,10 @@ export interface ProfessionalAccount {
   complaints: { id: string; jobId: string; kind: string; status: string; reportedAt: string }[];
   history: { id: string; at: string; action: string; from: string; to: string; reason: string }[];
   adminActivity: { id: string; at: string; action: string }[];
+  contact: { email: string | null; phone: string | null };
+  availability: { day: number; start: string; end: string }[];
+  serviceAreas: { city: string; area: string | null; radiusKm: number | null }[];
+  documents: { id: string; type: string; status: string; uploadedAt: string; reviewedAt: string | null }[];
 }
 
 export async function getProfessionalAccount(userId: string): Promise<AdminResult<ProfessionalAccount | null>> {
@@ -90,7 +94,17 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
       .order('created_at', { ascending: false })
       .limit(20),
   ]);
-  const failed = [jobs, metrics, exceptions, events, audit].find((r) => r.error);
+  const [contact, avail, areas, vers] = await Promise.all([
+    admin.from('profiles').select('email, phone').eq('id', userId).maybeSingle(),
+    admin.from('professional_availability').select('day_of_week, start_time, end_time').eq('professional_id', userId).eq('is_active', true).order('day_of_week').order('start_time').limit(50),
+    admin.from('professional_service_areas').select('city, area, radius_km').eq('professional_id', userId).eq('is_active', true).limit(50),
+    admin.from('professional_verifications').select('id').eq('professional_id', userId).limit(20),
+  ]);
+  const verIds = (vers.data ?? []).map((v) => v.id);
+  const docs = verIds.length
+    ? await admin.from('professional_verification_documents').select('id, document_type, status, uploaded_at, reviewed_at').in('verification_id', verIds).order('uploaded_at', { ascending: false }).limit(30)
+    : { data: [], error: null };
+  const failed = [jobs, metrics, exceptions, events, audit, contact, avail, areas, vers, docs].find((r) => r.error);
   if (failed?.error) {
     console.error('getProfessionalAccount:', failed.error.message);
     return adminFailure('FAILED', 'Could not load this professional. Reload to try again.');
@@ -158,6 +172,10 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
         reason: e.reason,
       })),
       adminActivity: (audit.data ?? []).map((a) => ({ id: a.id, at: a.created_at, action: a.action })),
+      contact: { email: contact.data?.email ?? null, phone: contact.data?.phone ?? null },
+      availability: (avail.data ?? []).map((r) => ({ day: r.day_of_week, start: String(r.start_time).slice(0, 5), end: String(r.end_time).slice(0, 5) })),
+      serviceAreas: (areas.data ?? []).map((r) => ({ city: r.city, area: r.area ?? null, radiusKm: r.radius_km ?? null })),
+      documents: (docs.data ?? []).map((d) => ({ id: d.id, type: d.document_type, status: d.status, uploadedAt: d.uploaded_at, reviewedAt: d.reviewed_at ?? null })),
     },
   };
 }
