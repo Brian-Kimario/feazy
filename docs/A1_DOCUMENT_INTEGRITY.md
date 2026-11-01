@@ -107,6 +107,6 @@ Fixtures: two unmatchable synthetic professionals (`synthetic.pro.rv1/rv2@fixify
 
 Finding fixed during the run: errors were keyed by storage path, so two documents sharing a path showed each other's message; now keyed by document id (that fix was made after the run and is covered by tsc and the unit tests only).
 
-Cleanup: fixture professionals, verifications, documents and notifications deleted; verified professionals back to 2; `c779c0d4` still `pending`. **Left behind:** the two `@fixify.invalid` auth users and their audit rows (append-only FK), and two metadata-only `storage.objects` rows (`5b100000-.../id/synthetic.png`), because Postgres refuses direct deletes on storage tables and the Storage API sees no file to delete.
+Cleanup: fixture professionals, verifications, documents and notifications deleted; verified professionals back to 2; `c779c0d4` still `pending`. **Left behind:** the two `@fixify.invalid` auth users and their audit rows (append-only FK), and, until removed with owner approval using `SET LOCAL storage.allow_delete_query = 'true'` (Postgres refuses direct deletes on storage tables and the Storage API saw no file), two metadata-only `storage.objects` rows. Those two rows are now deleted: the bucket holds 0 objects.
 
 Still open: a real upload end to end (staging project), the legacy verified professionals decision, and the e2e admin spec was not updated or run.
