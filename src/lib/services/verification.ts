@@ -12,7 +12,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createTypedAdminClient } from '@/lib/admin/client';
 import { revalidatePath } from 'next/cache';
 import { runAdminAction } from '@/lib/admin/action';
 import { getAdminActor } from '@/lib/admin/guard';
@@ -98,7 +98,7 @@ export async function uploadVerificationDocument(
 ): Promise<UploadDocumentResult> {
   try {
     const supabase = await createClient();
-    const adminClient = await createAdminClient();
+    const adminClient = await createTypedAdminClient();
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     const {
@@ -112,7 +112,7 @@ export async function uploadVerificationDocument(
       .select('role')
       .eq('id', user.id)
       .single();
-    if (!profile || (profile as any).role !== 'professional') {
+    if (!profile || profile.role !== 'professional') {
       return { success: false, error: 'Not authorised — professionals only' };
     }
 
@@ -153,7 +153,7 @@ export async function uploadVerificationDocument(
     const latestRow = latest as { id: string; status: string } | null;
 
     if (!latestRow || latestRow.status === 'rejected') {
-      const { data: newVerification, error: insertError } = await (adminClient as any)
+      const { data: newVerification, error: insertError } = await adminClient
         .from('professional_verifications')
         .insert({ professional_id: user.id, status: 'pending' })
         .select('id')
@@ -186,8 +186,7 @@ export async function uploadVerificationDocument(
     }
 
     // ── Insert document record ────────────────────────────────────────────────
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data: docRecord, error: docInsertError } = await (adminClient as any)
+    const { data: docRecord, error: docInsertError } = await adminClient
       .from('professional_verification_documents')
       .insert({
         verification_id: verificationId,
@@ -213,142 +212,10 @@ export async function uploadVerificationDocument(
     }
 
     revalidatePath('/professional/onboarding');
-    return { success: true, error: null, documentId: (docRecord as any).id };
+    return { success: true, error: null, documentId: docRecord.id };
   } catch (err) {
     console.error('[Verification] Unexpected error in uploadVerificationDocument:', err);
     return { success: false, error: 'An unexpected error occurred. Please try again.' };
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Get professionals pending verification (admin action)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Fetch all professionals whose verification_status is not 'verified' or 'suspended'.
- * Returns profile info, latest verification record, and its documents.
- *
- * Requires: admin role.
- */
-export async function getUnverifiedProfessionals(): Promise<{
-  data: PendingProfessional[];
-  error: string | null;
-}> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: [], error: 'Not authenticated' };
-
-    // Server-side admin check
-    const { data: actorProfile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    if (!actorProfile || (actorProfile as any).role !== 'admin') {
-      return { data: [], error: 'Not authorised' };
-    }
-
-    const adminClient = await createAdminClient();
-
-    // All non-verified, non-suspended professionals
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data: professionalsRaw, error: profError } = await (adminClient as any)
-      .from('professional_profiles')
-      .select(
-        `user_id, display_name, bio, years_experience, verification_status, created_at,
-         profiles!professional_profiles_user_id_fkey (full_name, email)`,
-      )
-      .not('verification_status', 'in', '("verified","suspended")')
-      .order('created_at', { ascending: false });
-
-    if (profError) {
-      console.error('[Verification] Failed to fetch professionals:', profError);
-      return { data: [], error: (profError as any).message };
-    }
-
-    const professionals: any[] = professionalsRaw ?? [];
-
-    if (professionals.length === 0) {
-      return { data: [], error: null };
-    }
-
-    const professionalIds = professionals.map((p: any) => p.user_id);
-
-    // Latest verification for each professional
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data: verificationsRaw } = await (adminClient as any)
-      .from('professional_verifications')
-      .select('id, professional_id, status, submitted_at, rejection_reason, notes')
-      .in('professional_id', professionalIds)
-      .order('created_at', { ascending: false });
-
-    const verifications: any[] = verificationsRaw ?? [];
-
-    // Documents for those verifications
-    const verificationIds = verifications.map((v: any) => v.id);
-    let documents: any[] = [];
-    if (verificationIds.length) {
-      // @ts-ignore - Supabase SDK type inference issue
-      const { data: docsRaw } = await adminClient
-        .from('professional_verification_documents')
-        .select('id, verification_id, document_type, storage_path, status, uploaded_at, reviewer_notes')
-        .in('verification_id', verificationIds)
-        .order('uploaded_at', { ascending: false });
-      documents = docsRaw ?? [];
-    }
-
-    // Build look-ups
-    const verificationByPro = new Map<string, any>();
-    for (const v of verifications) {
-      if (!verificationByPro.has(v.professional_id)) {
-        verificationByPro.set(v.professional_id, v);
-      }
-    }
-
-    const docsByVerification = new Map<string, VerificationDocument[]>();
-    for (const doc of documents) {
-      if (!docsByVerification.has(doc.verification_id)) {
-        docsByVerification.set(doc.verification_id, []);
-      }
-      docsByVerification.get(doc.verification_id)!.push({
-        id: doc.id,
-        document_type: doc.document_type as DocumentType,
-        storage_path: doc.storage_path,
-        status: doc.status as 'pending' | 'accepted' | 'rejected',
-        uploaded_at: doc.uploaded_at,
-        reviewer_notes: doc.reviewer_notes,
-      });
-    }
-
-    const result: PendingProfessional[] = professionals.map((p: any) => {
-      const profileData = p.profiles as { full_name: string | null; email: string | null } | null;
-      const latestVerification = verificationByPro.get(p.user_id) ?? null;
-      return {
-        user_id: p.user_id,
-        display_name: p.display_name,
-        bio: p.bio,
-        years_experience: p.years_experience,
-        verification_status: p.verification_status as VerificationStatus,
-        created_at: p.created_at,
-        full_name: profileData?.full_name ?? null,
-        email: profileData?.email ?? null,
-        verification_id: latestVerification?.id ?? null,
-        submitted_at: latestVerification?.submitted_at ?? null,
-        rejection_reason: latestVerification?.rejection_reason ?? null,
-        notes: latestVerification?.notes ?? null,
-        documents: latestVerification
-          ? (docsByVerification.get(latestVerification.id) ?? [])
-          : [],
-      };
-    });
-
-    return { data: result, error: null };
-  } catch (err) {
-    console.error('[Verification] Unexpected error in getUnverifiedProfessionals:', err);
-    return { data: [], error: 'Failed to load verification queue' };
   }
 }
 
@@ -583,7 +450,7 @@ export async function getDocumentSignedUrl(storagePath: string): Promise<{
       if (!audit.success) return { url: null, error: 'Could not record the audit trail' };
     }
 
-    const adminClient = await createAdminClient();
+    const adminClient = await createTypedAdminClient();
     const { data, error } = await adminClient.storage
       .from('verification-documents')
       .createSignedUrl(path, 3600); // 1 hour

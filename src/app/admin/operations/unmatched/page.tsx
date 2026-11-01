@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getAssignmentQueueStatus, getUnmatchedBookings } from '@/lib/services/admin';
+import { getAssignmentQueueStatus, getUnmatchedBookings } from '@/lib/services/admin-reads';
 
 export const metadata = {
   title: 'Unmatched bookings — Feasy Admin',

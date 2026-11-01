@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { getAdminMetrics, getAssignmentQueueStatus } from '@/lib/services/admin';
+import { getAdminMetrics, getAssignmentQueueStatus } from '@/lib/services/admin-reads';
 import { getOperationsQueue } from '@/lib/services/admin-operations';
 import { getRecentAdminActivity } from '@/lib/services/admin-overview';
-import { getUnverifiedProfessionals } from '@/lib/services/verification';
+import { getUnverifiedProfessionals } from '@/lib/services/verification-queue';
 import { isAdminFailure } from '@/lib/admin/result';
 import { OPS_TYPE_LABELS, formatDuration, type OpsCase } from '@/lib/admin/operations';
 import { formatDateTime } from '@/lib/admin/format';

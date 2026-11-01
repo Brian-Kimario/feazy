@@ -206,11 +206,16 @@ describe('admin authorization is consolidated (static)', () => {
   const root = path.resolve(__dirname, '../..');
   const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
 
-  it.each(['src/lib/services/admin.ts', 'src/lib/services/admin-operations.ts'])(
-    '%s delegates the role check to getAdminActor',
+  it.each([
+    'src/lib/services/admin.ts',
+    'src/lib/services/admin-reads.ts',
+    'src/lib/services/verification-queue.ts',
+    'src/lib/services/admin-operations.ts',
+  ])(
+    '%s delegates the role check to the shared admin guard',
     (p) => {
       const src = read(p);
-      expect(src).toContain('getAdminActor');
+      expect(src).toMatch(/getAdminActor|requireAdmin/);
       expect(src).not.toMatch(/\.from\('profiles'\)\s*\.select\('role/);
     },
   );

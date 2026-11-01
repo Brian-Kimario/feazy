@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { z } from 'zod';
-import { getAssignmentQueueStatus } from '@/lib/services/admin';
+import { getAssignmentQueueStatus } from '@/lib/services/admin-reads';
 import { getOperationsQueue } from '@/lib/services/admin-operations';
 import { OPS_CASE_TYPES, OPS_SEVERITIES, OPS_TYPE_LABELS } from '@/lib/admin/operations';
 import { isAdminFailure } from '@/lib/admin/result';

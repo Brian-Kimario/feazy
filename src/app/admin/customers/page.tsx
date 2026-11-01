@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getAllCustomers } from '@/lib/services/admin';
+import { getAllCustomers } from '@/lib/services/admin-reads';
 import CustomersTable from '@/components/admin/CustomersTable';
 
 export const metadata = {
@@ -24,7 +24,7 @@ export default async function AdminCustomersPage() {
     .eq('id', user.id)
     .single();
 
-  if (!profile || (profile as any).role !== 'admin') redirect('/');
+  if (!profile || profile.role !== 'admin') redirect('/');
 
   // ── Fetch Customers ─────────────────────────────────────────────────────────
   const { data: customers, error } = await getAllCustomers();

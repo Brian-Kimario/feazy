@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getAllJobs } from '@/lib/services/admin';
+import { getAllJobs } from '@/lib/services/admin-reads';
 import AdminJobsClient from '@/components/admin/JobsTable';
 
 export const metadata = {
@@ -31,7 +31,7 @@ export default async function AdminJobsPage({ searchParams }: AdminJobsPageProps
     .eq('id', user.id)
     .single();
 
-  if (!profile || (profile as any).role !== 'admin') redirect('/');
+  if (!profile || profile.role !== 'admin') redirect('/');
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data: jobs, total, error } = await getAllJobs({ limit: 100 });

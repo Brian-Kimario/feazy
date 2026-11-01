@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { adminFailure, type AdminResult } from './result';
+import { adminFailure, isAdminFailure, type AdminResult } from './result';
 
 export interface AdminActor {
   userId: string;
@@ -27,4 +27,10 @@ export async function getAdminActor(): Promise<AdminResult<AdminActor>> {
   if (profile.role !== 'admin') return adminFailure('FORBIDDEN', 'Not authorised — admin only');
 
   return { ok: true, data: { userId: user.id } };
+}
+
+/** Narrow form of getAdminActor for services that return their own error shape. */
+export async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
+  const actor = await getAdminActor();
+  return isAdminFailure(actor) ? { error: actor.error } : actor.data;
 }

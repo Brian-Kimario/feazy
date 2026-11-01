@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import VerificationQueue from '@/components/admin/VerificationQueue';
-import { getUnverifiedProfessionals } from '@/lib/services/verification';
-import { getAllProfessionals } from '@/lib/services/admin';
+import { getUnverifiedProfessionals } from '@/lib/services/verification-queue';
+import { getAllProfessionals } from '@/lib/services/admin-reads';
 
 export const metadata = {
   title: 'Professional Verification — Feasy Admin',
@@ -26,7 +26,7 @@ export default async function AdminProfessionalsPage() {
     .eq('id', user.id)
     .single();
 
-  if (!profile || (profile as any).role !== 'admin') redirect('/');
+  if (!profile || profile.role !== 'admin') redirect('/');
 
   // ── Fetch data in parallel ───────────────────────────────────────────────────
   const [unverifiedRes, allProsRes] = await Promise.all([

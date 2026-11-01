@@ -66,7 +66,6 @@ describe('server-action exposure inventory', () => {
   const ALLOW: Record<string, Record<string, string>> = {
     'src/lib/services/verification.ts': {
       uploadVerificationDocument: 'professional-only: checks profiles.role === professional and writes under own user id',
-      getUnverifiedProfessionals: "inline check: profiles.role !== 'admin' returns early before any admin-client read",
       getDocumentSignedUrl: 'owner may sign own path; any other path requires getAdminActor and an audit row',
     },
     'src/app/admin/actions.ts': {
@@ -82,6 +81,8 @@ describe('server-action exposure inventory', () => {
     'src/lib/services/admin-operations.ts',
     'src/lib/services/admin-overview.ts',
     'src/lib/services/admin-case.ts',
+    'src/lib/services/admin-reads.ts',
+    'src/lib/services/verification-queue.ts',
     'src/app/admin/actions.ts',
   ];
 
@@ -103,7 +104,7 @@ describe('server-action exposure inventory', () => {
     const src = read(file);
     // admin-operations.ts is a plain server module (not an endpoint) reached only through
     // actions.ts; its exports stay guarded anyway so a later 'use server' cannot open a hole.
-    const isEndpointModule = !file.endsWith('admin-operations.ts') && !file.endsWith('admin-overview.ts') && !file.endsWith('admin-case.ts');
+    const isEndpointModule = !file.endsWith('admin-operations.ts') && !file.endsWith('admin-overview.ts') && !file.endsWith('admin-case.ts') && !file.endsWith('admin-reads.ts') && !file.endsWith('verification-queue.ts');
     const head = src.split('\n').slice(0, 15).join('\n');
     if (isEndpointModule) expect(head).toMatch(/['"]use server['"]/);
     else expect(head).not.toMatch(/['"]use server['"]/);
@@ -135,5 +136,48 @@ describe('server-action exposure inventory', () => {
     const g = read('src/lib/admin/guard.ts');
     expect(g).toMatch(/\.from\('profiles'\)/);
     expect(g).toMatch(/profile\.role !== 'admin'/);
+  });
+});
+
+describe('admin services are typed and page-only reads are not endpoints (D-2, D-6)', () => {
+  const ADMIN_FILES = [
+    'src/lib/services/admin.ts',
+    'src/lib/services/admin-reads.ts',
+    'src/lib/services/verification.ts',
+    'src/lib/services/verification-queue.ts',
+    'src/lib/admin/client.ts',
+    'src/app/admin/customers/page.tsx',
+    'src/app/admin/jobs/page.tsx',
+    'src/app/admin/professionals/page.tsx',
+  ];
+
+  it.each(ADMIN_FILES)('%s has no any or @ts-ignore', (file) => {
+    expect(read(file)).not.toMatch(/@ts-ignore|\bas any\b|:\s*any\b|<any>/);
+  });
+
+  it('client components never import the page-only read modules', () => {
+    const dir = 'src/components';
+    const hits: string[] = [];
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
+        const rel = path.join(d, e.name);
+        if (e.isDirectory()) walk(rel);
+        else if (/\.tsx?$/.test(e.name)) {
+          const src = read(rel);
+          if (/^['"]use client['"]/m.test(src.slice(0, 200)) && /services\/(admin-reads|verification-queue)['"]/.test(src)) hits.push(rel);
+        }
+      }
+    };
+    walk(dir);
+    expect(hits).toEqual([]);
+  });
+
+  it('moved reads are gone from the endpoint modules', () => {
+    const admin = read('src/lib/services/admin.ts');
+    const ver = read('src/lib/services/verification.ts');
+    for (const name of ['getAdminMetrics', 'getAllJobs', 'getAllProfessionals', 'getRecentPayments', 'getAllCustomers', 'getUnmatchedBookings', 'getAssignmentQueueStatus']) {
+      expect(admin).not.toMatch(new RegExp(`export async function ${name}\\b`));
+    }
+    expect(ver).not.toMatch(/export async function getUnverifiedProfessionals/);
   });
 });
