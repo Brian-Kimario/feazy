@@ -5,6 +5,8 @@ import { getOperationsQueue } from '@/lib/services/admin-operations';
 import { OPS_CASE_TYPES, OPS_SEVERITIES, OPS_TYPE_LABELS } from '@/lib/admin/operations';
 import { isAdminFailure } from '@/lib/admin/result';
 import { OperationsQueue } from '@/components/admin/OperationsQueue';
+import { AssignmentQueueBanner } from '@/components/admin/AssignmentQueueBanner';
+import { formatDateTime } from '@/lib/admin/format';
 
 export const metadata = {
   title: 'Operations — Feasy Admin',
@@ -16,10 +18,6 @@ const filters = z.object({
   type: z.enum(OPS_CASE_TYPES).optional().catch(undefined),
   severity: z.enum(OPS_SEVERITIES).optional().catch(undefined),
 });
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
 
 function href(type?: string, severity?: string): string {
   const q = new URLSearchParams();
@@ -55,7 +53,6 @@ export default async function OperationsPage({
   });
 
   const [result, queue] = await Promise.all([getOperationsQueue(), getAssignmentQueueStatus()]);
-  const queueFailing = queue != null && (!queue.scheduled || queue.lastStatus === 'failed' || queue.failures24h > 0);
 
   const failure = isAdminFailure(result) ? result : null;
   const loaded = isAdminFailure(result) ? null : result.data;
@@ -76,25 +73,7 @@ export default async function OperationsPage({
         </Link>
       </div>
 
-      <div
-        role={queue == null || queueFailing ? 'alert' : undefined}
-        className={`mb-6 rounded-xl border p-4 text-sm ${
-          queue == null || queueFailing ? 'border-danger/25 bg-danger-soft text-danger' : 'border-line bg-paper text-ink-2'
-        }`}
-      >
-        {queue == null ? (
-          'Could not read the assignment queue status.'
-        ) : !queue.scheduled ? (
-          'The assignment queue is not scheduled. Offers will not expire or be retried.'
-        ) : (
-          <>
-            Assignment queue{' '}
-            {queue.lastRunAt ? `last ran ${formatDateTime(queue.lastRunAt)} (${queue.lastStatus ?? 'unknown'})` : 'has not run yet'}
-            {' · '}
-            {queue.failures24h === 1 ? '1 failed run' : `${queue.failures24h} failed runs`} in the last 24 hours
-          </>
-        )}
-      </div>
+      <AssignmentQueueBanner queue={queue} className="mb-6" />
 
       {failure || !loaded ? (
         <div role="alert" className="rounded-xl border border-danger/25 bg-danger-soft p-5 text-danger">
@@ -126,7 +105,11 @@ export default async function OperationsPage({
             ))}
           </nav>
 
-          <OperationsQueue cases={visible} generatedAt={loaded.generatedAt} />
+          <OperationsQueue
+            cases={visible}
+            generatedAt={loaded.generatedAt}
+            initialCaseKey={typeof raw.case === 'string' ? raw.case : undefined}
+          />
           <p className="mt-4 text-xs text-ink-4">Generated {formatDateTime(loaded.generatedAt)}.</p>
         </>
       )}

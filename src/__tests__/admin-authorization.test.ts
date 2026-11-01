@@ -80,6 +80,7 @@ describe('server-action exposure inventory', () => {
     'src/lib/services/admin.ts',
     'src/lib/services/verification.ts',
     'src/lib/services/admin-operations.ts',
+    'src/lib/services/admin-overview.ts',
     'src/app/admin/actions.ts',
   ];
 
@@ -101,7 +102,7 @@ describe('server-action exposure inventory', () => {
     const src = read(file);
     // admin-operations.ts is a plain server module (not an endpoint) reached only through
     // actions.ts; its exports stay guarded anyway so a later 'use server' cannot open a hole.
-    const isEndpointModule = file !== 'src/lib/services/admin-operations.ts';
+    const isEndpointModule = !file.endsWith('admin-operations.ts') && !file.endsWith('admin-overview.ts');
     const head = src.split('\n').slice(0, 15).join('\n');
     if (isEndpointModule) expect(head).toMatch(/['"]use server['"]/);
     else expect(head).not.toMatch(/['"]use server['"]/);

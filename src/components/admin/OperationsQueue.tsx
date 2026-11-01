@@ -233,8 +233,17 @@ function CaseDrawer({ item, onClose }: { item: OpsCase; onClose: () => void }) {
   );
 }
 
-export function OperationsQueue({ cases, generatedAt }: { cases: OpsCase[]; generatedAt: string }) {
-  const [selected, setSelected] = useState<OpsCase | null>(null);
+export function OperationsQueue({
+  cases,
+  generatedAt,
+  initialCaseKey,
+}: {
+  cases: OpsCase[];
+  generatedAt: string;
+  /** Opens this case's drawer on arrival, for links from the Overview. */
+  initialCaseKey?: string;
+}) {
+  const [selected, setSelected] = useState<OpsCase | null>(() => cases.find((c) => c.key === initialCaseKey) ?? null);
   const now = new Date(generatedAt).getTime();
   const age = (iso: string) => formatDuration(now - new Date(iso).getTime());
 
