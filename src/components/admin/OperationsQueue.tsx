@@ -59,6 +59,11 @@ function DetailBody({ item, detail }: { item: OpsCase; detail: OpsCaseDetail }) 
           This case no longer meets its alert rule. It will leave the queue on the next refresh.
         </p>
       )}
+      {item.bookingId && (
+        <Link href={`/admin/jobs/${item.bookingId}`} className="inline-flex min-h-11 items-center font-semibold text-teal-deep hover:underline">
+          Open full case →
+        </Link>
+      )}
       <Section title="Why it was flagged">
         <p>{(detail.current ?? item).reason}</p>
         <p className="mt-2 text-ink-3">Available today: {(detail.current ?? item).nextStep}</p>

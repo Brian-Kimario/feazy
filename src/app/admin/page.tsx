@@ -26,7 +26,7 @@ const SEVERITY: Record<OpsCase['severity'], { label: string; cls: string }> = {
 };
 
 function caseHref(c: OpsCase): string {
-  return c.type === 'verification' ? '/admin/professionals' : `/admin/operations?case=${encodeURIComponent(c.key)}`;
+  return c.type === 'verification' || !c.bookingId ? '/admin/professionals' : `/admin/jobs/${c.bookingId}`;
 }
 
 function Panel({ title, kicker, aside, children }: { title: string; kicker: string; aside?: React.ReactNode; children: React.ReactNode }) {
