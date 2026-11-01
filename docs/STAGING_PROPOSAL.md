@@ -1,5 +1,12 @@
 # Staging environment proposal (PROPOSAL ONLY — nothing provisioned)
 
+> **Owner decision, 2026-11-01: no separate staging.** Dev and testing will use the existing production-shared Supabase project (`azmajqztvcuwajaaldqm`); test data is removed when done. The rest of this document is kept as the alternative.
+> What that decision does **not** cover: schema/function/constraint changes are not removed by deleting test data, so each A4 migration still needs its own explicit go-ahead and the rollback script. Required guardrails if testing there:
+> - Every test row is tagged and removable: synthetic users use `@test.invalid` emails and a `[TEST]` name prefix; bookings/jobs created for them are listed by id in a cleanup script before deletion.
+> - Tests never touch real professionals, real customers, the two legacy verified professionals, or booking `c779c0d4`.
+> - Test bookings are scheduled by relative offsets, deleted promptly, and no notifications/payments are triggered for real users (Razorpay test mode only).
+> - Concurrency tests call functions as synthetic users only; run `a4_assignment_drift` before and after to prove nothing real changed.
+
 Date: 2026-11-01. Labels: **[V]** verified in this repo/session, **[P]** proposed.
 Correction to the brief: the project authenticates with **Supabase Auth** (`@supabase/ssr`), not Clerk. **[V]** No Clerk dependency exists. Staging therefore needs a second Supabase project, not a Clerk instance.
 
