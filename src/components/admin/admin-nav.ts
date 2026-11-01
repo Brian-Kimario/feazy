@@ -12,7 +12,13 @@ export interface AdminNavSection {
  */
 export const ADMIN_NAV: AdminNavSection[] = [
   { label: 'Overview', items: [{ href: '/admin', label: 'Overview', icon: 'overview', exact: true }] },
-  { label: 'Operations', items: [{ href: '/admin/operations', label: 'Operations', icon: 'operations' }] },
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin/operations', label: 'Operations', icon: 'operations' },
+      { href: '/admin/exceptions', label: 'Exceptions', icon: 'operations' },
+    ],
+  },
   { label: 'Jobs & Bookings', items: [{ href: '/admin/jobs', label: 'Jobs', icon: 'jobs' }] },
   {
     label: 'People',

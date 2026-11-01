@@ -11,3 +11,4 @@ export * from './job-codes';
 export * from './admin';
 export * from './auth';
 export * from './contact';
+export * from './assignment';

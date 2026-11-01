@@ -20,6 +20,7 @@ import {
   arrivalWindowText,
 } from '@/components/case/CaseFile';
 import { StateTransitionButtons } from '@/components/professional/StateTransitionButtons';
+import { WithdrawFromJob } from '@/components/professional/WithdrawFromJob';
 import { JobCodeEntry } from '@/components/professional/JobCodeEntry';
 import { RequestCardActions } from '@/components/professional/RequestCardActions';
 import { JobInspectionAndQuote } from '@/components/professional/JobInspectionAndQuote';
@@ -123,6 +124,7 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
                 <div className="space-y-4">
                   {codeState && <JobCodeEntry jobId={job.id} state={codeState} />}
                   <StateTransitionButtons jobId={job.id} currentState={job.state} lockedTargets={lockedTargets} />
+                  <WithdrawFromJob jobId={job.id} />
                 </div>
               ) : (
                 <p className="text-sm text-ink-3">{paidCopy ?? IDLE_COPY[job.state] ?? 'No actions available.'}</p>

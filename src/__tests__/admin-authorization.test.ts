@@ -78,6 +78,7 @@ describe('server-action exposure inventory', () => {
   const FILES = [
     'src/lib/services/admin.ts',
     'src/lib/services/verification.ts',
+    'src/lib/services/admin-assignment.ts',
     'src/lib/services/admin-operations.ts',
     'src/lib/services/admin-overview.ts',
     'src/lib/services/admin-case.ts',

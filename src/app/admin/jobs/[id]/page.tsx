@@ -5,6 +5,8 @@ import { isAdminFailure } from '@/lib/admin/result';
 import { buildCaseTimeline } from '@/lib/admin/case-timeline';
 import { OPS_TYPE_LABELS, formatDuration } from '@/lib/admin/operations';
 import { formatDateTime } from '@/lib/admin/format';
+import { listAssignableProfessionals } from '@/lib/services/admin-assignment-reads';
+import { AssignmentPanel } from '@/components/admin/AssignmentPanel';
 
 export const metadata = {
   title: 'Case — Feasy Admin',
@@ -69,6 +71,10 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const flagged = w.detail.current;
   const timeline = buildCaseTimeline(w);
   const caseKey = flagged ? flagged.key : null;
+  const jobState = w.detail.job ? w.detail.job.state : null;
+  const assignable = ['assigned', 'accepted', 'matching', 'unassigned'].includes(jobState ?? 'matching');
+  const candidatesResult = assignable ? await listAssignableProfessionals() : null;
+  const candidates = candidatesResult && !isAdminFailure(candidatesResult) ? candidatesResult.data : [];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
@@ -145,9 +151,23 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
 
         <div className="space-y-6">
           <Card title="Actions">
-            <p className="text-sm text-ink-2">
-              This page is read-only. {flagged ? flagged.nextStep : 'No action is suggested.'}
-            </p>
+            <p className="text-sm text-ink-2">{flagged ? flagged.nextStep : 'No action is suggested.'}</p>
+            {assignable && (
+              <div className="mt-3 border-t border-line pt-3">
+                {candidatesResult && isAdminFailure(candidatesResult) && (
+                  <p role="alert" className="mb-2 text-xs text-danger">
+                    {candidatesResult.error}
+                  </p>
+                )}
+                <AssignmentPanel
+                  bookingId={w.bookingId}
+                  jobId={w.jobId}
+                  jobState={jobState}
+                  currentProfessionalId={w.professional?.id ?? null}
+                  candidates={candidates}
+                />
+              </div>
+            )}
             <div className="mt-3 flex flex-col gap-2 text-sm font-semibold">
               {caseKey && (
                 <Link href={`/admin/operations?case=${encodeURIComponent(caseKey)}`} className="inline-flex min-h-11 items-center text-teal-deep hover:underline">

@@ -241,7 +241,7 @@ async function transitionProfessional(args: {
   reason: string;
 }): Promise<AdminResult<null>> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc('admin_transition_professional_verification', {
+  const { data, error } = await supabase.rpc('admin_transition_professional_verification', {
     p_professional_id: args.professionalId,
     p_action: args.action,
     p_expected_status: args.expectedStatus,
@@ -254,7 +254,40 @@ async function transitionProfessional(args: {
     return adminFailure('FAILED', actionable ? error.message : 'The status change could not be completed');
   }
   revalidatePath('/admin/professionals');
+
+  // Suspension is two phases (A4): phase 1 above commits the status; phase 2 releases pending offers and
+  // flags active jobs in bounded batches. Run it to completion here, and say so if it cannot finish.
+  const phase1 = data as { recovery_required?: boolean } | null;
+  if (args.action === 'suspend' && phase1?.recovery_required) {
+    const recovery = await runSuspensionRecovery(supabase, args.professionalId);
+    if (!recovery.done) {
+      return adminFailure(
+        'FAILED',
+        `The professional is suspended, but ${recovery.offersRemaining} offer(s) and ${recovery.activeUnflaggedRemaining} active job(s) still need recovery. Suspend again or run recovery from the professional's page.`,
+      );
+    }
+  }
   return { ok: true, data: null };
+}
+
+const RECOVERY_MAX_BATCHES = 20;
+
+async function runSuspensionRecovery(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  professionalId: string,
+): Promise<{ done: boolean; offersRemaining: number; activeUnflaggedRemaining: number }> {
+  let last = { done: false, offersRemaining: -1, activeUnflaggedRemaining: -1 };
+  for (let i = 0; i < RECOVERY_MAX_BATCHES; i++) {
+    const { data, error } = await supabase.rpc('admin_recover_suspended_professional', {
+      p_professional_id: professionalId,
+      p_limit: 25,
+    });
+    if (error || !data) return last;
+    const r = data as unknown as { done: boolean; offers_remaining: number; active_unflagged_remaining: number };
+    last = { done: r.done, offersRemaining: r.offers_remaining, activeUnflaggedRemaining: r.active_unflagged_remaining };
+    if (r.done) return last;
+  }
+  return last;
 }
 
 /**

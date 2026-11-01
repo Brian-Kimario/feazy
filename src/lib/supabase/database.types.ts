@@ -118,6 +118,13 @@ export type Database = {
             foreignKeyName: "admin_job_cancellations_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "admin_job_cancellations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
@@ -132,7 +139,49 @@ export type Database = {
             foreignKeyName: "admin_job_cancellations_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: true
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "admin_job_cancellations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_operation_requests: {
+        Row: {
+          admin_id: string
+          created_at: string
+          operation: string
+          request_hash: string
+          request_id: string
+          result: Json | null
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          operation: string
+          request_hash: string
+          request_id: string
+          result?: Json | null
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          operation?: string
+          request_hash?: string
+          request_id?: string
+          result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_operation_requests_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -179,8 +228,22 @@ export type Database = {
             foreignKeyName: "admin_reconciliations_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "admin_reconciliations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_reconciliations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
           },
           {
             foreignKeyName: "admin_reconciliations_job_id_fkey"
@@ -261,6 +324,13 @@ export type Database = {
             foreignKeyName: "booking_assignment_attempts_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "booking_assignment_attempts_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
@@ -331,6 +401,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_events_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
           },
           {
             foreignKeyName: "booking_events_booking_id_fkey"
@@ -540,6 +617,13 @@ export type Database = {
             foreignKeyName: "inspections_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "inspections_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -601,6 +685,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "job_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_code_attempts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
           },
           {
             foreignKeyName: "job_code_attempts_job_id_fkey"
@@ -671,6 +762,13 @@ export type Database = {
             foreignKeyName: "job_codes_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "job_codes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -726,6 +824,13 @@ export type Database = {
             foreignKeyName: "job_events_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "job_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -733,6 +838,8 @@ export type Database = {
       }
       job_exceptions: {
         Row: {
+          detail: string | null
+          finding: string | null
           id: string
           job_id: string
           kind: string
@@ -740,6 +847,8 @@ export type Database = {
           professional_id: string | null
           reported_at: string
           reported_by: string
+          resolution: string | null
+          resolution_basis: string | null
           resolution_note: string | null
           resolved_at: string | null
           resolved_by: string | null
@@ -747,6 +856,8 @@ export type Database = {
           status: string
         }
         Insert: {
+          detail?: string | null
+          finding?: string | null
           id?: string
           job_id: string
           kind: string
@@ -754,6 +865,8 @@ export type Database = {
           professional_id?: string | null
           reported_at?: string
           reported_by: string
+          resolution?: string | null
+          resolution_basis?: string | null
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -761,6 +874,8 @@ export type Database = {
           status?: string
         }
         Update: {
+          detail?: string | null
+          finding?: string | null
           id?: string
           job_id?: string
           kind?: string
@@ -768,6 +883,8 @@ export type Database = {
           professional_id?: string | null
           reported_at?: string
           reported_by?: string
+          resolution?: string | null
+          resolution_basis?: string | null
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -775,6 +892,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_exceptions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
           {
             foreignKeyName: "job_exceptions_job_id_fkey"
             columns: ["job_id"]
@@ -835,6 +959,13 @@ export type Database = {
             foreignKeyName: "job_media_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "job_media_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -864,6 +995,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_message_reads_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
           {
             foreignKeyName: "job_message_reads_job_id_fkey"
             columns: ["job_id"]
@@ -909,6 +1047,13 @@ export type Database = {
           sender_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "job_messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
           {
             foreignKeyName: "job_messages_job_id_fkey"
             columns: ["job_id"]
@@ -1001,6 +1146,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "jobs_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
           {
             foreignKeyName: "jobs_booking_id_fkey"
             columns: ["booking_id"]
@@ -1104,8 +1256,22 @@ export type Database = {
             foreignKeyName: "matching_decisions_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "matching_decisions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matching_decisions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
           },
           {
             foreignKeyName: "matching_decisions_job_id_fkey"
@@ -1271,6 +1437,13 @@ export type Database = {
             foreignKeyName: "notification_logs_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "notification_logs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -1317,6 +1490,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
           {
             foreignKeyName: "notifications_job_id_fkey"
             columns: ["job_id"]
@@ -1428,6 +1608,13 @@ export type Database = {
             foreignKeyName: "payments_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
@@ -1437,6 +1624,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
           },
           {
             foreignKeyName: "payments_job_id_fkey"
@@ -2071,6 +2265,13 @@ export type Database = {
             foreignKeyName: "quotes_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
+            referencedRelation: "a4_assignment_drift"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
@@ -2376,6 +2577,47 @@ export type Database = {
       }
     }
     Views: {
+      a4_assignment_drift: {
+        Row: {
+          booking_id: string | null
+          booking_professional_id: string | null
+          booking_status: string | null
+          drift_kind: string | null
+          job_id: string | null
+          job_professional_id: string | null
+          job_state: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_professional_id_fkey"
+            columns: ["booking_professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_metrics"
+            referencedColumns: ["professional_id"]
+          },
+          {
+            foreignKeyName: "bookings_professional_id_fkey"
+            columns: ["booking_professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "jobs_professional_id_fkey"
+            columns: ["job_professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_metrics"
+            referencedColumns: ["professional_id"]
+          },
+          {
+            foreignKeyName: "jobs_professional_id_fkey"
+            columns: ["job_professional_id"]
+            isOneToOne: false
+            referencedRelation: "professional_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       professional_metrics: {
         Row: {
           acceptance_rate: number | null
@@ -2410,6 +2652,24 @@ export type Database = {
       _haversine_km: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
+      }
+      _idem_begin: {
+        Args: {
+          p_admin: string
+          p_hash: string
+          p_op: string
+          p_request: string
+        }
+        Returns: Json
+      }
+      _idem_finish: {
+        Args: {
+          p_admin: string
+          p_op: string
+          p_request: string
+          p_result: Json
+        }
+        Returns: undefined
       }
       _issue_job_code: {
         Args: {
@@ -2457,6 +2717,10 @@ export type Database = {
         Returns: string
       }
       _pick_professional: { Args: { p_booking_id: string }; Returns: string }
+      _professional_conflicts: {
+        Args: { p_booking_id: string; p_committed_only: boolean; p_pro: string }
+        Returns: boolean
+      }
       _rank_professionals: {
         Args: { p_booking_id: string }
         Returns: {
@@ -2485,13 +2749,34 @@ export type Database = {
         }
         Returns: boolean
       }
+      _require_admin: { Args: never; Returns: string }
+      _require_read_committed: { Args: never; Returns: undefined }
+      _schedule_active_states: {
+        Args: { p_committed_only: boolean }
+        Returns: string[]
+      }
       _verification_missing_documents: {
         Args: { p_professional_id: string; p_since?: string }
+        Returns: string[]
+      }
+      _verification_unaccepted_documents: {
+        Args: { p_professional_id: string }
         Returns: string[]
       }
       add_job_media: {
         Args: { p_job_id: string; p_kind: string; p_storage_path: string }
         Returns: string
+      }
+      admin_assign_professional: {
+        Args: {
+          p_booking_id: string
+          p_expected_professional_id: string
+          p_expected_state: string
+          p_professional_id: string
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
       }
       admin_cancel_job: {
         Args: {
@@ -2502,8 +2787,34 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_reassign_job: {
+        Args: {
+          p_expected_professional_id: string
+          p_expected_state: string
+          p_job_id: string
+          p_new_professional_id: string
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       admin_reconcile_job: {
         Args: { p_expected_state: string; p_job_id: string; p_reason: string }
+        Returns: Json
+      }
+      admin_recover_suspended_professional: {
+        Args: { p_limit?: number; p_professional_id: string }
+        Returns: Json
+      }
+      admin_resolve_exception: {
+        Args: {
+          p_exception_id: string
+          p_expected_status: string
+          p_finding: string
+          p_note: string
+          p_request_id: string
+          p_resolution: string
+        }
         Returns: Json
       }
       admin_review_verification_document: {
@@ -2517,6 +2828,15 @@ export type Database = {
           p_metadata?: Json
           p_professional_id: string
           p_reason: string
+        }
+        Returns: Json
+      }
+      admin_withdraw_offer: {
+        Args: {
+          p_expected_professional_id: string
+          p_job_id: string
+          p_reason: string
+          p_request_id: string
         }
         Returns: Json
       }
@@ -2608,6 +2928,10 @@ export type Database = {
       mark_job_thread_read: { Args: { p_job_id: string }; Returns: undefined }
       mark_notification_read: { Args: { p_id: string }; Returns: boolean }
       process_assignment_queue: { Args: never; Returns: Json }
+      professional_withdraw_from_job: {
+        Args: { p_job_id: string; p_reason: string }
+        Returns: Json
+      }
       reconcile_notifications: { Args: never; Returns: number }
       reissue_job_code: { Args: { p_job_id: string }; Returns: Json }
       report_job_eta: {
