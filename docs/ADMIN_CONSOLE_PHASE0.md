@@ -61,7 +61,7 @@ Status key: VERIFIED (end to end, with recorded evidence) · IMPL/UNVER · PARTI
 - **D-6 `@ts-ignore` / `as any` debt:** 47 occurrences in `admin.ts`, 12 in `verification.ts`, plus `(profile as any).role` in every admin page. Violates Rule 7; `Database` types exist (regenerated in commit `6513ab4`). Mechanical cleanup, low risk, should accompany the service split.
 - **D-7 Design-token violations (Rule 9):** hex literal counts: `page.tsx` 60, `VerificationQueue` 88, `JobDetailModal` 85, `JobsTable` 53, `CustomersTable` 25, `CancelJobDialog` 14, `professionals/page` 13, jobs/customers pages 4 each, layout 3. Operations, OperationsQueue, ReconcileJobPanel use tokens (0 hex). The console is visibly two systems `[V]`.
 - **D-8 Admin does not use the shared shell.** `admin/layout.tsx` hand-rolls its header and uses `components/shared/AppNavLinks`; customer/professional use `RoleShell` (skip link, `tabIndex={-1}` main, `focus-visible` rings). The admin layout has no skip link `[V]`, and `<main>` has no `tabIndex`. `src/components/shell/nav.ts` icons are typed to customer/pro names only.
-- **D-9 Dialog semantics inconsistent.** Only the Operations drawer has `role="dialog"`, `aria-modal`, initial focus (`OperationsQueue.tsx:167-198`). `CancelJobDialog:34` and `VerificationQueue:703` render `fixed inset-0` overlays with no dialog role found by grep `[V grep]`; focus trapping/restoration unverified `[A]`.
+- **D-9 Dialog semantics inconsistent.** Only the Operations drawer has `role="dialog"`, `aria-modal`, initial focus (`OperationsQueue.tsx:167-198`). `CancelJobDialog` and `VerificationQueue` did have `role="dialog"`/`aria-modal` (correction: an earlier draft said they had none) but no Escape handling, focus trap or focus restore. Slice 1.1 moved both onto the shared `ui/Dialog`.
 - **D-10 Touch targets:** recorded sub-44px controls in `VerificationQueue` (28–30px; partly fixed, chevron still 28px) `[D]`; planned for A5.
 - **D-11 Duplicate auth code:** each page repeats the profile/role query then redirects; layout already does it. Harmless; remove in rebuild (keep the layout and service-level checks).
 - **D-12 Booking/job status drift** (5 rows `[D]`; live now: 7 pending, 3 confirmed, 5 cancelled bookings vs 8 cancelled jobs `[V]`). Professional cancel leaves booking `pending`.
@@ -148,7 +148,7 @@ Per-scenario detail (trigger, actor, consent, notification, payment, audit, reco
 2. Overview answers "what needs a decision" but lacks health and payment exceptions, and its metric tiles are generic; no tile links to the case.
 3. Investigation requires modal → close → page change; no URL-addressable case (jobs use `?id=` into a modal).
 4. Filtering for jobs is client-side over 100 rows `[A]`; no search by reference, customer, professional.
-5. Dialog semantics, focus restoration and 44px targets inconsistent (D-9, D-10); admin has no skip link.
+5. Dialog semantics, focus restoration and 44px targets inconsistent (D-9, D-10); the admin layout had no landmark/mobile-menu structure (a skip link already exists in the root layout).
 6. Disabled-action explanations: only reconcile/cancel have refusal copy.
 7. Duplicated queue-health banner in two pages; hand-written badge maps in `page.tsx`.
 8. Mobile: tables → recorded alternatives unknown `[A]`; 375px verified only for Operations drawer and verification cards `[D]`.

@@ -12,6 +12,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Dialog } from '@/components/ui/Dialog';
 import {
   approveProfessional,
   rejectProfessional,
@@ -700,27 +701,30 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
         </div>
       )}
       {reasonFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-[#18211F]/40" onClick={() => setReasonFor(null)} />
-          <div className="relative w-full max-w-md rounded-2xl bg-[#FFFEFA] p-5 space-y-3">
-            <h3 className="font-bold text-[#18211F]">
-              {reasonFor.verification_status === 'suspended' ? 'Reactivate' : 'Suspend'} {reasonFor.display_name}
-            </h3>
-            <p className="text-xs text-[#5A6661]">
-              {reasonFor.verification_status === 'suspended'
-                ? 'They stay unavailable until they switch availability on themselves.'
-                : 'Pending offers are withdrawn and no new work is offered. Active jobs are flagged, not cancelled.'}
-            </p>
+        <Dialog
+          title={`${reasonFor.verification_status === 'suspended' ? 'Reactivate' : 'Suspend'} ${reasonFor.display_name}`}
+          onClose={() => setReasonFor(null)}
+          description={
+            reasonFor.verification_status === 'suspended'
+              ? 'They stay unavailable until they switch availability on themselves.'
+              : 'Pending offers are withdrawn and no new work is offered. Active jobs are flagged, not cancelled.'
+          }
+        >
+          <div className="space-y-3">
+            <label htmlFor="suspend-reason" className="sr-only">
+              Reason
+            </label>
             <textarea
+              id="suspend-reason"
               value={reasonText}
               onChange={(e) => setReasonText(e.target.value)}
               rows={3}
               maxLength={500}
               placeholder="Reason (required, at least 5 characters)"
-              className="w-full rounded-xl border border-[#D9DED8] p-3 text-sm"
+              className="w-full rounded-xl border border-line p-3 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={() => setReasonFor(null)} className="px-4 py-2 text-sm font-bold rounded-xl border border-[#D9DED8]">
+              <button onClick={() => setReasonFor(null)} className="min-h-11 px-4 py-2 text-sm font-bold rounded-xl border border-line">
                 Cancel
               </button>
               <button
@@ -730,13 +734,13 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                   setReasonFor(null);
                   handleToggleSuspend(target, reasonText.trim());
                 }}
-                className="px-4 py-2 text-sm font-bold rounded-xl bg-[#A9523D] text-white disabled:opacity-50"
+                className="min-h-11 px-4 py-2 text-sm font-bold rounded-xl bg-clay text-white disabled:opacity-50"
               >
                 Confirm
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

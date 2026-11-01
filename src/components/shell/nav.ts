@@ -3,6 +3,10 @@ import {
   Building2,
   CalendarDays,
   House,
+  LayoutDashboard,
+  LifeBuoy,
+  ShieldCheck,
+  Users,
   IndianRupee,
   Inbox,
   MessageSquare,
@@ -24,6 +28,10 @@ export const NAV_ICONS = {
   jobs: BriefcaseBusiness,
   earnings: IndianRupee,
   messages: MessageSquare,
+  overview: LayoutDashboard,
+  operations: LifeBuoy,
+  verification: ShieldCheck,
+  people: Users,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIconName = keyof typeof NAV_ICONS;
