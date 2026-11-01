@@ -1,4 +1,8 @@
--- A4 / 115  NOTIFICATIONS FOR ASSIGNMENT EVENTS       *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
+-- A4 / 115  NOTIFICATIONS FOR ASSIGNMENT EVENTS  (REVISION 2)  *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
+-- NOT parsed or tested by PostgreSQL. Revision 2 changes no function body in this file: the 111/113/114 corrections only add
+-- event types ('professional_withdrawal_requested', 'suspended_active_job_flagged', 'exception_reviewed', 'exception_resolved')
+-- that deliberately map to NO notification (v_kind stays NULL -> RETURN). 'professional_withdrew' now fires ONLY for a controlled
+-- pre-start withdrawal, which is exactly the case where the customer must be told.
 -- Depends on: 113 (event types admin_assign / admin_withdraw_offer / admin_reassign), 114 (professional_withdrew).
 -- Both function bodies below are the LIVE bodies read 2026-11-01 with only the marked additions.
 -- WARNING for any future test: applying this and then running 113/114 operations against real bookings WILL create
@@ -14,7 +18,7 @@ ALTER TABLE public.notifications ADD CONSTRAINT notifications_kind_check CHECK (
   'professional_changed','assignment_removed','professional_withdrew']));   -- ADDED: last three
 
 CREATE OR REPLACE FUNCTION public._notify(p_user uuid, p_job jobs, p_kind text, p_source_type text, p_source_id uuid, p_body text DEFAULT NULL::text)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $function$
 DECLARE
   v_title text; v_body text; v_link text;
 BEGIN
@@ -46,7 +50,7 @@ BEGIN
 END; $function$;
 
 CREATE OR REPLACE FUNCTION public._notify_for_event(p_event_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $function$
 DECLARE
   v_event public.job_events%ROWTYPE; v_job public.jobs%ROWTYPE; v_kind text; v_recipient uuid; v_phrase text; v_body text;
   v_from_pro uuid;
@@ -145,3 +149,5 @@ COMMIT;
 --    Needs a UI decision; the in-app notification text does not depend on following the link.
 --  * Recipients of the professional-initiated reconcile ('admin_reconcile') are unchanged.
 --  * Notification copy (3 new strings) needs owner approval.
+--  * Review-requested withdrawals, flagged suspended-job exceptions and resolutions notify nobody (no kind exists; owner decision:
+--    should the professional be told when a withdrawal request is refused, or the customer when their no-show report is closed?).

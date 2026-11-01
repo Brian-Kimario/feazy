@@ -1,14 +1,16 @@
--- A4 / 113  MANUAL ASSIGNMENT, OFFER WITHDRAWAL, REASSIGNMENT     *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
--- Depends on: 111 (schedule lock + conflict check), 112 (_require_admin, vocabulary, idempotency table).
+-- A4 / 113  MANUAL ASSIGNMENT, OFFER WITHDRAWAL, REASSIGNMENT  (REVISION 2)  *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
+-- NOT parsed or tested by PostgreSQL.
+-- Depends on: 111 (conflict helper, read-committed guard, L3 lock model), 112 (_require_admin, vocabulary, idempotency table).
 -- No new state machine: an offer is a jobs row in 'assigned'. The only new edge is accepted -> assigned,
--- performed inside admin_reassign_job only (no trigger or constraint on jobs forbids it: verified read-only,
--- jobs triggers are guard_job_professional_verified and updated_at; jobs checks are eta_window and professional_required).
--- Lock order everywhere: booking -> job -> professional_profiles row -> schedule advisory lock (leaf).
+-- performed by admin_reassign_job (here) and professional_withdraw_from_job (114) only. Section 0 below installs a trigger that
+-- REJECTS accepted -> assigned for every other writer (previously nothing on jobs forbade it).
+-- Lock order everywhere: L1 booking -> L2 job -> L3 professional_profiles row (FOR NO KEY UPDATE, blocking) -> L4 job_exceptions.
+-- There is no advisory lock any more. See docs/A4_DESIGN.md section 3 (invariant I1).
 BEGIN;
 
 -- Idempotency helpers. Returns the stored result for a replayed request, NULL for a new one.
 CREATE OR REPLACE FUNCTION public._idem_begin(p_admin uuid, p_op text, p_request uuid, p_hash text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
 DECLARE v_n int; v_hash text; v_result jsonb;
 BEGIN
   INSERT INTO public.admin_operation_requests (admin_id, operation, request_id, request_hash)
@@ -28,13 +30,36 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION public._idem_finish(p_admin uuid, p_op text, p_request uuid, p_result jsonb)
-RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path TO 'public' AS $$
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
   UPDATE public.admin_operation_requests SET result = p_result
    WHERE admin_id = p_admin AND operation = p_op AND request_id = p_request;
 $$;
 REVOKE ALL ON FUNCTION public._idem_begin(uuid,text,uuid,text), public._idem_finish(uuid,text,uuid,jsonb)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._idem_begin(uuid,text,uuid,text), public._idem_finish(uuid,text,uuid,jsonb) TO service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- 0. EDGE GUARD: accepted -> assigned is a controlled edge.
+-- transition_job_state (the generic machine) has no such edge, but any other writer with table access (a definer function
+-- added later, service_role, a console typo) could do it. This trigger allows it only inside a definer RPC that has set the
+-- transaction-local GUC app.a4_recovery_edge to this job's id (admin_reassign_job here, professional_withdraw_from_job in 114).
+-- The GUC is a defence-in-depth marker, NOT an authorization: callers of those RPCs are authorized by the RPCs themselves.
+-- A client cannot set it: PostgREST/RPC callers cannot run SET on a custom GUC (they only call exposed functions), and
+-- set_config with is_local=true dies at transaction end. (Theoretical risk: a role allowed to run arbitrary SQL can set it.
+-- Such a role can also disable the trigger, so the guard is aimed at mistakes and unexpected code paths, not at DB superusers.)
+CREATE OR REPLACE FUNCTION public.jobs_guard_recovery_edge() RETURNS trigger
+LANGUAGE plpgsql SET search_path TO 'public', 'pg_temp' AS $$
+BEGIN
+  IF OLD.current_state = 'accepted' AND NEW.current_state = 'assigned'
+     AND current_setting('app.a4_recovery_edge', true) IS DISTINCT FROM NEW.id::text THEN
+    RAISE EXCEPTION 'EDGE_NOT_PERMITTED: accepted -> assigned is only allowed through the recovery RPCs' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.jobs_guard_recovery_edge() FROM PUBLIC, anon, authenticated, service_role;
+CREATE TRIGGER jobs_guard_recovery_edge BEFORE UPDATE OF current_state ON public.jobs
+  FOR EACH ROW WHEN (OLD.current_state = 'accepted' AND NEW.current_state = 'assigned')
+  EXECUTE FUNCTION public.jobs_guard_recovery_edge();
 
 -- ---------------------------------------------------------------------------------------------
 -- 1. MANUAL ASSIGNMENT
@@ -46,7 +71,7 @@ GRANT EXECUTE ON FUNCTION public._idem_begin(uuid,text,uuid,text), public._idem_
 CREATE OR REPLACE FUNCTION public.admin_assign_professional(
   p_booking_id uuid, p_professional_id uuid, p_expected_state text,
   p_expected_professional_id uuid, p_reason text, p_request_id uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
 DECLARE
   v_admin uuid := public._require_admin();
   v_hash text := md5(concat_ws('|', p_booking_id, p_professional_id, p_expected_state,
@@ -64,6 +89,7 @@ BEGIN
   IF p_reason IS NULL OR length(btrim(p_reason)) < 10 THEN
     RAISE EXCEPTION 'A reason of at least 10 characters is required' USING ERRCODE = '22023';
   END IF;
+  PERFORM public._require_read_committed();
   v_replay := public._idem_begin(v_admin, 'assign', p_request_id, v_hash);
   IF v_replay IS NOT NULL THEN RETURN v_replay; END IF;
 
@@ -83,11 +109,13 @@ BEGIN
     RAISE EXCEPTION 'STALE_STATE: job does not exist' USING ERRCODE = '40001';
   END IF;
 
-  PERFORM 1 FROM public.professional_profiles pp                                             -- 3. professional
+  -- L3: blocking NO KEY UPDATE on the professional row serializes every schedule decision for this professional (accept in
+  -- 111, other assignments). We already hold the booking (L1) and job (L2), so by invariant I1 this wait cannot be part of
+  -- a cycle. Eligibility is re-read under the lock; a concurrent suspension commits first or we see 'suspended'.
+  PERFORM 1 FROM public.professional_profiles pp
    WHERE pp.user_id = p_professional_id AND pp.verification_status = 'verified'
-     AND COALESCE(pp.is_available, true) FOR SHARE;
+     AND COALESCE(pp.is_available, true) FOR NO KEY UPDATE;                                  -- 3. L3
   IF NOT FOUND THEN RAISE EXCEPTION 'PROFESSIONAL_INELIGIBLE' USING ERRCODE = '22023'; END IF;
-  PERFORM public._lock_professional_schedule(p_professional_id);                             -- 4. leaf lock
   IF public._professional_conflicts(p_professional_id, p_booking_id, false) THEN
     RAISE EXCEPTION 'SCHEDULE_CONFLICT' USING ERRCODE = '23P01';
   END IF;
@@ -135,7 +163,7 @@ END; $$;
 -- for this booking (the ranker excludes anyone with an attempt row).
 CREATE OR REPLACE FUNCTION public.admin_withdraw_offer(
   p_job_id uuid, p_expected_professional_id uuid, p_reason text, p_request_id uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
 DECLARE
   v_admin uuid := public._require_admin();
   v_hash text := md5(concat_ws('|', p_job_id, p_expected_professional_id, p_reason));
@@ -176,6 +204,8 @@ END; $$;
 -- 3. REASSIGNMENT
 -- Actor: admin. Allowed: 'assigned' or 'accepted', and now() < scheduled_start. Edges: assigned -> assigned (new offer),
 -- accepted -> assigned (the one new edge; the new professional receives an OFFER and must accept).
+-- Time check uses the DB clock (now()) against the locked booking row; 111's trigger forbids rescheduling a live job,
+-- so scheduled_start cannot change between this check and the commit.
 -- Refuses NEEDS_CUSTOMER_CONSENT if the job has a quote that is not closed out (a quote is the professional's
 -- price; it does not transfer). Payments are not read or written, so they are preserved by construction.
 -- ASSUMPTION (unverified): quotes.status values other than 'pending_customer' are not enumerated by any check
@@ -183,7 +213,7 @@ END; $$;
 CREATE OR REPLACE FUNCTION public.admin_reassign_job(
   p_job_id uuid, p_expected_state text, p_expected_professional_id uuid,
   p_new_professional_id uuid, p_reason text, p_request_id uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $$
 DECLARE
   v_admin uuid := public._require_admin();
   v_hash text := md5(concat_ws('|', p_job_id, p_expected_state, p_expected_professional_id, p_new_professional_id, p_reason));
@@ -202,6 +232,7 @@ BEGIN
   IF p_new_professional_id = p_expected_professional_id THEN
     RAISE EXCEPTION 'The new professional is already assigned' USING ERRCODE = '22023';
   END IF;
+  PERFORM public._require_read_committed();
   v_replay := public._idem_begin(v_admin, 'reassign', p_request_id, v_hash);
   IF v_replay IS NOT NULL THEN RETURN v_replay; END IF;
 
@@ -219,11 +250,10 @@ BEGIN
     RAISE EXCEPTION 'NEEDS_CUSTOMER_CONSENT: a quote exists on this job' USING ERRCODE = '22023';
   END IF;
 
-  PERFORM 1 FROM public.professional_profiles pp                                             -- 3. new professional
+  PERFORM 1 FROM public.professional_profiles pp                                             -- 3. L3, new professional
    WHERE pp.user_id = p_new_professional_id AND pp.verification_status = 'verified'
-     AND COALESCE(pp.is_available, true) FOR SHARE;
+     AND COALESCE(pp.is_available, true) FOR NO KEY UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'PROFESSIONAL_INELIGIBLE' USING ERRCODE = '22023'; END IF;
-  PERFORM public._lock_professional_schedule(p_new_professional_id);                         -- 4. leaf lock
   IF public._professional_conflicts(p_new_professional_id, v_job.booking_id, false) THEN
     RAISE EXCEPTION 'SCHEDULE_CONFLICT' USING ERRCODE = '23P01';
   END IF;
@@ -236,11 +266,13 @@ BEGIN
   VALUES (v_job.booking_id, p_job_id, p_new_professional_id, 'offered', 1,
           jsonb_build_object('manual', true, 'reassignment', true, 'admin_id', v_admin, 'reason', left(p_reason, 500)));
 
+  PERFORM set_config('app.a4_recovery_edge', p_job_id::text, true);   -- permits accepted -> assigned for THIS job (section 0)
   UPDATE public.jobs
      SET current_state = 'assigned', professional_id = p_new_professional_id,
          accepted_at = NULL, eta_earliest = NULL, eta_latest = NULL,
          offer_expires_at = LEAST(now() + v_window, v_booking.scheduled_start), updated_at = now()
    WHERE id = p_job_id;
+  PERFORM set_config('app.a4_recovery_edge', '', true);
   UPDATE public.bookings SET professional_id = p_new_professional_id, updated_at = now() WHERE id = v_job.booking_id;
   INSERT INTO public.job_events (job_id, from_state, to_state, actor_user_id, event_type, metadata)
   VALUES (p_job_id, v_job.current_state, 'assigned', v_admin, 'admin_reassign',
@@ -267,3 +299,7 @@ COMMIT;
 --  * A rolled-back idempotency insert is rolled back with the rest of the transaction, so a failed request can be retried
 --    with the same request id; a committed one replays its stored result.
 --  * Unmatched queue pickup after withdrawal depends on process_assignment_queue behaviour that was not re-read.
+--  * Not parsed or run by PostgreSQL. The L3 wait-cycle argument is inferred from lock semantics (docs/A4_DESIGN.md section 3).
+--  * jobs_guard_recovery_edge: existing jobs triggers (guard_job_professional_verified, updated_at) were read earlier; trigger
+--    firing ORDER among BEFORE UPDATE triggers is alphabetical by name and is irrelevant here (this one only raises).
+--  * Idempotency helpers keep their live-style grants (service_role only).

@@ -157,7 +157,9 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS bookings_guard_schedule_change ON public.bookings;
+DROP FUNCTION IF EXISTS public._guard_booking_schedule_change();
 DROP FUNCTION IF EXISTS public._professional_conflicts(uuid, uuid, boolean);
-DROP FUNCTION IF EXISTS public._try_lock_professional_schedule(uuid);
-DROP FUNCTION IF EXISTS public._lock_professional_schedule(uuid);
+DROP FUNCTION IF EXISTS public._require_read_committed();
+DROP FUNCTION IF EXISTS public._schedule_active_states(boolean);
 COMMIT;

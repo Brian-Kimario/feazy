@@ -1,10 +1,10 @@
 -- ROLLBACK for A4 / 112. DRAFT. NOT EXECUTED. Apply only after 113-115 are rolled back.
 -- Precondition (run first, must return 0): any rows using the new vocabulary block the rollback.
 --   select count(*) from booking_assignment_attempts where reason_code in ('admin_withdrawn','admin_reassigned','professional_withdrew');
---   select count(*) from job_exceptions where kind='professional_suspended_active_job' or preference='admin';
+--   select count(*) from job_exceptions where kind in ('professional_suspended_active_job','professional_withdrawal_request') or preference='admin';
 BEGIN;
 ALTER TABLE public.job_exceptions DROP CONSTRAINT job_exceptions_resolution_complete;
-ALTER TABLE public.job_exceptions DROP COLUMN resolution, DROP COLUMN finding;
+ALTER TABLE public.job_exceptions DROP COLUMN resolution_basis, DROP COLUMN resolution, DROP COLUMN finding, DROP COLUMN detail;
 ALTER TABLE public.job_exceptions DROP CONSTRAINT job_exceptions_preference_check;
 ALTER TABLE public.job_exceptions ADD CONSTRAINT job_exceptions_preference_check
   CHECK (preference = ANY (ARRAY['reassign','support']));

@@ -1,9 +1,12 @@
 -- ROLLBACK for A4 / 114. DRAFT. NOT EXECUTED.
--- Precondition: no open job_exceptions of kind 'professional_suspended_active_job' that an admin still needs
--- (they remain as rows, but nothing will create new ones after rollback).
+-- REVISION 2. Preconditions: (1) no open job_exceptions of kind 'professional_suspended_active_job' or
+-- 'professional_withdrawal_request' that an admin still needs (rows remain; nothing creates new ones after rollback);
+-- (2) rolling back 114 leaves 113's jobs_guard_recovery_edge trigger in place, which is harmless: with no function setting
+-- app.a4_recovery_edge, accepted->assigned stays impossible except through 113's admin_reassign_job.
 BEGIN;
 DROP FUNCTION IF EXISTS public.admin_resolve_exception(uuid,text,text,text,text,uuid);
 DROP FUNCTION IF EXISTS public.professional_withdraw_from_job(uuid, text);
+DROP FUNCTION IF EXISTS public.admin_recover_suspended_professional(uuid, integer);
 
 -- Restore the live admin_transition_professional_verification (read 2026-11-01).
 CREATE OR REPLACE FUNCTION public.admin_transition_professional_verification(
