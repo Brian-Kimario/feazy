@@ -113,6 +113,7 @@ export interface CustomerAccount {
   }[];
   bookingCount: number;
   exceptions: { id: string; jobId: string; kind: string; status: string; reportedAt: string }[];
+  payments: { id: string; bookingId: string | null; amount: number; currency: string; status: string; reference: string | null; at: string }[];
   adminActivity: { id: string; at: string; action: string }[];
 }
 
@@ -133,7 +134,7 @@ export async function getCustomerAccount(userId: string): Promise<AdminResult<Cu
   }
   if (!prof.data || prof.data.role !== 'customer') return { ok: true, data: null };
 
-  const [props, books, audit] = await Promise.all([
+  const [props, books, audit, pay] = await Promise.all([
     a.from('properties').select('id, name, property_type').eq('owner_customer_id', userId).order('created_at', { ascending: false }).limit(50),
     a
       .from('bookings')
@@ -145,9 +146,10 @@ export async function getCustomerAccount(userId: string): Promise<AdminResult<Cu
       .order('scheduled_start', { ascending: false })
       .limit(25),
     a.from('audit_logs').select('id, action, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
+    a.from('payments').select('id, booking_id, amount, currency, status, provider_reference, created_at').eq('customer_id', userId).order('created_at', { ascending: false }).limit(20),
   ]);
-  if (props.error || books.error || audit.error) {
-    console.error('getCustomerAccount:', props.error?.message ?? books.error?.message ?? audit.error?.message);
+  if (props.error || books.error || audit.error || pay.error) {
+    console.error('getCustomerAccount:', props.error?.message ?? books.error?.message ?? audit.error?.message ?? pay.error?.message);
     return adminFailure('FAILED', 'Could not load this customer.');
   }
   const parsed = z.array(bookingShape).safeParse(books.data ?? []);
@@ -192,6 +194,7 @@ export async function getCustomerAccount(userId: string): Promise<AdminResult<Cu
       bookings,
       bookingCount: books.count ?? bookings.length,
       exceptions,
+      payments: (pay.data ?? []).map((r) => ({ id: r.id, bookingId: r.booking_id, amount: Number(r.amount), currency: r.currency, status: r.status, reference: r.provider_reference, at: r.created_at })),
       adminActivity: (audit.data ?? []).map((r) => ({ id: r.id, at: r.created_at, action: r.action })),
     },
   };

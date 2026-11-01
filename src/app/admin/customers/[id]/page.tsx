@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getCustomerAccount } from '@/lib/services/admin-customers';
 import { isAdminFailure } from '@/lib/admin/result';
 import { formatDateTime } from '@/lib/admin/format';
+import { inr } from '@/lib/admin/finance-directory';
 
 export const metadata = { title: 'Customer account — Feasy Admin' };
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,25 @@ export default async function CustomerAccountPage({ params }: { params: Promise<
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-xl border border-line bg-paper p-5">
+        <h2 className="text-sm font-bold text-ink">Payments</h2>
+        {c.payments.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-3">No payment records.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-line text-sm">
+            {c.payments.map((p) => (
+              <li key={p.id} className="flex flex-wrap justify-between gap-2 py-2">
+                <span className="font-semibold text-ink">{inr(p.amount)}</span>
+                <span className="capitalize text-ink-2">{words(p.status)}</span>
+                <span className="text-xs text-ink-3">{p.reference ?? 'No reference'} · {formatDateTime(p.at)}</span>
+                {p.bookingId && <Link href={`/admin/jobs/${p.bookingId}`} className="text-xs font-semibold text-teal-deep hover:underline">Open booking</Link>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href="/admin/finance" className="mt-2 inline-block text-xs font-semibold text-teal-deep hover:underline">All payments</Link>
       </section>
 
       <section className="rounded-xl border border-line bg-paper p-5">
