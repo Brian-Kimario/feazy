@@ -11,6 +11,7 @@
  */
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/Dialog';
 import {
@@ -658,7 +659,9 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                 {filtered.map((pro) => (
                   <tr key={pro.user_id} className="hover:bg-[#F7F4EC] transition">
                     <td className="px-5 py-3.5">
-                      <div className="font-bold text-[#18211F]">{pro.display_name}</div>
+                      <Link href={`/admin/professionals/${pro.user_id}`} className="font-bold text-[#18211F] hover:underline">
+                        {pro.display_name}
+                      </Link>
                       <div className="text-xs text-[#7C8681]">{pro.email ?? 'No email'}</div>
                     </td>
                     <td className="px-5 py-3.5">{statusBadge(pro.verification_status)}</td>

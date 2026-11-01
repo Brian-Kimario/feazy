@@ -47,8 +47,9 @@ export function WithdrawFromJob({ jobId }: { jobId: string }) {
   if (outcome === 'review_requested') {
     return (
       <p role="status" className="rounded-lg border border-line bg-paper-2 p-3 text-sm text-ink">
-        Your request was sent to our team. You are <strong>not</strong> released yet: stay on this job until we
-        confirm.
+        We could not release you from this job automatically because the visit time has started or work is under
+        way. Your request is recorded for our team. You are <strong>not</strong> released: stay on this job and
+        contact support if you cannot attend. The customer has not been told.
       </p>
     );
   }

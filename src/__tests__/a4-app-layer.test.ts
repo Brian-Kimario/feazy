@@ -94,6 +94,23 @@ describe('A4 app-layer wiring (static)', () => {
     expect(read('src/app/professional/actions.ts')).toMatch(/professional_withdraw_from_job/);
   });
 
+  it('the drift list filters out healthy bookings (the view returns every booking)', () => {
+    expect(read('src/lib/services/admin-assignment-reads.ts')).toMatch(/\.not\('drift_kind', 'is', null\)/);
+  });
+
+  it('the professional account read checks the admin role and is not a server-action module', () => {
+    const src = read('src/lib/services/admin-professional-account.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeGreaterThan(-1);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+  });
+
+  it('a refused withdrawal tells the professional to contact support and says the customer is not told', () => {
+    const c = read('src/components/professional/WithdrawFromJob.tsx');
+    expect(c).toMatch(/contact support/);
+    expect(c).toMatch(/customer has not been told/);
+  });
+
   it('suspension runs the recovery phase and refuses to report success while work remains', () => {
     const v = read('src/lib/services/verification.ts');
     expect(v).toMatch(/runSuspensionRecovery/);

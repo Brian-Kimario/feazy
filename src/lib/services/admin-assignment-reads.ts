@@ -69,6 +69,8 @@ export async function listOpenExceptions(): Promise<AdminResult<{ exceptions: Op
     admin
       .from('a4_assignment_drift')
       .select('booking_id, job_id, drift_kind, booking_status, job_state')
+      // The view lists every booking; healthy ones have a null drift_kind.
+      .not('drift_kind', 'is', null)
       .limit(100),
   ]);
   if (ex.error || drift.error) {
