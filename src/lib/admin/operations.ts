@@ -15,6 +15,8 @@ export const OPS_CASE_TYPES = [
   'stale_quote',
   'state_mismatch',
   'verification',
+  'suspended_active_job',
+  'assignment_drift',
 ] as const;
 export type OpsCaseType = (typeof OPS_CASE_TYPES)[number];
 
@@ -30,6 +32,8 @@ export const OPS_TYPE_LABELS: Record<OpsCaseType, string> = {
   stale_quote: 'Quote waiting',
   state_mismatch: 'Status mismatch',
   verification: 'Verification',
+  suspended_active_job: 'Suspended professional, active job',
+  assignment_drift: 'Booking and job disagree',
 };
 
 const BOOKING_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'] as const;
@@ -335,4 +339,71 @@ export function sortCases(cases: OpsCase[]): OpsCase[] {
       (ms(a.since) ?? 0) - (ms(b.since) ?? 0) ||
       a.key.localeCompare(b.key),
   );
+}
+
+export interface OpsSuspendedJobRow {
+  jobId: string;
+  bookingId: string;
+  reference: string;
+  state: string;
+  professionalName: string;
+  scheduledStart: string | null;
+  serviceName: string | null;
+  city: string | null;
+  updatedAt: string;
+}
+
+/** A suspended professional who still holds an accepted or running job: an admin must reassign or review it. */
+export function classifySuspendedActiveJob(r: OpsSuspendedJobRow): OpsCase {
+  return {
+    key: `suspended_active_job:${r.jobId}`,
+    type: 'suspended_active_job',
+    severity: 'high',
+    subjectId: r.bookingId,
+    bookingId: r.bookingId,
+    jobId: r.jobId,
+    reference: r.reference,
+    title: `${r.professionalName} is suspended but still holds this job`,
+    reason: `The job is ${r.state.replace(/_/g, ' ')} under a suspended professional. Suspension does not cancel work in progress.`,
+    since: r.updatedAt,
+    bookingStatus: null,
+    jobState: r.state,
+    scheduledStart: r.scheduledStart,
+    serviceName: r.serviceName,
+    city: r.city,
+    nextStep: 'Open the case to reassign the job or review it with the customer.',
+  };
+}
+
+export interface OpsDriftRow {
+  bookingId: string;
+  jobId: string | null;
+  driftKind: string;
+  bookingStatus: string | null;
+  jobState: string | null;
+  reference: string;
+  scheduledStart: string | null;
+  updatedAt: string;
+}
+
+/** A row from the `a4_assignment_drift` view (only rows with a non-null drift kind). */
+export function classifyAssignmentDrift(r: OpsDriftRow): OpsCase {
+  return {
+    key: `assignment_drift:${r.bookingId}`,
+    type: 'assignment_drift',
+    severity: 'medium',
+    subjectId: r.bookingId,
+    bookingId: r.bookingId,
+    jobId: r.jobId,
+    reference: r.reference,
+    title: `Assignment drift: ${r.driftKind.replace(/_/g, ' ')}`,
+    reason: `Booking is ${r.bookingStatus ?? 'unknown'} and the job is ${r.jobState ?? 'missing'}; the assignment records disagree (${r.driftKind}).`,
+    since: r.updatedAt,
+    bookingStatus: r.bookingStatus,
+    jobState: r.jobState,
+    scheduledStart: r.scheduledStart,
+    serviceName: null,
+    city: null,
+    nextStep: 'Open the case and reconcile the booking and job, or correct the assignment.',
+  };
 }

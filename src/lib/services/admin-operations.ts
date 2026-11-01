@@ -9,6 +9,8 @@ import {
   OPS_LIVE_JOB_STATES,
   classifyBooking,
   classifyVerification,
+  classifySuspendedActiveJob,
+  classifyAssignmentDrift,
   sortCases,
   type OpsBookingRow,
   type OpsCase,
@@ -185,6 +187,43 @@ export async function getOperationsQueue(now: Date = new Date()): Promise<AdminR
   const verifs = z.array(verificationRow).safeParse(verifRes.data);
   if (!verifs.success) return fail('verification shape', verifs.error.issues[0]?.message ?? 'invalid');
 
+  // A4 attention items. Each is read separately; a failure fails the queue rather than hiding items.
+  const suspendedRes = await admin.from('professional_profiles').select('user_id, display_name').eq('verification_status', 'suspended').limit(500);
+  if (suspendedRes.error) return fail('suspended professionals', suspendedRes.error.message);
+  const suspendedIds = (suspendedRes.data ?? []).map((p) => p.user_id);
+  const suspendedName = new Map((suspendedRes.data ?? []).map((p) => [p.user_id, p.display_name]));
+  const driftRes = await admin
+    .from('a4_assignment_drift')
+    .select('booking_id, job_id, drift_kind, booking_status, job_state')
+    .not('drift_kind', 'is', null)
+    // bookings.booking_status is not advanced by the job lifecycle, so a pending booking beside a running job is by design.
+    .neq('drift_kind', 'job_active_booking_pending')
+    .limit(BOOKING_LIMIT);
+  if (driftRes.error) return fail('assignment drift', driftRes.error.message);
+  const suspendedJobsRes = suspendedIds.length
+    ? await admin
+        .from('jobs')
+        .select('id, booking_id, current_state, professional_id, updated_at')
+        .in('professional_id', suspendedIds)
+        .in('current_state', ['accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'])
+        .limit(JOB_LIMIT)
+    : { data: [], error: null };
+  if (suspendedJobsRes.error) return fail('suspended professionals jobs', suspendedJobsRes.error.message);
+
+  const extraBookingIds = [
+    ...new Set([
+      ...(suspendedJobsRes.data ?? []).map((j) => j.booking_id),
+      ...(driftRes.data ?? []).flatMap((d) => (d.booking_id ? [d.booking_id] : [])),
+    ]),
+  ];
+  const extraBookings = extraBookingIds.length
+    ? await admin.from('bookings').select(BOOKING_SELECT).in('id', extraBookingIds)
+    : { data: [], error: null };
+  if (extraBookings.error) return fail('attention bookings', extraBookings.error.message);
+  const extraParsed = z.array(bookingEmbed).safeParse(extraBookings.data);
+  if (!extraParsed.success) return fail('attention bookings shape', extraParsed.error.issues[0]?.message ?? 'invalid');
+  const extraById = new Map(extraParsed.data.map((b) => [b.id, b]));
+
   const jobsWithBooking = jobs.data.filter((j) => first(j.booking) !== null);
   const proIds = [...new Set(jobsWithBooking.flatMap((j) => (j.professional_id ? [j.professional_id] : [])))];
   const activityIds = jobsWithBooking
@@ -227,6 +266,40 @@ export async function getOperationsQueue(now: Date = new Date()): Promise<AdminR
     );
   }
 
+  for (const j of suspendedJobsRes.data ?? []) {
+    const b = extraById.get(j.booking_id);
+    if (!b || !j.professional_id) continue;
+    cases.push(
+      classifySuspendedActiveJob({
+        jobId: j.id,
+        bookingId: b.id,
+        reference: b.booking_reference,
+        state: j.current_state,
+        professionalName: suspendedName.get(j.professional_id) ?? 'A professional',
+        scheduledStart: b.scheduled_start,
+        serviceName: first(b.service)?.name ?? null,
+        city: cityOf(b),
+        updatedAt: j.updated_at,
+      }),
+    );
+  }
+  for (const d of driftRes.data ?? []) {
+    if (!d.booking_id || !d.drift_kind) continue;
+    const b = extraById.get(d.booking_id);
+    cases.push(
+      classifyAssignmentDrift({
+        bookingId: d.booking_id,
+        jobId: d.job_id,
+        driftKind: d.drift_kind,
+        bookingStatus: d.booking_status,
+        jobState: d.job_state,
+        reference: b?.booking_reference ?? d.booking_id.slice(0, 8),
+        scheduledStart: b?.scheduled_start ?? null,
+        updatedAt: b?.created_at ?? now.toISOString(),
+      }),
+    );
+  }
+
   return {
     ok: true,
     data: {
@@ -236,7 +309,9 @@ export async function getOperationsQueue(now: Date = new Date()): Promise<AdminR
       truncated:
         jobsRes.data.length >= JOB_LIMIT ||
         noJobRes.data.length >= BOOKING_LIMIT ||
-        verifRes.data.length >= VERIFICATION_LIMIT,
+        verifRes.data.length >= VERIFICATION_LIMIT ||
+        (suspendedJobsRes.data?.length ?? 0) >= JOB_LIMIT ||
+        (driftRes.data?.length ?? 0) >= BOOKING_LIMIT,
     },
   };
 }

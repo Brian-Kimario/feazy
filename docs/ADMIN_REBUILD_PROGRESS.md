@@ -28,14 +28,16 @@ Local-only gaps found (prod verified correct, read-only): replay of older migrat
 ## Phase status
 | Phase | Status |
 |---|---|
-| 1 Foundation (shell, nav, shared UI) | In progress: shell/nav exist; toasts, confirm dialog, drawers not yet built |
-| 2 Actionable Overview | Implemented, loaded in the browser (desktop text read). Not verified on mobile; attention queue lacks suspended-with-jobs and drift entries |
-| 3 Operations / A4 recovery | In progress: exceptions page and assignment panel exist; retry-recovery button unbuilt |
-| 4 Jobs & Bookings | Not started as a rebuild (existing list) |
-| 5 People | In progress: professional account page; customer pages not started |
-| 6 Finance | Not started |
-| 7 Activity, Audit, Disputes | Not started |
+| 1 Foundation | Shell/nav, `ToastProvider`, `ConfirmDialog` (used for suspend/reactivate) built. Dialog/toast not browser-verified (mutating click on real data was not made). Detail drawer not built |
+| 2 Actionable Overview | Counts, professional monitoring, attention queue incl. suspended-with-active-jobs and booking/job drift. Desktop loaded; drift cases seen live; suspended-with-jobs unit-tested only (none in live data) |
+| 3 Operations / A4 recovery | Exceptions page and assignment panel exist; retry-recovery button unbuilt |
+| 4 Jobs & Bookings | Server-driven directory (`/admin/jobs`): lifecycle, search, dates, sort, pagination, exception/drift badges, links to the case page. Browser-checked desktop and mobile; date filter and sort not exercised. No assignment-status filter yet |
+| 5 People | Professional account workspace exists. Missing: professional directory pagination/filters, documents, availability detail, customer directory and workspace |
+| 6 Finance | Not started (investigation only; no refund/payout actions) |
+| 7 Activity, Audit, Disputes, Communications | Not started |
 | 8 Integration/regression | Not started |
 
+Drift note: `bookings.booking_status` is not advanced by the job lifecycle, so `job_active_booking_pending` is by design and is excluded from attention cases and the directory drift flag.
+
 ## Next
-Finance and Audit (phase 6), then Disputes and Communications (phase 7).
+People (professional directory, customer directory and workspace), defects (quote status, notification constraint, removed-professional link, retry recovery), then Finance, Audit, Disputes.

@@ -50,3 +50,5 @@ export { Table } from './Table';
 // ── Animation / Utilities ───────────────────────────────────────────────────
 export { AnimationProvider } from './AnimationProvider';
 export { AnimatedCounter } from './AnimatedCounter';
+export { ToastProvider, useToast } from './ToastProvider';
+export { ConfirmDialog } from './ConfirmDialog';

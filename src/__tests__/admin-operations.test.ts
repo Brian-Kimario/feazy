@@ -19,7 +19,7 @@ vi.mock('@/lib/supabase/admin', () => ({
     from: (table: string) => {
       const result = db.tables[table] ?? { data: [], error: null };
       const builder: Record<string, unknown> = {};
-      for (const m of ['select', 'in', 'eq', 'is', 'order', 'limit', 'lt', 'gte']) builder[m] = () => builder;
+      for (const m of ['select', 'in', 'eq', 'neq', 'not', 'is', 'order', 'limit', 'lt', 'gte']) builder[m] = () => builder;
       builder.maybeSingle = async () => result;
       builder.then = (resolve: (v: unknown) => unknown) => resolve(result);
       return builder;
@@ -31,6 +31,8 @@ import {
   bookingJobMismatch,
   classifyBooking,
   classifyVerification,
+  classifySuspendedActiveJob,
+  classifyAssignmentDrift,
   formatDuration,
   sortCases,
   type OpsBookingRow,
@@ -316,4 +318,24 @@ describe('unsafe admin actions are gone (static)', () => {
       expect(src).not.toMatch(/\.(update|insert|delete|upsert)\(|\.rpc\(/);
     },
   );
+});
+
+describe('A4 attention cases', () => {
+  it('a suspended professional holding a running job is high priority and links to the booking', () => {
+    const c = classifySuspendedActiveJob({
+      jobId: 'j1', bookingId: 'b1', reference: 'BK-1', state: 'in_progress', professionalName: 'Asha',
+      scheduledStart: null, serviceName: 'Plumbing', city: null, updatedAt: '2026-11-01T00:00:00Z',
+    });
+    expect(c).toMatchObject({ type: 'suspended_active_job', severity: 'high', bookingId: 'b1', key: 'suspended_active_job:j1' });
+    expect(c.reason).toMatch(/does not cancel/);
+  });
+
+  it('assignment drift keeps its kind and is keyed by booking', () => {
+    const c = classifyAssignmentDrift({
+      bookingId: 'b2', jobId: null, driftKind: 'job_cancelled_booking_not', bookingStatus: 'confirmed', jobState: 'cancelled',
+      reference: 'BK-2', scheduledStart: null, updatedAt: '2026-11-01T00:00:00Z',
+    });
+    expect(c).toMatchObject({ type: 'assignment_drift', key: 'assignment_drift:b2' });
+    expect(c.reason).toContain('job_cancelled_booking_not');
+  });
 });

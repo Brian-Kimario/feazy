@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { SignOutMenu } from '@/components/shared/SignOutMenu';
+import { ToastProvider } from '@/components/ui/ToastProvider';
 import { AdminShell } from '@/components/admin/AdminShell';
 
 export const metadata: Metadata = {
@@ -47,7 +48,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
     <AdminShell
       actions={<SignOutMenu user={user} displayName={displayName} initials={initials} role="admin" />}
     >
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </AdminShell>
   );
 }
