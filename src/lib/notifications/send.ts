@@ -23,6 +23,7 @@ import { buildMessage, type NotificationData } from "./templates";
 import { sendWhatsApp } from "./channels/whatsapp";
 import { sendSMS } from "./channels/sms";
 import { sendEmail } from "./channels/email";
+import { isTransientError } from "./classify";
 
 // ─── Public interface ─────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export async function sendNotification(
         status: "failed",
         error: profileError?.message ?? "Customer profile not found",
       });
-      return { success: false, channel: "none", error: "Customer profile not found" };
+      return { success: false, channel: "none", error: "Customer profile not found", retryable: false };
     }
 
     // Fetch email from auth.users via admin (profiles table doesn't store it).
@@ -105,7 +106,7 @@ export async function sendNotification(
         status: "skipped_dnd",
         error: null,
       });
-      return { success: false, channel: "none", error: "Notification suppressed: DND window active" };
+      return { success: false, channel: "none", error: "Notification suppressed: DND window active", retryable: true };
     }
 
     // ── 3. Determine channel order ────────────────────────────────────────────
@@ -117,6 +118,7 @@ export async function sendNotification(
         : ["whatsapp", "sms", "email"];
 
     // ── 4. Try channels in order ──────────────────────────────────────────────
+    let anyTransient = false;
     for (const channel of channelOrder) {
       // Skip if disabled in preferences.
       if (channel === "whatsapp" && !prefs.whatsapp_enabled) continue;
@@ -184,14 +186,15 @@ export async function sendNotification(
       });
 
       if (result.success) {
-        return { success: true, channel };
+        return { success: true, channel, messageId: result.messageId };
       }
+      if (isTransientError(result.error)) anyTransient = true;
 
       // Channel failed — try next in order.
     }
 
     // All channels failed.
-    return { success: false, channel: "none", error: "All notification channels failed" };
+    return { success: false, channel: "none", error: "All notification channels failed", retryable: anyTransient };
 
   } catch (err) {
     // Unexpected error — log to console but never propagate.
@@ -200,6 +203,7 @@ export async function sendNotification(
       success: false,
       channel: "none",
       error: err instanceof Error ? err.message : "Unexpected notification error",
+      retryable: true,
     };
   }
 }

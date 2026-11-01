@@ -99,4 +99,8 @@ export interface NotificationResult {
   channel: NotificationChannel | "none";
   /** Set when success is false. */
   error?: string;
+  /** Provider message id when a channel accepted the message. */
+  messageId?: string;
+  /** On failure: true when trying again later may succeed. */
+  retryable?: boolean;
 }
