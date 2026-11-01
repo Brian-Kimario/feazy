@@ -85,8 +85,9 @@ export default function JobDetailModal({
   onJobUpdated,
 }: JobDetailModalProps) {
   const [detail, setDetail] = useState<AdminJobDetail | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Loading is derived: open on a job with neither detail nor error yet.
+  const loading = isOpen && !!jobId && !detail && !error;
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -94,20 +95,12 @@ export default function JobDetailModal({
 
   // Load detail whenever opened or jobId changes
   useEffect(() => {
-    if (!isOpen || !jobId) {
-      setDetail(null);
-      setError(null);
-      setConfirmCancel(false);
-      return;
-    }
+    if (!isOpen || !jobId) return;
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
 
     getAdminJobDetail(jobId).then((res) => {
       if (!isMounted) return;
-      setLoading(false);
       if (res.data) {
         setDetail(res.data);
       } else {
@@ -117,6 +110,10 @@ export default function JobDetailModal({
 
     return () => {
       isMounted = false;
+      // Reset on close or when the job changes, so a reopened modal never shows the previous job.
+      setDetail(null);
+      setError(null);
+      setConfirmCancel(false);
     };
   }, [isOpen, jobId]);
 
