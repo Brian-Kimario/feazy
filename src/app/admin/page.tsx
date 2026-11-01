@@ -27,7 +27,7 @@ const SEVERITY: Record<OpsCase['severity'], { label: string; cls: string }> = {
 };
 
 function caseHref(c: OpsCase): string {
-  return c.type === 'verification' || !c.bookingId ? '/admin/professionals' : `/admin/jobs/${c.bookingId}`;
+  return c.type === 'verification' || !c.bookingId ? '/admin/professionals/verification' : `/admin/jobs/${c.bookingId}`;
 }
 
 function Panel({ title, kicker, aside, children }: { title: string; kicker: string; aside?: React.ReactNode; children: React.ReactNode }) {
@@ -261,7 +261,7 @@ async function CommandCenter() {
               {verifQueue.map((pro) => (
                 <li key={pro.user_id}>
                   <Link
-                    href="/admin/professionals"
+                    href="/admin/professionals/verification"
                     className="block min-h-11 px-5 py-3 hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
                   >
                     <span className="block truncate text-sm font-bold text-ink">{pro.full_name || pro.display_name}</span>
@@ -275,7 +275,7 @@ async function CommandCenter() {
             </ul>
           )}
           <div className="border-t border-line bg-paper-2 px-5 py-3">
-            <Link href="/admin/professionals" className="inline-flex min-h-11 items-center text-xs font-bold text-teal-deep hover:underline">
+            <Link href="/admin/professionals/verification" className="inline-flex min-h-11 items-center text-xs font-bold text-teal-deep hover:underline">
               Open verification queue →
             </Link>
           </div>

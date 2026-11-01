@@ -389,7 +389,7 @@ function ProfessionalCard({
               label: 'View profile',
               onClick: () => {
                 onActionDone(professional.user_id);
-                router.push(`/admin/professionals?view=${professional.user_id}`);
+                router.push(`/admin/professionals/verification?view=${professional.user_id}`);
               },
             }}
             secondaryAction={{

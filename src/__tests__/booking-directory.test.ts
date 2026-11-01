@@ -48,3 +48,17 @@ describe('booking directory service (static)', () => {
     expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
   });
 });
+
+describe('professional directory', () => {
+  it('defaults bad filters and rejects unsafe search text', async () => {
+    const { professionalDirectoryInput } = await import('@/lib/admin/professional-directory');
+    const r = professionalDirectoryInput.parse({ q: 'a,b).or(x', status: 'zzz', availability: '1', workload: 'x', page: '0' });
+    expect(r).toEqual({ q: undefined, status: 'all', availability: 'all', workload: 'all', page: 1 });
+    expect(professionalDirectoryInput.parse({ status: 'suspended', workload: 'with_active' }).status).toBe('suspended');
+  });
+  it('service checks the admin role before the client and is not a server-action module', () => {
+    const src = read('src/lib/services/admin-professional-directory.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+  });
+});

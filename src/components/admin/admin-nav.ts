@@ -23,7 +23,8 @@ export const ADMIN_NAV: AdminNavSection[] = [
   {
     label: 'People',
     items: [
-      { href: '/admin/professionals', label: 'Verification', icon: 'verification' },
+      { href: '/admin/professionals', label: 'Professionals', icon: 'people' },
+      { href: '/admin/professionals/verification', label: 'Verification', icon: 'verification' },
       { href: '/admin/customers', label: 'Customers', icon: 'people' },
     ],
   },

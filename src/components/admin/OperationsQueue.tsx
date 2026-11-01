@@ -101,7 +101,7 @@ function DetailBody({ item, detail }: { item: OpsCase; detail: OpsCaseDetail }) 
           <p>
             {detail.verification.displayName} · {label(detail.verification.status)} · submitted {when(detail.verification.submittedAt)}
           </p>
-          <Link href="/admin/professionals" className="mt-2 inline-block font-semibold text-teal hover:underline">
+          <Link href="/admin/professionals/verification" className="mt-2 inline-block font-semibold text-teal hover:underline">
             Review documents →
           </Link>
         </Section>
