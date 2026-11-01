@@ -58,7 +58,21 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
 
   const { id } = await params;
   const kase = await getProfessionalCase(user.id, id);
-  if (!kase) notFound();
+  if (!kase) {
+    return (
+      <PageContainer>
+        <Panel>
+          <h1 className="text-lg font-bold text-ink">This job is not available to you</h1>
+          <p className="mt-1 text-sm text-ink-2">
+            It may have been reassigned, withdrawn or cancelled. Your current jobs and offers are on your jobs page.
+          </p>
+          <Link href="/professional/jobs" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-teal-deep hover:underline">
+            Go to my jobs
+          </Link>
+        </Panel>
+      </PageContainer>
+    );
+  }
 
   const { job, booking, contact, property } = kase;
   // Only the stages that need a code ask for one: the start code on site, the finish code during the work.

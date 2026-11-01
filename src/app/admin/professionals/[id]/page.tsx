@@ -4,6 +4,7 @@ import { getProfessionalAccount, type ProfessionalJobRow } from '@/lib/services/
 import { isAdminFailure } from '@/lib/admin/result';
 import { formatDateTime } from '@/lib/admin/format';
 import { ProfessionalStatusActions } from '@/components/admin/ProfessionalStatusActions';
+import { RetryRecoveryButton } from '@/components/admin/RetryRecoveryButton';
 
 export const metadata = {
   title: 'Professional account — Feasy Admin',
@@ -80,6 +81,14 @@ export default async function ProfessionalAccountPage({ params }: { params: Prom
       <section className="rounded-xl border border-line bg-paper p-5">
         <h2 className="mb-2 text-sm font-bold text-ink">Account status</h2>
         <ProfessionalStatusActions professionalId={p.userId} status={p.verificationStatus} />
+        {p.verificationStatus === 'suspended' && (p.pendingOffers.length > 0 || p.activeJobs.length > 0) && (
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="mb-2 text-sm text-ink-2">
+              This professional is suspended but still holds {p.pendingOffers.length} pending offer(s) and {p.activeJobs.length} active job(s).
+            </p>
+            <RetryRecoveryButton professionalId={p.userId} />
+          </div>
+        )}
       </section>
 
       <section aria-label="Performance">

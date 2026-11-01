@@ -21,9 +21,9 @@ Local-only gaps found (prod verified correct, read-only): replay of older migrat
 
 ## Production dependencies / open
 - D-A4-3, D-A4-4, D-A4-8 undecided.
-- Legacy quote status `pending_customer_approval` is not covered by 111's quote check (would need a migration; not applied).
-- `on_job_state_transition` logged a `notification_logs_status_check` violation locally (swallowed). Not yet checked against prod.
-- Notification link for a removed professional 404s.
+- Legacy quote status `pending_customer_approval`: read-only check on prod found 2 such quotes, both on cancelled jobs (no live impact). The app already treats the legacy value as not awaiting the customer (`rules.test.ts`). No migration needed unless a new row can be written with it.
+- `notification_logs_status_check`: prod has no such constraint (checked read-only), and the trigger's `pending` insert works there. Local-only replay artefact, not a live defect.
+- Notification link for a removed professional: fixed. `/professional/jobs/[id]` now shows "not available to you" with a link to their jobs instead of a 404. Retry-recovery button added to the suspended professional's page (shown only while offers or active jobs remain); not clicked on real data.
 
 ## Phase status
 | Phase | Status |
