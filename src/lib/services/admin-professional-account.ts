@@ -47,6 +47,27 @@ export interface ProfessionalAccount {
   availability: { day: number; start: string; end: string }[];
   serviceAreas: { city: string; area: string | null; radiusKm: number | null }[];
   documents: { id: string; type: string; status: string; uploadedAt: string; reviewedAt: string | null }[];
+  cancellations: ProfessionalCancellation[];
+}
+
+export type CancelledBy = 'professional' | 'customer' | 'admin' | 'system';
+export interface ProfessionalCancellation {
+  jobId: string;
+  bookingId: string;
+  reference: string | null;
+  at: string;
+  fromState: string;
+  cancelledBy: CancelledBy;
+  /** Internal reason, recorded only for administrative cancellations. */
+  reason: string | null;
+}
+
+/** Who cancelled, from the event actor. Admin cancellations are also recorded in admin_job_cancellations. */
+export function classifyCancellation(actor: string | null, professionalId: string, customerId: string, adminRecorded: boolean): CancelledBy {
+  if (adminRecorded) return 'admin';
+  if (actor === professionalId) return 'professional';
+  if (actor === customerId) return 'customer';
+  return actor ? 'admin' : 'system';
 }
 
 export async function getProfessionalAccount(userId: string): Promise<AdminResult<ProfessionalAccount | null>> {
@@ -69,7 +90,7 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
   const [jobs, metrics, exceptions, events, audit] = await Promise.all([
     admin
       .from('jobs')
-      .select('id, booking_id, current_state, created_at')
+      .select('id, booking_id, customer_id, current_state, created_at')
       .eq('professional_id', userId)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -110,6 +131,19 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
     return adminFailure('FAILED', 'Could not load this professional. Reload to try again.');
   }
 
+  const cancelledJobs = (jobs.data ?? []).filter((j) => j.current_state === 'cancelled');
+  const cancelIds = cancelledJobs.map((j) => j.id);
+  const [cancelEvents, adminCancels] = cancelIds.length
+    ? await Promise.all([
+        admin.from('job_events').select('job_id, actor_user_id, from_state, created_at').eq('to_state', 'cancelled').in('job_id', cancelIds).order('created_at', { ascending: false }),
+        admin.from('admin_job_cancellations').select('job_id, internal_reason').in('job_id', cancelIds),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (cancelEvents.error || adminCancels.error) {
+    console.error('getProfessionalAccount cancellations:', (cancelEvents.error ?? adminCancels.error)?.message);
+    return adminFailure('FAILED', 'Could not load this professional. Reload to try again.');
+  }
+
   const bookingIds = [...new Set((jobs.data ?? []).map((j) => j.booking_id))];
   const bookings = new Map<string, { reference: string | null; start: string | null }>();
   if (bookingIds.length > 0) {
@@ -128,6 +162,24 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
     scheduledStart: bookings.get(j.booking_id)?.start ?? null,
     createdAt: j.created_at,
   }));
+
+  const adminReason = new Map((adminCancels.data ?? []).map((c) => [c.job_id, c.internal_reason]));
+  const seen = new Set<string>();
+  const cancellations: ProfessionalCancellation[] = [];
+  for (const e of cancelEvents.data ?? []) {
+    const j = cancelledJobs.find((x) => x.id === e.job_id);
+    if (!j || seen.has(j.id)) continue;
+    seen.add(j.id);
+    cancellations.push({
+      jobId: j.id,
+      bookingId: j.booking_id,
+      reference: bookings.get(j.booking_id)?.reference ?? null,
+      at: e.created_at ?? j.created_at,
+      fromState: e.from_state,
+      cancelledBy: classifyCancellation(e.actor_user_id, userId, j.customer_id, adminReason.has(j.id)),
+      reason: adminReason.get(j.id) ?? null,
+    });
+  }
 
   const m = metrics.data;
   return {
@@ -175,6 +227,7 @@ export async function getProfessionalAccount(userId: string): Promise<AdminResul
       contact: { email: contact.data?.email ?? null, phone: contact.data?.phone ?? null },
       availability: (avail.data ?? []).map((r) => ({ day: r.day_of_week, start: String(r.start_time).slice(0, 5), end: String(r.end_time).slice(0, 5) })),
       serviceAreas: (areas.data ?? []).map((r) => ({ city: r.city, area: r.area ?? null, radiusKm: r.radius_km ?? null })),
+      cancellations,
       documents: (docs.data ?? []).map((d) => ({ id: d.id, type: d.document_type, status: d.status, uploadedAt: d.uploaded_at, reviewedAt: d.reviewed_at ?? null })),
     },
   };

@@ -112,3 +112,14 @@ describe('communications', () => {
     expect(src).not.toMatch(/select\('[^']*\bmessage\b/);
   });
 });
+
+describe('professional cancellation history', () => {
+  it('attributes the cancellation to the right party', async () => {
+    const { classifyCancellation } = await import('@/lib/services/admin-professional-account');
+    expect(classifyCancellation('p', 'p', 'c', false)).toBe('professional');
+    expect(classifyCancellation('c', 'p', 'c', false)).toBe('customer');
+    expect(classifyCancellation('a', 'p', 'c', false)).toBe('admin');
+    expect(classifyCancellation('p', 'p', 'c', true)).toBe('admin');
+    expect(classifyCancellation(null, 'p', 'c', false)).toBe('system');
+  });
+});

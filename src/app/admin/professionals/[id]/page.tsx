@@ -145,6 +145,24 @@ export default async function ProfessionalAccountPage({ params }: { params: Prom
       </div>
       <JobList title="Job history" rows={p.recentJobs} empty="No past jobs." />
 
+      <section className="rounded-xl border border-line bg-paper p-5" aria-label="Cancellation history">
+        <h2 className="text-sm font-bold text-ink">Cancellation history</h2>
+        {p.cancellations.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-3">No cancelled jobs on record.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-line text-sm">
+            {p.cancellations.map((c) => (
+              <li key={c.jobId} className="grid gap-1 py-2 md:grid-cols-[1fr_1fr_1fr_auto]">
+                <Link href={`/admin/jobs/${c.bookingId}`} className="font-semibold text-teal-deep hover:underline">{c.reference ?? 'Booking'}</Link>
+                <span className="text-ink-2">By {c.cancelledBy} · from {words(c.fromState)}</span>
+                <span className="text-ink-2">{c.reason ?? 'No reason recorded'}</span>
+                <span className="text-xs text-ink-3">{formatDateTime(c.at)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section className="rounded-xl border border-line bg-paper p-5">
         <h2 className="text-sm font-bold text-ink">Complaints and exceptions</h2>
         {p.complaints.length === 0 ? (
