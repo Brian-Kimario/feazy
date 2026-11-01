@@ -37,7 +37,7 @@ test.describe('A1 professional verification', () => {
     const name = process.env.E2E_A1_NODOCS_NAME
     test.skip(!name, 'Set E2E_A1_NODOCS_NAME')
     await signInAdmin(page)
-    await page.goto('/admin/professionals')
+    await page.goto('/admin/professionals/verification')
     await card(page, name ?? '').getByRole('button', { name: 'Approve' }).click()
     await expect(page.getByText(/Required documents missing/)).toBeVisible()
     await expect(card(page, name ?? '')).toBeVisible()
@@ -47,7 +47,7 @@ test.describe('A1 professional verification', () => {
     const name = process.env.E2E_A1_REJECT_NAME
     test.skip(!name, 'Set E2E_A1_REJECT_NAME')
     await signInAdmin(page)
-    await page.goto('/admin/professionals')
+    await page.goto('/admin/professionals/verification')
     await card(page, name ?? '').getByRole('button', { name: 'Reject' }).click()
     const confirm = page.getByRole('button', { name: 'Confirm Rejection' })
     await page.locator('#reject-reason').fill('abc')

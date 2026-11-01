@@ -42,11 +42,11 @@ function statusBadge(status: string) {
     },
     documents_submitted: {
       label: 'Docs submitted',
-      class: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]',
+      class: 'bg-[#F5EBD7] text-[#8A5C14] border-[#DDCCAB]',
     },
     under_review: {
       label: 'Under review',
-      class: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]',
+      class: 'bg-[#F5EBD7] text-[#8A5C14] border-[#DDCCAB]',
     },
     verified: {
       label: 'Verified',
@@ -211,7 +211,7 @@ function DocumentList({
   };
 
   if (documents.length === 0) {
-    return <p className="text-xs text-[#7C8681] italic">No documents uploaded yet.</p>;
+    return <p className="text-xs text-[#626D68] italic">No documents uploaded yet.</p>;
   }
 
   return (
@@ -227,7 +227,7 @@ function DocumentList({
                 <div className="text-xs font-semibold text-[#18211F] truncate">
                   {docTypeLabel(doc.document_type)}
                 </div>
-                <div className="text-[11px] text-[#7C8681]">
+                <div className="text-[11px] text-[#626D68]">
                   Uploaded {timeAgo(doc.uploaded_at)} ·{' '}
                   <span
                     className={
@@ -235,7 +235,7 @@ function DocumentList({
                         ? 'text-[#2F7D5B]'
                         : doc.status === 'rejected'
                         ? 'text-[#A9523D]'
-                        : 'text-[#9B6A1E]'
+                        : 'text-[#8A5C14]'
                     }
                   >
                     {doc.status}
@@ -260,7 +260,7 @@ function DocumentList({
             </div>
 
             {doc.status === 'pending' && !canJudge && (
-              <p className="text-[11px] text-[#7C8681]">Open the document before you accept or reject it.</p>
+              <p className="text-[11px] text-[#626D68]">Open the document before you accept or reject it.</p>
             )}
 
             {canJudge && (
@@ -415,7 +415,7 @@ function ProfessionalCard({
               <span className="font-bold text-[#18211F] text-base">{name}</span>
               {statusBadge(professional.verification_status)}
             </div>
-            <div className="text-xs text-[#7C8681] mt-1">
+            <div className="text-xs text-[#626D68] mt-1">
               {professional.email ?? '—'} · {professional.years_experience ?? '?'} yrs exp
             </div>
             {professional.submitted_at && (
@@ -464,7 +464,7 @@ function ProfessionalCard({
           {actionError ? (
             <p className="text-xs text-[#A9523D] font-medium flex-1" role="alert">{actionError}</p>
           ) : !idAccepted ? (
-            <p className="text-xs text-[#7C8681] flex-1">
+            <p className="text-xs text-[#626D68] flex-1">
               Approve unlocks once the Government ID document has been inspected and accepted.
             </p>
           ) : null}
@@ -517,9 +517,9 @@ function ProfessionalCard({
                   setActionError(null);
                 }}
                 placeholder="E.g. Licence document is expired or unreadable. Please re-upload a valid, current government document."
-                className="w-full resize-none rounded-xl border border-[#D9DED8] bg-white px-4 py-3 text-sm text-[#18211F] placeholder-[#9BA5A0] focus:outline-none focus:border-[#5FE3B0] transition"
+                className="w-full resize-none rounded-xl border border-[#D9DED8] bg-white px-4 py-3 text-sm text-[#18211F] placeholder-[#626D68] focus:outline-none focus:border-[#5FE3B0] transition"
               />
-              <p className="text-[11px] text-[#7C8681] mt-1">{rejectReason.trim().length} / min 5 chars</p>
+              <p className="text-[11px] text-[#626D68] mt-1">{rejectReason.trim().length} / min 5 chars</p>
             </div>
 
             {actionError && <p className="text-xs text-[#A9523D] font-medium">{actionError}</p>}
@@ -617,7 +617,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, email…"
-          className="px-4 py-2 border border-[#D9DED8] rounded-xl bg-white text-sm text-[#18211F] placeholder-[#9BA5A0] focus:outline-none focus:border-[#5FE3B0] transition w-full sm:w-64"
+          className="px-4 py-2 border border-[#D9DED8] rounded-xl bg-white text-sm text-[#18211F] placeholder-[#626D68] focus:outline-none focus:border-[#5FE3B0] transition w-full sm:w-64"
         />
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -639,7 +639,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
 
       {/* Directory Table */}
       {filtered.length === 0 ? (
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl p-8 text-center text-sm text-[#7C8681]">
+        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl p-8 text-center text-sm text-[#626D68]">
           No professionals found matching query.
         </div>
       ) : (
@@ -647,7 +647,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#D9DED8] bg-[#F7F4EC] text-left text-xs font-bold text-[#7C8681] uppercase tracking-wide">
+                <tr className="border-b border-[#D9DED8] bg-[#F7F4EC] text-left text-xs font-bold text-[#626D68] uppercase tracking-wide">
                   <th className="px-5 py-3">Professional</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Rating</th>
@@ -662,7 +662,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                       <Link href={`/admin/professionals/${pro.user_id}`} className="font-bold text-[#18211F] hover:underline">
                         {pro.display_name}
                       </Link>
-                      <div className="text-xs text-[#7C8681]">{pro.email ?? 'No email'}</div>
+                      <div className="text-xs text-[#626D68]">{pro.email ?? 'No email'}</div>
                     </td>
                     <td className="px-5 py-3.5">{statusBadge(pro.verification_status)}</td>
                     <td className="px-5 py-3.5 text-xs font-medium text-[#18211F]">
@@ -684,7 +684,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                         disabled={actioningId === pro.user_id || isPending}
                         className={`px-3 py-1 text-xs font-bold rounded-lg border transition disabled:opacity-50 ${
                           pro.verification_status === 'suspended'
-                            ? 'border-[#C7DCCF] bg-[#E2EEE9] text-[#2F7D5B] hover:bg-[#D2E8DF]'
+                            ? 'border-[#C7DCCF] bg-[#E2EEE9] text-[#1C5E41] hover:bg-[#D2E8DF]'
                             : 'border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] hover:bg-[#EDD1C8]'
                         }`}
                       >
@@ -785,11 +785,11 @@ export default function VerificationQueue({
           className={`pb-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
             activeTab === 'queue'
               ? 'border-[#0D5144] text-[#0D5144]'
-              : 'border-transparent text-[#7C8681] hover:text-[#18211F]'
+              : 'border-transparent text-[#626D68] hover:text-[#18211F]'
           }`}
         >
           Verification Queue
-          <span className="px-2 py-0.5 rounded-full text-xs bg-[#E2EEE9] text-[#2F7D5B]">
+          <span className="px-2 py-0.5 rounded-full text-xs bg-[#E2EEE9] text-[#1C5E41]">
             {professionals.length}
           </span>
         </button>
@@ -800,11 +800,11 @@ export default function VerificationQueue({
             className={`pb-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
               activeTab === 'all'
                 ? 'border-[#0D5144] text-[#0D5144]'
-                : 'border-transparent text-[#7C8681] hover:text-[#18211F]'
+                : 'border-transparent text-[#626D68] hover:text-[#18211F]'
             }`}
           >
             All Registered Technicians
-            <span className="px-2 py-0.5 rounded-full text-xs bg-gray-200 text-[#5A6661]">
+            <span className="px-2 py-0.5 rounded-full text-xs bg-[#E4E7E2] text-[#3F4A45]">
               {allProfessionals.length}
             </span>
           </button>
@@ -833,7 +833,7 @@ export default function VerificationQueue({
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[#7C8681]">
+            <span className="text-xs text-[#626D68]">
               {filtered.length} professional{filtered.length !== 1 ? 's' : ''} awaiting review
             </span>
           </div>
@@ -852,7 +852,7 @@ export default function VerificationQueue({
                 <polyline points="16 24 21 29 33 18" />
               </svg>
               <p className="font-bold text-[#18211F] mb-1">Queue cleared</p>
-              <p className="text-sm text-[#7C8681]">No pending professional files require action.</p>
+              <p className="text-sm text-[#626D68]">No pending professional files require action.</p>
             </div>
           ) : (
             <div className="space-y-4">

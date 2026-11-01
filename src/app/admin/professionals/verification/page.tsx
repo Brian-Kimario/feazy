@@ -42,7 +42,7 @@ export default async function AdminProfessionalsPage() {
     <div className="px-4 md:px-6 py-6 md:py-8 max-w-7xl mx-auto">
       {/* Page header */}
       <div className="mb-8">
-        <div className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mb-2">
+        <div className="text-xs font-bold uppercase tracking-[0.11em] text-ink-4 mb-2">
           ADMIN · VERIFICATION
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-[#18211F] mb-2">
