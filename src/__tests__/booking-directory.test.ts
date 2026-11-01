@@ -95,3 +95,14 @@ describe('finance payments', () => {
     expect(src).not.toMatch(/\.(insert|update|delete|upsert|rpc)\(/);
   });
 });
+
+describe('communications', () => {
+  it('service is read-only, checks the admin role first and never reads message bodies or job chat', () => {
+    const src = read('src/lib/services/admin-communications.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+    expect(src).not.toMatch(/\.(insert|update|delete|upsert|rpc)\(/);
+    expect(src).not.toMatch(/job_messages/);
+    expect(src).not.toMatch(/select\('[^']*\bmessage\b/);
+  });
+});
