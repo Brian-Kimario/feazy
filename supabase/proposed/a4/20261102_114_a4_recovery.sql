@@ -1,6 +1,6 @@
 -- A4 / 114  PROFESSIONAL WITHDRAWAL, SUSPENSION RECOVERY, EXCEPTION RESOLUTION  (REVISION 2)
---                                                   *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
--- NOT parsed or tested by PostgreSQL. Do not describe this file as executable.
+--                                                   *** APPLIED to azmajqztvcuwajaaldqm on 2026-11-01 via apply_migration (comments and BEGIN/COMMIT stripped). Behaviour and concurrency NOT tested. ***
+-- Installed cleanly on a local PostgreSQL 18 scratch cluster, then applied live. No behaviour, RLS or concurrency test has been run.
 -- Depends on: 111 (lock model, _require_read_committed), 112 (columns/kinds), 113 (_idem_begin/_idem_finish, edge guard).
 --
 -- Lock order (see docs/A4_DESIGN.md section 3):  L1 bookings row -> L2 jobs row -> L3 professional_profiles row -> L4 job_exceptions row.

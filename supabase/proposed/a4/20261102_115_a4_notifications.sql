@@ -1,5 +1,5 @@
--- A4 / 115  NOTIFICATIONS FOR ASSIGNMENT EVENTS  (REVISION 2)  *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
--- NOT parsed or tested by PostgreSQL. Revision 2 changes no function body in this file: the 111/113/114 corrections only add
+-- A4 / 115  NOTIFICATIONS FOR ASSIGNMENT EVENTS  (REVISION 2)  *** APPLIED to azmajqztvcuwajaaldqm on 2026-11-01 via apply_migration (comments and BEGIN/COMMIT stripped). Behaviour and concurrency NOT tested. ***
+-- Installed cleanly on a local PostgreSQL 18 scratch cluster, then applied live. No behaviour, RLS or concurrency test has been run.
 -- event types ('professional_withdrawal_requested', 'suspended_active_job_flagged', 'exception_reviewed', 'exception_resolved')
 -- that deliberately map to NO notification (v_kind stays NULL -> RETURN). 'professional_withdrew' now fires ONLY for a controlled
 -- pre-start withdrawal, which is exactly the case where the customer must be told.

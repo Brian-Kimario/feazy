@@ -1,5 +1,5 @@
--- A4 / 113  MANUAL ASSIGNMENT, OFFER WITHDRAWAL, REASSIGNMENT  (REVISION 2)  *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
--- NOT parsed or tested by PostgreSQL.
+-- A4 / 113  MANUAL ASSIGNMENT, OFFER WITHDRAWAL, REASSIGNMENT  (REVISION 2)  *** APPLIED to azmajqztvcuwajaaldqm on 2026-11-01 via apply_migration (comments and BEGIN/COMMIT stripped). Behaviour and concurrency NOT tested. ***
+-- Installed cleanly on a local PostgreSQL 18 scratch cluster, then applied live. No behaviour, RLS or concurrency test has been run.
 -- Depends on: 111 (conflict helper, read-committed guard, L3 lock model), 112 (_require_admin, vocabulary, idempotency table).
 -- No new state machine: an offer is a jobs row in 'assigned'. The only new edge is accepted -> assigned,
 -- performed by admin_reassign_job (here) and professional_withdraw_from_job (114) only. Section 0 below installs a trigger that

@@ -19,13 +19,20 @@ describe('A4 draft package (static, nothing executed)', () => {
     expect(files).toContain(f.replace(/\.sql$/, '_ROLLBACK.sql'));
   });
 
-  it.each(forward)('%s is marked DRAFT / NOT APPLIED', (f) => {
-    expect(read(f)).toMatch(/DRAFT\. NOT APPLIED/);
+  it.each(forward)('%s is marked APPLIED (live) and not behaviour-tested', (f) => {
+    expect(read(f)).toMatch(/APPLIED to azmajqztvcuwajaaldqm/);
   });
 
-  it('no draft has been copied into supabase/migrations', () => {
-    const live = existsSync(join(root, 'supabase/migrations')) ? readdirSync(join(root, 'supabase/migrations')) : [];
-    expect(live.filter((f) => /a4_/.test(f))).toEqual([]);
+  it('every applied A4 file has an identical copy in supabase/migrations', () => {
+    const live = readdirSync(join(root, 'supabase/migrations')).filter((f) => /_a4_/.test(f));
+    expect(live.length).toBe(forward.length);
+    for (const f of forward) {
+      const [, num, rest] = f.match(/^\d+_(\d+)_a4_(.+)$/)!;
+      const key = `a4_${num}_${rest}`;
+      const copy = live.find((l) => l.endsWith(key));
+      expect(copy, key).toBeDefined();
+      expect(readFileSync(join(root, 'supabase/migrations', copy!), 'utf8')).toBe(read(f));
+    }
   });
 
   it('every admin_* function in the drafts authorizes through _require_admin() or the verified-role check', () => {
@@ -57,10 +64,10 @@ describe('A4 draft package (static, nothing executed)', () => {
     );
   });
 
-  it('marks every revision-2 draft as not parsed or tested by PostgreSQL', () => {
+  it('states that no behaviour test has been run for any A4 file', () => {
     for (const f of ['111_a4_scheduling_integrity', '112_a4_vocabulary', '113_a4_admin', '114_a4_recovery', '115_a4_notif']) {
       const file = forward.find((x) => x.includes(f))!;
-      expect(read(file)).toMatch(/NOT parsed or tested by PostgreSQL/);
+      expect(read(file)).toMatch(/No behaviour, RLS or concurrency test has been run/);
     }
   });
 

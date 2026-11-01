@@ -1,4 +1,4 @@
--- A4 / 116  BOOKING/JOB LIFECYCLE DRIFT DETECTION    *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
+-- A4 / 116  BOOKING/JOB LIFECYCLE DRIFT DETECTION    *** APPLIED to azmajqztvcuwajaaldqm on 2026-11-01 via apply_migration (comments and BEGIN/COMMIT stripped). Behaviour and concurrency NOT tested. ***
 -- Scope: DETECTION ONLY. This file changes no existing row and installs no trigger.
 -- Observed read-only 2026-11-01 (bookings LEFT JOIN jobs; 15 rows):
 --   booking pending   / job cancelled   x3     booking confirmed / job cancelled   x2

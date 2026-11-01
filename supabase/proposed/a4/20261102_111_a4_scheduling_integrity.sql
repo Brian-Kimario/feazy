@@ -1,6 +1,6 @@
--- A4 / 111  SCHEDULING INTEGRITY (P0)   -- REVISION 2 after SQL review    *** DRAFT. NOT APPLIED. NOT EXECUTED. ***
+-- A4 / 111  SCHEDULING INTEGRITY (P0)   -- REVISION 2 after SQL review    *** APPLIED to azmajqztvcuwajaaldqm on 2026-11-01 via apply_migration (comments and BEGIN/COMMIT stripped). Behaviour and concurrency NOT tested. ***
 -- Outside supabase/migrations/ on purpose. Based on live definitions read 2026-11-01.
--- NOT parsed or tested by PostgreSQL. Do not describe this file as executable until it has been.
+-- Installed cleanly on a local PostgreSQL 18 scratch cluster, then applied live. No behaviour, RLS or concurrency test has been run.
 -- Depends on: nothing in this package.
 --
 -- Defect (confirmed from live bodies): _rank_professionals filters out professionals with another active job within
