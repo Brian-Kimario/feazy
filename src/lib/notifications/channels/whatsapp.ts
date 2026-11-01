@@ -18,7 +18,6 @@
  * Docs: https://razorpay.com/docs/whatsapp-business/
  */
 
-"use server";
 
 /** Shape of a single WhatsApp template parameter (text variable). */
 export interface WhatsAppTemplateParam {

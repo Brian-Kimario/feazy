@@ -20,7 +20,6 @@
  * @see https://docs.sendgrid.com/api-reference/mail-send/mail-send
  */
 
-"use server";
 
 export interface EmailSendPayload {
   to: string;

@@ -44,7 +44,9 @@ Drift note: `bookings.booking_status` is not advanced by the job lifecycle, so `
 - Dispatch: `sendNotification()` (WhatsApp, then SMS, then email, writes sent/failed/skipped_dnd) has **no callers** in the app. No cron route or webhook for it exists. pg_cron runs only `process-assignment-queue`, `job-media-sweep` and `reconcile-notifications` (which covers the in-app `notifications` table, not this log).
 - Result: delivery is **incomplete, not failing**. The 61 rows are queued records that nothing consumes; `notification_failures` is empty because no attempt was ever made. Provider env vars (`RAZORPAY_WHATSAPP_*`) are documented in `.env.example`; their presence in the deployed environment was not checked.
 - Admin console: Communications now shows a banner saying external delivery is not operating.
-- Owner decision needed before launch: wire a dispatcher (cron route that claims pending rows and calls `sendNotification`) and enable the provider. Not done: would send real messages.
+- Built `POST /api/cron/notification-dispatch` (CRON_SECRET; dry-run unless `NOTIFICATION_DISPATCH_ENABLED=true`; rows older than 6h are never sent; outcome written to the queued row). Not scheduled, not enabled, nothing sent. `send.ts` and the channel adapters were `"use server"` (publicly callable senders): directive removed.
+- Prod `notification_logs` lacks `channel_delivered`, `provider_message_id`, `error_message` (migration drift), so only status/sent_at are recorded. Failure reasons are not stored until a migration adds them.
+- Owner steps before launch: set provider env vars, schedule the route, flip the flag; decide what to do with the 61 stale rows. (Was: wire a dispatcher (cron route that claims pending rows and calls `sendNotification`) and enable the provider. Not done: would send real messages.)
 
 ## Next
 Done this round: notification root cause and honest status banner, customer payments, professional enrichment, audit job links, `src/app/admin/loading.tsx` skeleton, `pnpm build` passes, 518 tests pass, tsc clean.
