@@ -22,6 +22,15 @@ export const LIFECYCLE_JOB_STATES: Record<Exclude<Lifecycle, 'all' | 'unmatched'
   cancelled: ['cancelled'],
 };
 
+/** Whether the booking's job has a professional. Bookings with no job at all are the "Unmatched" lifecycle. */
+export const ASSIGNMENTS = ['all', 'with_professional', 'no_professional'] as const;
+export type Assignment = (typeof ASSIGNMENTS)[number];
+export const ASSIGNMENT_LABELS: Record<Assignment, string> = {
+  all: 'Any',
+  with_professional: 'Professional assigned',
+  no_professional: 'Job without professional',
+};
+
 export const PAGE_SIZE = 25;
 export const SORTS = ['scheduled_desc', 'scheduled_asc', 'created_desc'] as const;
 
@@ -37,6 +46,7 @@ export const directoryInput = z.object({
     .optional()
     .catch(undefined),
   lifecycle: z.enum(LIFECYCLES).catch('all'),
+  assignment: z.enum(ASSIGNMENTS).catch('all'),
   from: day.optional().catch(undefined),
   to: day.optional().catch(undefined),
   sort: z.enum(SORTS).catch('scheduled_desc'),

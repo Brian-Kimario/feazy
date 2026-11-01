@@ -22,6 +22,12 @@ describe('booking directory input', () => {
     expect(directoryInput.parse({ q: 'a.b@x.com' }).q).toBe('a.b@x.com');
   });
 
+  it('validates the assignment filter and defaults bad values', () => {
+    expect(directoryInput.parse({ assignment: 'no_professional' }).assignment).toBe('no_professional');
+    expect(directoryInput.parse({ assignment: "x'); drop" }).assignment).toBe('all');
+    expect(directoryInput.parse({}).assignment).toBe('all');
+  });
+
   it('has a sane page size', () => {
     expect(PAGE_SIZE).toBeGreaterThan(0);
   });

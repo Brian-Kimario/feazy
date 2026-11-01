@@ -61,7 +61,9 @@ export async function listBookingDirectory(raw: unknown): Promise<AdminResult<Di
     return adminFailure('FAILED', 'Could not load the booking directory. Reload to try again.');
   };
 
-  const inner = input.lifecycle !== 'all' && input.lifecycle !== 'unmatched';
+  // Unmatched bookings have no job, so an assignment filter cannot apply to them.
+  const assignment = input.lifecycle === 'unmatched' ? 'all' : input.assignment;
+  const inner = (input.lifecycle !== 'all' && input.lifecycle !== 'unmatched') || assignment !== 'all';
   let q = a
     .from('bookings')
     .select(
@@ -73,7 +75,9 @@ export async function listBookingDirectory(raw: unknown): Promise<AdminResult<Di
     );
 
   if (input.lifecycle === 'unmatched') q = q.eq('booking_status', 'pending').is('jobs', null);
-  else if (inner) q = q.in('jobs.current_state', LIFECYCLE_JOB_STATES[input.lifecycle as keyof typeof LIFECYCLE_JOB_STATES]);
+  else if (input.lifecycle !== 'all') q = q.in('jobs.current_state', LIFECYCLE_JOB_STATES[input.lifecycle as keyof typeof LIFECYCLE_JOB_STATES]);
+  if (assignment === 'with_professional') q = q.not('jobs.professional_id', 'is', null);
+  else if (assignment === 'no_professional') q = q.is('jobs.professional_id', null);
   if (input.from) q = q.gte('scheduled_start', `${input.from}T00:00:00+05:30`);
   if (input.to) q = q.lt('scheduled_start', `${nextDay(input.to)}T00:00:00+05:30`);
 

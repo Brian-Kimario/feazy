@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { listBookingDirectory } from '@/lib/services/admin-booking-directory';
 import { isAdminFailure } from '@/lib/admin/result';
 import { formatDateTime } from '@/lib/admin/format';
-import { LIFECYCLES, LIFECYCLE_LABELS, directoryInput, type Lifecycle } from '@/lib/admin/booking-directory';
+import { ASSIGNMENTS, ASSIGNMENT_LABELS, LIFECYCLES, LIFECYCLE_LABELS, directoryInput, type Lifecycle } from '@/lib/admin/booking-directory';
 
 export const metadata = { title: 'Jobs & Bookings — Feasy Admin' };
 export const dynamic = 'force-dynamic';
@@ -29,9 +29,9 @@ function href(p: Record<string, string | number | undefined>): string {
 
 export default async function AdminJobsPage({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
-  const input = directoryInput.parse({ q: one(sp.q), lifecycle: one(sp.lifecycle), from: one(sp.from), to: one(sp.to), sort: one(sp.sort), page: one(sp.page) });
+  const input = directoryInput.parse({ q: one(sp.q), lifecycle: one(sp.lifecycle), assignment: one(sp.assignment), from: one(sp.from), to: one(sp.to), sort: one(sp.sort), page: one(sp.page) });
   const result = await listBookingDirectory(input);
-  const base = { q: input.q, lifecycle: input.lifecycle, from: input.from, to: input.to, sort: input.sort };
+  const base = { q: input.q, lifecycle: input.lifecycle, assignment: input.assignment, from: input.from, to: input.to, sort: input.sort };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
@@ -52,7 +52,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
         ))}
       </nav>
 
-      <form method="get" action="/admin/jobs" className="mb-6 grid gap-3 rounded-xl border border-line bg-paper p-4 md:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+      <form method="get" action="/admin/jobs" className="mb-6 grid gap-3 rounded-xl border border-line bg-paper p-4 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
         <input type="hidden" name="lifecycle" value={input.lifecycle} />
         <label className="block text-xs font-bold text-ink">
           Search reference, customer or professional
@@ -65,6 +65,14 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
         <label className="block text-xs font-bold text-ink">
           Visit to
           <input type="date" name="to" defaultValue={input.to ?? ''} className="mt-1 min-h-11 w-full rounded-lg border border-line bg-paper px-3 text-sm font-normal" />
+        </label>
+        <label className="block text-xs font-bold text-ink">
+          Assignment
+          <select name="assignment" defaultValue={input.assignment} disabled={input.lifecycle === 'unmatched'} className="mt-1 min-h-11 w-full rounded-lg border border-line bg-paper px-3 text-sm font-normal disabled:opacity-60">
+            {ASSIGNMENTS.map((a) => (
+              <option key={a} value={a}>{ASSIGNMENT_LABELS[a]}</option>
+            ))}
+          </select>
         </label>
         <label className="block text-xs font-bold text-ink">
           Sort
