@@ -25,5 +25,17 @@ Local-only gaps found (prod verified correct, read-only): replay of older migrat
 - `on_job_state_transition` logged a `notification_logs_status_check` violation locally (swallowed). Not yet checked against prod.
 - Notification link for a removed professional 404s.
 
+## Phase status
+| Phase | Status |
+|---|---|
+| 1 Foundation (shell, nav, shared UI) | In progress: shell/nav exist; toasts, confirm dialog, drawers not yet built |
+| 2 Actionable Overview | Implemented, loaded in the browser (desktop text read). Not verified on mobile; attention queue lacks suspended-with-jobs and drift entries |
+| 3 Operations / A4 recovery | In progress: exceptions page and assignment panel exist; retry-recovery button unbuilt |
+| 4 Jobs & Bookings | Not started as a rebuild (existing list) |
+| 5 People | In progress: professional account page; customer pages not started |
+| 6 Finance | Not started |
+| 7 Activity, Audit, Disputes | Not started |
+| 8 Integration/regression | Not started |
+
 ## Next
 Finance and Audit (phase 6), then Disputes and Communications (phase 7).

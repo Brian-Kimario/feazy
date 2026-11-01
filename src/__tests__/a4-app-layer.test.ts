@@ -116,4 +116,11 @@ describe('A4 app-layer wiring (static)', () => {
     expect(v).toMatch(/runSuspensionRecovery/);
     expect(v).toMatch(/still need recovery/);
   });
+
+  it('overview counts check the admin role first, are not a server-action module, and never default to zero', () => {
+    const src = read('src/lib/services/admin-overview-counts.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+    expect(src).toMatch(/return null;/);
+  });
 });

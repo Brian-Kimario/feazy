@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { getAdminMetrics, getAssignmentQueueStatus } from '@/lib/services/admin-reads';
 import { getOperationsQueue } from '@/lib/services/admin-operations';
 import { getRecentAdminActivity } from '@/lib/services/admin-overview';
+import { getOverviewCounts } from '@/lib/services/admin-overview-counts';
 import { getUnverifiedProfessionals } from '@/lib/services/verification-queue';
 import { isAdminFailure } from '@/lib/admin/result';
 import { OPS_TYPE_LABELS, formatDuration, type OpsCase } from '@/lib/admin/operations';
@@ -98,13 +99,16 @@ export default function AdminPage() {
 
 async function CommandCenter() {
   // The layout has already enforced the admin role; every service below re-checks it.
-  const [metricsResult, queueResult, matcher, verifResult, activityResult] = await Promise.all([
+  const [metricsResult, queueResult, matcher, verifResult, activityResult, countsResult] = await Promise.all([
     getAdminMetrics(),
     getOperationsQueue(),
     getAssignmentQueueStatus(),
     getUnverifiedProfessionals(),
     getRecentAdminActivity(),
+    getOverviewCounts(),
   ]);
+  const counts = isAdminFailure(countsResult) ? null : countsResult.data;
+  const unmatched = queueResult.ok === false ? null : queueResult.data.cases.filter((c) => c.type === 'unmatched' || c.type === 'stale_pending').length;
 
   const metrics = metricsResult.data;
   const metricsFailed = !metrics || !!metricsResult.error;
@@ -160,6 +164,35 @@ async function CommandCenter() {
           failed={queueFailure}
         />
       </div>
+
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Tile label="Jobs in progress" value={counts?.jobsInProgress ?? null} href="/admin/jobs" failed={counts?.jobsInProgress == null} />
+        <Tile label="Unmatched bookings" value={unmatched} href="/admin/operations?type=unmatched" failed={unmatched === null} />
+        <Tile label="Pending offers" value={counts?.pendingOffers ?? null} href="/admin/operations?type=overdue_offer" failed={counts?.pendingOffers == null} />
+        <Tile label="Open exceptions" value={counts?.openExceptions ?? null} href="/admin/exceptions" failed={counts?.openExceptions == null} />
+      </div>
+
+      <Panel kicker="People" title="Professional monitoring" aside={<Link href="/admin/professionals" className="text-teal-deep hover:underline">Open directory</Link>}>
+        <dl className="grid grid-cols-2 gap-px bg-line md:grid-cols-4">
+          {(
+            [
+              ['Total', counts?.professionals.total],
+              ['Verified', counts?.professionals.verified],
+              ['Pending review', counts?.professionals.pendingReview],
+              ['Available now', counts?.professionals.available],
+              ['Suspended', counts?.professionals.suspended],
+              ['With active jobs', counts?.professionals.withActiveJobs],
+              ['Suspended with active jobs', counts?.suspendedWithActiveJobs],
+            ] as const
+          ).map(([label, v]) => (
+            <div key={label} className="bg-paper p-4">
+              <dt className="text-xs text-ink-3">{label}</dt>
+              <dd className={`mt-1 text-xl font-bold ${v == null ? 'text-danger' : 'text-ink'}`}>{v == null ? 'Unavailable' : v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
+      <div className="mb-8" />
 
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
