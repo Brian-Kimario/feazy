@@ -28,6 +28,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { href: '/admin/customers', label: 'Customers', icon: 'people' },
     ],
   },
+  { label: 'Activity & Audit', items: [{ href: '/admin/audit', label: 'Audit log', icon: 'verification' }] },
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = ADMIN_NAV.flatMap((s) => s.items);

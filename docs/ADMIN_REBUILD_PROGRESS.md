@@ -34,10 +34,10 @@ Local-only gaps found (prod verified correct, read-only): replay of older migrat
 | 4 Jobs & Bookings | Server-driven directory (`/admin/jobs`): lifecycle, search, dates, sort, pagination, exception/drift badges, links to the case page. Browser-checked desktop and mobile; date filter and sort not exercised. No assignment-status filter yet |
 | 5 People | Professional account workspace exists. Customer directory (server search, pagination) and customer workspace (properties, bookings, exceptions, account activity) built and browser-checked on desktop. Professional directory (`/admin/professionals`: server search, status/availability/workload filters, pagination; browser-checked desktop) built; the review queue moved to `/admin/professionals/verification`. Missing: documents and availability detail on the professional page; no customer payment visibility or complaints beyond job exceptions |
 | 6 Finance | Not started (investigation only; no refund/payout actions) |
-| 7 Activity, Audit, Disputes, Communications | Not started |
+| 7 Activity, Audit, Disputes, Communications | Activity & audit built (`/admin/audit`: read-only, filters for record type/area/outcome/target/actor/dates, pagination, per-target history, professional links; browser-checked desktop and mobile). Job targets are not linked (case page is keyed by booking id). Disputes and Communications not started |
 | 8 Integration/regression | Not started |
 
 Drift note: `bookings.booking_status` is not advanced by the job lifecycle, so `job_active_booking_pending` is by design and is excluded from attention cases and the directory drift flag.
 
 ## Next
-People (professional directory, customer directory and workspace), defects (quote status, notification constraint, removed-professional link, retry recovery), then Finance, Audit, Disputes.
+Finance (read-only investigation; no refund/payout actions), Disputes, Communications, then Phase 8 regression. Leftovers: professional page enrichment, jobs assignment filter, loading skeletons.

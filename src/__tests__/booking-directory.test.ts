@@ -62,3 +62,23 @@ describe('professional directory', () => {
     expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
   });
 });
+
+describe('audit log', () => {
+  it('defaults bad filters and drops non-uuid ids', async () => {
+    const { auditInput } = await import('@/lib/admin/audit-directory');
+    const r = auditInput.parse({ scope: 'x', outcome: 'y', area: 'z', actor: 'a,b', target: "1'); drop", from: 'today', page: '0' });
+    expect(r).toEqual({ scope: 'admin', outcome: 'all', area: 'all', actor: undefined, target: undefined, from: undefined, to: undefined, page: 1 });
+  });
+  it('describes admin actions and plain account events', async () => {
+    const { describeAction } = await import('@/lib/admin/audit-directory');
+    expect(describeAction('admin.professional.approve.succeeded')).toEqual({ area: 'professional', verb: 'approve', outcome: 'succeeded' });
+    expect(describeAction('admin.verification_document.view')).toEqual({ area: 'verification document', verb: 'view', outcome: null });
+    expect(describeAction('logout').outcome).toBeNull();
+  });
+  it('service is read-only, checks the admin role first and never writes', () => {
+    const src = read('src/lib/services/admin-audit.ts');
+    expect(src).not.toMatch(/^'use server'/m);
+    expect(src.indexOf('requireAdmin()')).toBeLessThan(src.indexOf('createTypedAdminClient()'));
+    expect(src).not.toMatch(/\.(insert|update|delete|upsert)\(/);
+  });
+});

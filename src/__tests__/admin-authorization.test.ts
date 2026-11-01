@@ -152,6 +152,8 @@ describe('admin services are typed and page-only reads are not endpoints (D-2, D
     'src/app/admin/professionals/page.tsx',
     'src/lib/services/admin-professional-directory.ts',
     'src/app/admin/professionals/verification/page.tsx',
+    'src/app/admin/audit/page.tsx',
+    'src/lib/services/admin-audit.ts',
   ];
 
   it.each(ADMIN_FILES)('%s has no any or @ts-ignore', (file) => {
