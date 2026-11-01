@@ -35,6 +35,16 @@ export default async function AdminCommunicationsPage() {
         </div>
       ) : (
         <>
+          {(result.data.statusCounts.pending ?? 0) > 0 && !(result.data.statusCounts.sent || result.data.statusCounts.delivered) && (
+            <div role="status" className="mb-6 rounded-xl border border-warning/30 bg-warning-soft p-4 text-sm text-ink">
+              <p className="font-bold">External delivery is not operating</p>
+              <p className="mt-1 text-ink-2">
+                Queued rows are written when a job changes state, but no worker sends them: nothing has ever been recorded as sent, delivered or failed.
+                Customers are not receiving WhatsApp, SMS or email from these rows. In-app notifications are a separate path.
+              </p>
+            </div>
+          )}
+
           <dl className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
             {Object.entries(result.data.statusCounts).map(([s, n]) => (
               <div key={s} className="rounded-xl border border-line bg-paper p-4">

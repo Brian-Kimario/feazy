@@ -39,8 +39,12 @@ Local-only gaps found (prod verified correct, read-only): replay of older migrat
 
 Drift note: `bookings.booking_status` is not advanced by the job lifecycle, so `job_active_booking_pending` is by design and is excluded from attention cases and the directory drift flag.
 
-## Finding: notifications never leave 'pending'
-Read-only on prod: all 61 `notification_logs` rows are `pending`, none sent, and `notification_failures` is empty. Either no dispatcher is running or it is not recording results. Needs an owner check of the WhatsApp delivery path before launch.
+## Finding: notifications never leave 'pending' (root cause traced, read-only)
+- Creation: trigger `on_job_state_transition` inserts a `notification_logs` row (`whatsapp`, `pending`) for accepted, on_the_way/arrived/in_progress, completed and cancelled.
+- Dispatch: `sendNotification()` (WhatsApp, then SMS, then email, writes sent/failed/skipped_dnd) has **no callers** in the app. No cron route or webhook for it exists. pg_cron runs only `process-assignment-queue`, `job-media-sweep` and `reconcile-notifications` (which covers the in-app `notifications` table, not this log).
+- Result: delivery is **incomplete, not failing**. The 61 rows are queued records that nothing consumes; `notification_failures` is empty because no attempt was ever made. Provider env vars (`RAZORPAY_WHATSAPP_*`) are documented in `.env.example`; their presence in the deployed environment was not checked.
+- Admin console: Communications now shows a banner saying external delivery is not operating.
+- Owner decision needed before launch: wire a dispatcher (cron route that claims pending rows and calls `sendNotification`) and enable the provider. Not done: would send real messages.
 
 ## Next
 Phase 8 regression (desktop and mobile sweep, accessibility), notification dispatch investigation. Leftovers: professional page enrichment, jobs assignment filter, loading skeletons.
