@@ -188,7 +188,7 @@ function DocumentList({
     setLoadingPath(doc.storage_path);
     setErrorMap((prev) => {
       const n = { ...prev };
-      delete n[doc.storage_path];
+      delete n[doc.id];
       return n;
     });
 
@@ -199,13 +199,13 @@ function DocumentList({
       onInspected(doc.id);
       onOpenPreview({ url, type: doc.document_type, path: doc.storage_path });
     } else {
-      setErrorMap((prev) => ({ ...prev, [doc.storage_path]: error ?? 'Failed to get URL' }));
+      setErrorMap((prev) => ({ ...prev, [doc.id]: error ?? 'Failed to get URL' }));
     }
   };
 
   const handleReview = async (doc: VerificationDocument, decision: 'accepted' | 'rejected') => {
     const failure = await onReview(doc.id, decision, (notes[doc.id] ?? '').trim());
-    if (failure) setErrorMap((prev) => ({ ...prev, [doc.storage_path]: failure }));
+    if (failure) setErrorMap((prev) => ({ ...prev, [doc.id]: failure }));
   };
 
   if (documents.length === 0) {
@@ -242,9 +242,9 @@ function DocumentList({
                 {doc.reviewer_notes && (
                   <p className="text-[11px] text-[#5A6661] mt-0.5">Reviewer note: {doc.reviewer_notes}</p>
                 )}
-                {errorMap[doc.storage_path] && (
+                {errorMap[doc.id] && (
                   <p className="text-[11px] text-[#A9523D] mt-0.5" role="alert">
-                    {errorMap[doc.storage_path]}
+                    {errorMap[doc.id]}
                   </p>
                 )}
               </div>

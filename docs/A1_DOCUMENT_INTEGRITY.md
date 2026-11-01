@@ -90,4 +90,23 @@ Consequence to know about now: until the admin review UI is built, **no professi
 - `VerificationQueue`: per-document Accept and Reject with a note, offered only for pending documents and only after Inspect Document was opened in that session (Inspect already writes the view audit row). Reviewer notes are shown. Approve is disabled, with an explanation, until the Government ID document is accepted; the database remains the authority. Card Approve/Reject and the document buttons are now 44px high. Existing colour literals in the file were left as they were (token migration is part of A5).
 - Types: `admin_review_verification_document` added to `database.types.ts` by hand.
 - Tests: `src/__tests__/verification-document-review.test.ts` (12: validator, RPC arguments, non-admin refused before the database, invalid input, error mapping, malformed result, wiring). `pnpm tsc --noEmit` clean; Vitest 378 passed, 16 skipped. Lint of the new code is clean; `verification.ts` still has 19 older `any`/`@ts-ignore` errors (not from this change).
-- **Not yet done:** browser verification at 375px and 1280px with synthetic fixtures (one professional with a pending document whose object exists in the bucket, one without), refusals (missing file, stale, short note), and a real upload end to end. The fixture write to the shared database was not run, so nothing here is claimed as browser-verified.
+### Browser verification (2026-11-01, owner signed in as admin, localhost)
+
+Fixtures: two unmatchable synthetic professionals (`synthetic.pro.rv1/rv2@fixify.invalid`, `is_available=false`, no skills, areas or phone) with a pending `id` document each; `storage.objects` rows only (no file bytes, so the preview modal shows nothing).
+
+| Case | Result |
+|---|---|
+| Before inspecting | No Accept/Reject on the document; hint shown; Approve disabled with explanation |
+| Inspect a document whose object is missing | "Object not found"; Accept never appears |
+| Inspect an existing one | Accept/Reject with note appear; both inspects wrote `admin.verification_document.view` audit rows |
+| Reject with empty or 3-char note | Button disabled; enabled at 5+ chars |
+| Reject with note | Document `rejected`, note and reviewer stored; audit `review.requested` + `review.succeeded`; professional status unchanged (`documents_submitted`) |
+| Accept, then Approve | Approve enables only after acceptance; professional `verified`, `is_available` still false, one `approve` event |
+| Stale (row flipped to rejected behind the page, then Accept) | "Stale request: document is already rejected" |
+| 375px | No horizontal overflow; document and card buttons 44px (the expand chevron is still 28px: A5) |
+
+Finding fixed during the run: errors were keyed by storage path, so two documents sharing a path showed each other's message; now keyed by document id (that fix was made after the run and is covered by tsc and the unit tests only).
+
+Cleanup: fixture professionals, verifications, documents and notifications deleted; verified professionals back to 2; `c779c0d4` still `pending`. **Left behind:** the two `@fixify.invalid` auth users and their audit rows (append-only FK), and two metadata-only `storage.objects` rows (`5b100000-.../id/synthetic.png`), because Postgres refuses direct deletes on storage tables and the Storage API sees no file to delete.
+
+Still open: a real upload end to end (staging project), the legacy verified professionals decision, and the e2e admin spec was not updated or run.
