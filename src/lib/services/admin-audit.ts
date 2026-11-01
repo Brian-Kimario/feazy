@@ -16,6 +16,7 @@ export interface AuditRow {
   actorName: string | null;
   subjectId: string;
   targetType: string | null;
+  bookingId: string | null;
   targetId: string | null;
   reason: string | null;
 }
@@ -60,6 +61,16 @@ export async function listAuditLog(raw: unknown): Promise<AdminResult<AuditPage>
     if (!p.error) for (const r of p.data ?? []) names.set(r.id, r.full_name || r.email || r.id);
   }
 
+  const jobIds = [...new Set(data.map((r) => {
+    const c = (r.changes && typeof r.changes === 'object' && !Array.isArray(r.changes) ? r.changes : {}) as Record<string, unknown>;
+    return str(c.target_type) === 'job' ? str(c.target_id) : null;
+  }).filter((v): v is string => !!v && /^[0-9a-f-]{36}$/i.test(v)))];
+  const bookingOf = new Map<string, string>();
+  if (jobIds.length) {
+    const j = await a.from('jobs').select('id, booking_id').in('id', jobIds);
+    if (!j.error) for (const r of j.data ?? []) bookingOf.set(r.id, r.booking_id);
+  }
+
   const total = res.count ?? 0;
   return {
     ok: true,
@@ -75,6 +86,7 @@ export async function listAuditLog(raw: unknown): Promise<AdminResult<AuditPage>
           subjectId: r.user_id,
           targetType: str(c.target_type),
           targetId: str(c.target_id),
+          bookingId: str(c.target_type) === 'job' ? (bookingOf.get(str(c.target_id) ?? '') ?? null) : null,
           reason: str(c.reason),
         };
       }),

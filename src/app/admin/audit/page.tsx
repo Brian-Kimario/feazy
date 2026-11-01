@@ -15,7 +15,8 @@ const OUTCOME_STYLE: Record<string, string> = {
   requested: 'bg-paper-2 text-ink-3',
 };
 
-function targetHref(type: string | null, id: string | null): string | null {
+function targetHref(type: string | null, id: string | null, bookingId: string | null): string | null {
+  if (type === 'job' && bookingId) return `/admin/jobs/${bookingId}`;
   if (type === 'professional' && id) return `/admin/professionals/${id}`;
   return null;
 }
@@ -92,7 +93,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
           <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-paper">
             {result.data.rows.map((r) => {
               const d = describeAction(r.action);
-              const link = targetHref(r.targetType, r.targetId);
+              const link = targetHref(r.targetType, r.targetId, r.bookingId);
               return (
                 <li key={r.id} className="grid gap-1 px-4 py-3 md:grid-cols-[11rem_1.4fr_1.2fr] md:items-start">
                   <span className="text-xs text-ink-3">{when(r.at)}</span>
