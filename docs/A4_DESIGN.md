@@ -18,7 +18,7 @@ Labels: **[V]** verified read-only against the live schema this session; **[A]**
 - Access: RLS on `jobs`, `job_events`, `quotes`, `job_messages` (participants) and `bookings` keys off `professional_id = auth.uid()`, so **clearing or replacing `jobs.professional_id` and `bookings.professional_id` revokes the former professional's access** automatically.
 - Lock order (migrations 108/109): booking → job → (professional `FOR NO KEY UPDATE`). The professional row is taken with `NO KEY UPDATE` because attempts take `KEY SHARE` through the foreign key.
 - Existing privileged RPCs: `admin_cancel_job`, `admin_reconcile_job`, `admin_transition_professional_verification` (suspend withdraws `assigned` offers via `_release_offer`, sets `is_available = false`, leaves active jobs untouched). `_offer_next`, `_release_offer`, `_assign_booking_internal`, `process_assignment_queue` are `service_role` only.
-- `job_exceptions` has `kind = 'professional_no_show'` only, unique `(job_id, kind)`, status open|resolved|dismissed, resolution fields. `report_professional_no_show` (customer) refuses an `assigned` job ("No professional has accepted this job yet") and requires the scheduled start to be 30+ minutes past; the exact full list of permitted states was not re-read after this correction, so treat "accepted/on_the_way, no arrival" as the intended case, not a verified list.
+- `job_exceptions` has `kind = 'professional_no_show'` only, unique `(job_id, kind)`, status open|resolved|dismissed, resolution fields. `report_professional_no_show` (customer) refuses `assigned`, `arrived`, `in_progress`, `quote_pending`, `completed`, `closed` and `cancelled` jobs and any job with `arrived_at`, and requires now ≥ scheduled start + 30 min; permitted: `accepted` / `on_the_way` without arrival. **[V]**
 - Live data **[V]**: 12 jobs; 0 pairs of active jobs for one professional within 2 h of each other.
 
 ### 1.2 Defect: incompatible offers and acceptances are possible **[A — not reproduced]**
@@ -26,116 +26,144 @@ Labels: **[V]** verified read-only against the live schema this session; **[A]**
 1. Two sessions — for example a customer's `assign_booking` for booking B1 and the queue (or another customer's `assign_booking`) for B2 — rank the same top professional at the same moment. READ COMMITTED means neither sees the other's uncommitted offer. They hold different booking locks, so nothing blocks them. Both commit. The professional now has two `assigned` offers within 2 h.
 2. `transition_job_state(… 'accepted')` does not re-check overlap or availability, so the professional can accept **both**.
 3. Nothing in the schema forbids it (no unique/exclusion constraint; cross-table).
-This is a **scheduling-integrity defect**. Exposure is limited today (few professionals, the queue serialises its own runs), and live data shows no overlap, but it is real. Fix included in A4 (section 5).
+This is a **scheduling-integrity defect**. Exposure is limited today (few professionals, the queue serialises its own runs), and live data shows no overlap, but it is real. Fix drafted in 111 (section 4).
 The 2-hour window also ignores job duration. That stays: provisional per owner.
 
-## 2. State-transition matrix **[P]**
+## 2. Package contents (all DRAFT, none applied)
 
-"Reassign" means a controlled change of the assigned professional via the new functions, never a direct column write.
+Directory `supabase/proposed/a4/`. Each forward file has a `_ROLLBACK.sql`. Nothing here is in `supabase/migrations/`.
 
-| Job state | Booking | Admin: assign/offer | Admin: withdraw offer | Admin: reassign | Pro cancels/withdraws | Suspension of the pro | Notes |
-|---|---|---|---|---|---|---|---|
-| none (no job) | pending | **Yes** (targeted offer) | n/a | n/a | n/a | n/a | creates the job in `assigned` |
-| assigned, no pro | pending | **Yes** | n/a | n/a | n/a | n/a | unmatched booking |
-| assigned, pro set (offer) | pending | replace = withdraw + offer | **Yes** | **Yes** (= withdraw + new offer) | decline (existing `decline_job`) → matching continues | offer withdrawn automatically (exists), re-offered | expiry exists |
-| accepted, `now < scheduled_start` | confirmed | n/a | n/a | **Yes**, offer-first: job returns to `assigned`, old pro released | **withdraw** via new function → `assigned`, re-match | job kept, **flagged for review**; admin may reassign | needs new edge accepted→assigned (admin/pro-withdraw context only) |
-| accepted, `now ≥ scheduled_start` | confirmed | no | no | **No — admin review** | admin review | flagged | late: no silent change |
-| on_the_way / arrived / in_progress / quote_pending | confirmed | no | no | **No — admin review** | admin review | flagged | cancel stays via `admin_cancel_job` |
-| completed / cancelled / closed | — | no | no | no | no | no | terminal |
+| File | Purpose | Rollback notes |
+|---|---|---|
+| `20261102_111_a4_scheduling_integrity` | Per-professional advisory lock, `_professional_conflicts`, replacement `_offer_next` and `transition_job_state` (recheck at accept) | Restores live bodies verbatim; drops 3 helpers |
+| `20261102_112_a4_vocabulary_idempotency` | `_require_admin()`, `admin_operation_requests`, widened `reason_code`/`kind`/`preference` checks, `finding`/`resolution` columns | Counts-based preconditions; reverses all |
+| `20261102_113_a4_admin_assignment` | `admin_assign_professional`, `admin_withdraw_offer`, `admin_reassign_job`, idempotency helpers | Drops functions; history rows kept |
+| `20261102_114_a4_recovery` | `professional_withdraw_from_job`, reordered/extended suspension, `admin_resolve_exception` | Restores live suspension body; drops 2 functions |
+| `20261102_115_a4_notifications` | 3 new notification kinds, `_notify`, `_notify_for_event`, kind check | Fails loudly if new-kind rows exist (owner decides) |
+| `20261102_116_a4_lifecycle_drift` | Read-only view `a4_assignment_drift` | Drops view |
 
-Rules: no reassignment after work has started (on_the_way and later) in any circumstance; if a customer's price, schedule or scope would change, the function refuses and the case goes to admin review (consent flow is a later slice). Booking status: `pending` while an offer is open; the booking/job pair is changed in one transaction so they cannot disagree.
+Not "ready": the SQL has never been executed, not even parsed by Postgres in this session. See section 11.
 
-## 3. Contracts **[P]**
+## 3. State-transition matrix
 
-All functions are SECURITY DEFINER, `search_path = public`, `REVOKE ALL … FROM PUBLIC, anon`, granted to `authenticated` and re-verify `profiles.role = 'admin'` inside (the pattern of `admin_cancel_job`). Each takes an `expected_*` precondition, a reason (≥ 10 chars, Zod-validated in the app), and an idempotency key. Each writes an immutable `job_events` row and returns a typed value (`{ok, code, …}`); stale state is a value, not an exception.
+"Reassign" = controlled change of professional through the new functions. No new state machine: the only new edge is **accepted → assigned**, written only by `admin_reassign_job` and `professional_withdraw_from_job`, both with a `job_events` row.
 
-### 3.1 `admin_assign_professional(p_booking_id, p_professional_id, p_expected_job_state, p_expected_professional_id, p_reason, p_idempotency_key)`
-Manual targeted offer. Behaviour:
-1. Verify admin. Lock booking, then job (if any), then take the professional lock (section 5).
-2. Preconditions (typed refusal otherwise): booking `pending` and in the future; job absent or `assigned`; state and current professional equal the expected values; professional verified, available, not suspended, skills/area match (admin may not override verification or conflicts in v1); no schedule conflict (same check as the fix); not already attempted on this booking.
-3. Replace any open offer: write an attempt (`withdrawn`, `admin_reassigned`) for the previous professional.
-4. Write `matching_decisions(kind='manual')`, set `jobs.professional_id`, `offer_expires_at`, `bookings.professional_id`, clear `unmatched_since`. Create the job if absent.
-5. Event `admin_assigned`; notify the new professional (offer) and, if replaced, the previous one. The professional still accepts or declines — admin assignment is **an offer**, never an auto-accept.
-Idempotent on the key: a repeat returns the original result.
+| Job state | Admin assign | Admin withdraw offer | Admin reassign | Pro withdraw | Suspension of pro | Notes |
+|---|---|---|---|---|---|---|
+| none (booking pending) | Yes (offer) | n/a | n/a | n/a | n/a | creates job `assigned` |
+| assigned, no pro | Yes | n/a | n/a | n/a | n/a | expected_state `assigned`, expected pro NULL |
+| assigned, pro (offer) | Yes (replaces) | Yes | Yes | decline (existing) | offers released (exists) | replaced pro gets attempt `admin_reassigned` |
+| accepted, before start | no | no | Yes (back to `assigned`, new offer) | Yes (`professional_withdraw_from_job`) | job kept, exception raised | refuses `NEEDS_CUSTOMER_CONSENT` if a non-declined/expired quote exists |
+| accepted, at/after start | no | no | `NEEDS_ADMIN_REVIEW` | `NEEDS_ADMIN_REVIEW` | exception raised | no silent change late |
+| on_the_way … quote_pending | no | no | no | `NEEDS_ADMIN_REVIEW` | exception raised | cancel via `admin_cancel_job` |
+| completed / cancelled / closed | no | no | no | no | no | terminal |
 
-### 3.2 `admin_withdraw_offer(p_job_id, p_expected_professional_id, p_reason, p_requeue boolean, p_idempotency_key)`
-Only for `assigned` with a professional. Records an attempt `withdrawn`/`admin_withdrawn`, clears the professional on job and booking, sets `unmatched_since`; `p_requeue = true` leaves the booking for the queue, false parks it (`admin_hold` flag — see open decisions). Event `offer_withdrawn`; notifies the professional.
+Offers created by an administrator are **offers**: the professional still accepts or declines. Admin does not override verification, availability or schedule conflicts.
 
-### 3.3 `admin_reassign_job(p_job_id, p_new_professional_id, p_expected_state, p_expected_professional_id, p_reason, p_idempotency_key)`
-Allowed only when `current_state ∈ {assigned, accepted}` and `scheduled_start > now()` (and, for `accepted`, `arrived_at/on_the_way_at IS NULL`).
-- `assigned`: same as 3.1.
-- `accepted`: refuse if any quote for the job is not terminal, or a job code was used; otherwise: attempt row (`reassigned`, `admin_reassigned`) for the former professional; job state back to `assigned` through the **one new canonical edge accepted→assigned**, taken only under session flag `app.admin_reassign_job = <job id>` (same guard pattern as cancel); new professional offered (3.1 steps 4–5); codes issued at `on_the_way` are not yet issued so none to void; `accepted_at` cleared into the event metadata.
-- Both: the previous professional loses access automatically (RLS on `professional_id`); they receive a notification. The customer is notified that their professional changed, with no price/schedule change. Payments are not touched; quotes are preserved (guard refuses if non-terminal).
-Customer consent: not required while schedule, price and scope are unchanged (the function cannot change them). Anything that would change them is out of scope and refused with code `NEEDS_CUSTOMER_CONSENT`.
+Operation detail (actor / expected-state check / records / lock order / failure / idempotency):
 
-### 3.4 `professional_withdraw_from_job(p_job_id, p_reason_code, p_note)` (replaces the professional's direct `cancelled`)
-Called by the assigned professional.
-- `assigned`: existing `decline_job` (unchanged); matching continues.
-- `accepted`, `now < scheduled_start`: job back to `assigned` (new edge, professional-withdraw context), attempt `withdrawn`/`professional_cancelled`, booking stays `pending`, `_offer_next` runs; if no eligible professional, `unmatched_since` is set so it shows on the unmatched queue. Customer is notified that we are finding a replacement; **the booking is not cancelled**.
-- `accepted` at/after `scheduled_start`, or any later state: **refused** with `NEEDS_ADMIN_REVIEW`; an open `job_exceptions` row `professional_withdrew` is created and admins are alerted.
-- To make this effective the professional's `cancelled` edge in the allow-list is removed for `accepted…`; this is a behaviour change to confirm with the owner (open decision D-A4-4). The five historical "drift" rows are not touched.
+| Operation | Actor | Expected-state input | Records written | Failure codes | Idempotency |
+|---|---|---|---|---|---|
+| manual assignment | admin | `p_expected_state` none\|assigned + `p_expected_professional_id` | jobs, bookings, attempt (displaced pro), `matching_decisions` kind `offered` with `inputs.manual`, job_event `admin_assign` | STALE_STATE, STALE_PROFESSIONAL, BOOKING_NOT_ASSIGNABLE, PROFESSIONAL_INELIGIBLE, SCHEDULE_CONFLICT | `(admin, op, request_id)` + input hash; changed inputs → IDEMPOTENCY_KEY_REUSED |
+| offer withdrawal | admin | expected professional | attempt `withdrawn/admin_withdrawn`, jobs, bookings (unmatched), event `admin_withdraw_offer` | STALE_*, NOT_AN_OFFER | same |
+| reassignment | admin | state assigned\|accepted + expected pro | attempt, jobs (accepted_at/eta cleared), bookings, decision, event `admin_reassign` | STALE_*, NEEDS_ADMIN_REVIEW, NEEDS_CUSTOMER_CONSENT, PROFESSIONAL_INELIGIBLE, SCHEDULE_CONFLICT | same |
+| professional cancel recovery | the assigned professional | state must be `accepted` | attempt `withdrawn/professional_withdrew`, jobs, bookings, event `professional_withdrew` | NEEDS_ADMIN_REVIEW; "Job not found" for non-owner (no enumeration) | natural (second call finds state `assigned`) |
+| suspension recovery | admin | `p_expected_status` | profile, verification event, released offers, `job_exceptions` rows for active jobs | stale status 55000, retry 40001 | status check |
+| no-show / exception resolution | admin | `p_expected_status` = `open` | `job_exceptions` finding/resolution, event `exception_resolved` | STALE_STATE, RESOLUTION_MISMATCH | `(admin, resolve_exception, request_id)` |
+| lifecycle sync | none yet | n/a | drift view only | n/a | n/a |
+| scheduling protection | system | n/a | none | SCHEDULE_CONFLICT (ERRCODE 23P01) | n/a |
 
-### 3.5 Suspension **[P]** (changes to `admin_transition_professional_verification` 'suspend')
-- Already **[V]**: sets `is_available = false`; eligibility requires `verified` so no new offers; outstanding `assigned` offers are withdrawn and re-offered.
-- Add: for each job in `accepted | on_the_way | arrived | in_progress | quote_pending` assigned to the professional, create an open `job_exceptions` row `professional_suspended_active_job` and an event; **do not change job state or cancel**. These appear in the Command Center as admin-review items. Reactivation does not restore offers or availability (`is_available` stays false until the professional turns it on; already true).
-- Customer notification only when the admin acts (reassign or cancel), not on suspension itself.
+No-show semantics (corrected): the live `report_professional_no_show` refuses assigned/arrived/in_progress/quote_pending/completed/closed/cancelled jobs and any job with `arrived_at`, and requires now ≥ scheduled start + 30 min. The permitted states are therefore **accepted and on_the_way without arrival**. A customer report is an *allegation*; the admin finding (`confirmed | not_confirmed | inconclusive`) is separate, and `admin_resolve_exception` changes no job state and applies no penalty: cancellation or reassignment is done first by its own audited operation, then recorded and verified here.
 
-### 3.6 No-show resolution (admin) **[P]**
-Terms: **potential** = derived, not stored (job accepted/on_the_way, no `arrived_at`, `now > scheduled_start + 30 min`); **reported** = open `job_exceptions` row from the customer; **confirmed** = admin finding recorded after reviewing evidence; **resolved** = an outcome recorded. Lateness is never auto-classified.
-`admin_resolve_no_show(p_exception_id, p_finding, p_resolution, p_evidence_note, p_expected_status, p_reason, p_idempotency_key)`
-- `p_finding` ∈ `confirmed | not_confirmed | inconclusive`; `p_resolution` ∈ `reassigned | customer_rescheduled | cancelled_no_fee | completed_late | no_action`.
-- Evidence the UI must show before submit: job timeline (`job_events` with timestamps and GPS-free), messages count, ETA/arrival timestamps, professional's history of reports, the customer's preference (reassign/support). Evidence note is required.
-- `confirmed + reassigned` calls 3.3 in the same transaction (if allowed by section 2; otherwise refused). `cancelled_no_fee` calls the existing `admin_cancel_job`. **No automatic refund, penalty or metric change**; a confirmed finding adds a record for later policy.
-- Closes the exception (`resolved` or `dismissed`), writes `resolved_by`, `resolved_at`, note; event `no_show_resolved`.
+## 4. Scheduling-race analysis
 
-## 4. Booking/job consistency **[P]**
-- Invariants to assert in tests (and as a read-only drift report for the console): (i) `bookings.professional_id IS NOT DISTINCT FROM jobs.professional_id` whenever a job exists; (ii) job `assigned` with a professional ⇒ booking `pending`; (iii) job `accepted…quote_pending` ⇒ booking `confirmed`/`in_progress` per existing mapping; (iv) no professional has two active jobs within the 2-hour window (the scheduling invariant).
-- All A4 functions update booking and job in one transaction, in lock order.
-- Payments and quotes are never written by A4 functions; guards read them only.
+Unchanged from 1.2 (derived from function bodies, **not reproduced**). Fix in 111:
+- offer creation (`_offer_next`): try-lock the candidate's schedule lock; skip (do not wait) if held; verify under `FOR SHARE` that the professional is still verified and available; re-run the conflict check including other pending offers; first passing candidate wins.
+- acceptance (`transition_job_state` ACCEPT-GUARD): re-read verification `FOR SHARE`, take the blocking schedule lock, re-run the conflict check against **committed** work only (other pending offers do not block acceptance; accepting one of two overlapping offers is legitimate, accepting the second then fails).
+- admin assign/reassign: blocking schedule lock + the same check.
+- Residual: the ranker's own filter remains lock-free (a hint only; the locked recheck is authoritative). The ±2 h rule ignores job duration (owner decision: stays). If bookings can be rescheduled, the new start is not re-checked (unverified).
 
-## 5. Scheduling-integrity fix (included in A4) **[P]**
-- `_professional_conflicts(pro, booking)`: the existing ±2 h rule as a function.
-- `_lock_professional_schedule(pro)`: `pg_advisory_xact_lock(hashtextextended('schedule:' || pro, 0))`. **Taken last, after booking and job locks**, and held only for a read-check-write leaf section that never waits for another lock — so it cannot join a cycle with the 108/109 order.
-- In `_offer_next`: after choosing a candidate, take the schedule lock, re-run `_professional_conflicts`; if it now conflicts, try the next ranked candidate instead.
-- In `transition_job_state` for `accepted`: take the schedule lock and re-check; refuse with a typed error if another active job now overlaps.
-- Why advisory and not a row lock: the professional row is already `FOR NO KEY UPDATE`/`KEY SHARE` in 108/109; a further row lock would re-open that analysis.
-- Lock-order table for tests: B(ooking) → J(ob) → P(rofessional-row, NO KEY UPDATE, suspension only) → S(chedule advisory). All new code obeys it.
-- Cost: serialises concurrent offers for the same professional only; throughput impact negligible at current scale.
-The 3-pending-offers cap is a **separate proposed enhancement** (section 8), not part of A4.
+## 5. Lock-order specification
 
-## 6. Test plan **[P — nothing run]**
-Run only in a throwaway/local Postgres or a provisioned staging project (never the shared one), with synthetic users.
+Canonical: **booking → job → professional_profiles row → job_exceptions row → per-professional schedule advisory lock (leaf, nothing acquired after it)**.
+- Matcher uses `pg_try_advisory_xact_lock` so rank-order iteration can never wait and deadlock.
+- Accept (live) was job → pro → advisory; it never took the booking lock. 111 keeps that order (a subsequence of canonical).
+- Live suspension took pro row `FOR UPDATE` first and then jobs, and `_release_offer` takes booking while holding the job: an inversion (**deadlock risk inferred from code, not reproduced**). 114 reads status unlocked, releases offers booking→job, then locks the pro `FOR NO KEY UPDATE`, revalidates and rescans (SQLSTATE 40001 if an offer sneaked in).
+- Pro row uses `NO KEY UPDATE`/`SHARE`, never `UPDATE`, so FK inserts (`KEY SHARE`) are not blocked.
+- `admin_resolve_exception`: booking → job → exception.
 
-Authorization (each function): unauthenticated, customer, professional, support (deferred, expect refusal), admin without JWT `sub`; wrong `expected_*`; reuse of idempotency key by a different actor; direct table writes by `authenticated` fail on `jobs.professional_id` / `bookings.professional_id`.
-State matrix: one case per row of section 2 (allowed and refused), including on_the_way and `now ≥ scheduled_start`.
-Contract: former professional loses read access to job, messages, quotes, events; new professional sees them; quote/payment rows byte-identical before and after; attempt rows and events written exactly once; notifications created for the right recipients.
-Concurrency (two sessions, `pg_sleep` barriers):
-1. Two bookings offered to the same professional within 2 h by `assign_booking` and the queue concurrently → exactly one offer; the loser tries the next candidate.
-2. Two accepts for two overlapping offers (set up by bypassing the fix on a copy to prove the guard) → one succeeds, one typed refusal.
-3. `admin_reassign_job` vs professional `accept`/`on_the_way` on the same job → one wins, the other gets a stale-state value.
-4. `admin_reassign_job` vs `admin_cancel_job`, vs `customer_cancel_booking`, vs professional suspension, vs queue expiry → no deadlock (all four lock-order pairs), no lost update.
-5. Duplicate request with the same idempotency key returns the first result and writes one event.
-6. Suspension during reassignment to that professional → assignment refused or immediately withdrawn.
-Invariant sweep after every case: section 4 queries return zero rows.
+## 6. Notification-impact analysis
 
-## 7. Owner decisions needed before any A4 implementation
+Live: offer events (assigned/reassigned/unmatched) notify nobody. WhatsApp rows (`notification_logs`) are written by `on_job_state_transition` only for to_state accepted/on_the_way/arrived/in_progress/completed/cancelled; A4 events all use to_state `assigned`, so **A4 creates no WhatsApp rows**.
+
+| Event | Old pro | Customer | New pro |
+|---|---|---|---|
+| `admin_assign` (displacing an offer) | `assignment_removed` | none (never told) | none (existing offer UI) |
+| `admin_assign` (from none) | n/a | none | none |
+| `admin_withdraw_offer` | `assignment_removed` | none | n/a |
+| `admin_reassign` from `assigned` | `assignment_removed` | none | none |
+| `admin_reassign` from `accepted` | `assignment_removed` | `professional_changed` | none |
+| `professional_withdrew` | n/a | `professional_withdrew` | n/a |
+| suspension | none (admin acts separately) | none | n/a |
+
+New kinds need both `_notify` VALUES and `notifications_kind_check` (115). Delivery remains unobservable (notification rows only). Copy strings need owner sign-off. Unverified: whether the event trigger fires `_notify_for_event` for unknown event types, and the old professional's link may 404 after RLS drops their access.
+
+## 7. Authorization model
+
+Every privileged RPC: `SECURITY DEFINER`, `search_path = public`, `REVOKE ALL FROM PUBLIC, anon`, grant to `authenticated` + `service_role`. The caller is `auth.uid()` (NULL for service_role/anon → 42501) and `profiles.role = 'admin'` read from the table, never from a parameter or JWT claim (`_require_admin()`). The professional-side function checks `jobs.professional_id = auth.uid()` and gives the same "not found" for strangers. The app layer additionally verifies the session (existing `requireAdmin` tests) and validates inputs with Zod before calling. Support role deferred.
+
+## 8. Tests
+
+Executed now (static, `src/__tests__/a4-draft-package.test.ts`, 18 tests): each forward file has a rollback; files are labelled draft; nothing copied into `supabase/migrations`; every `admin_*` function calls `_require_admin()` or the role check; REVOKE from PUBLIC/anon present; direct `current_state` writers limited to the reviewed files; no `kind='manual'`. **These prove file hygiene, not correctness.**
+
+NOT EXECUTED (15 `it.todo` in `describe.skip`, blocked pending separate authorization): admin authorization, non-admin refusal, stale expected state, duplicate request, concurrent assignments, concurrent acceptance, incompatible scheduling, suspended/unverified professionals, suspension recovery, professional cancellation, no-show resolution, booking/job consistency, notification correctness, payment preservation, audit integrity.
+
+Isolation properties to review before any DB test is authorized (shared project): a test needs synthetic users and bookings with past or far-future starts that no real professional can match (none of the two legacy verified professionals), no notification to real users (notifications are written in-transaction; rollback removes the rows but not anything a client already read), concurrency tests need ≥2 committed sessions and therefore cannot be rolled back, and DDL needs the migration applied. Read-only schema inspection only has been performed.
+
+## 9. Migration dependency order
+
+111 (independent, may ship alone) → 112 → 113 → 114 → 115 (needs 113 and 114 event names) → 116 (independent). Rollback in reverse. 114's rollback restores the pre-114 suspension body; 112's rollback needs 0 rows using the new vocabulary.
+
+## 10. Booking/job consistency
+
+116 adds a detection view only. Observed 2026-11-01: 6 of 15 bookings disagree with their job (pending/confirmed vs cancelled, completed, closed, in_progress). Only `admin_cancel_job`, `customer_cancel_booking` and reconcile write `booking_status`. The `booking_status` value set could not be read; only pending/confirmed/cancelled observed. A sync trigger and backfill are not drafted: the backfill would modify real customer records and needs separate authorization.
+
+## 11. Production-risk assessment
+
+| Risk | Level | Note |
+|---|---|---|
+| Replacing `transition_job_state` | High | Core path for every job; copy was made from the live body but not diffed by tooling or executed |
+| Replacing `_offer_next` | High | Live matcher |
+| Suspension rewrite | Medium-high | Only exercised when suspending a verified pro |
+| Constraint widening (112, 115) | Low-medium | `DROP/ADD CONSTRAINT` takes an exclusive lock briefly; job_exceptions has 0 rows |
+| New functions (113, 114) | Low until UI calls them | No caller exists |
+| Notifications (115) | Medium | Real users receive in-app rows once used |
+| Drift view (116) | Low | read-only |
+| Everything: same project as production | Elevated | no staging by owner decision; guardrails in `STAGING_PROPOSAL.md` |
+
+## 12. Remaining owner decisions
+
 | # | Decision | Recommendation |
 |---|---|---|
-| D-A4-1 | Apply the scheduling-integrity fix (section 5) first and separately? | Yes — smallest, independent of admin UI; needs staging or an approved window |
-| D-A4-2 | Admin assignment creates an **offer** (professional accepts) vs auto-accepts | Offer; keep consent and quote flow intact |
-| D-A4-3 | New backward edge accepted→assigned (admin and professional-withdraw only) | Approve |
-| D-A4-4 | Remove the professional's direct `cancelled` after acceptance and route through `professional_withdraw_from_job` | Approve; changes professional-app behaviour |
-| D-A4-5 | `admin_hold` (park an unmatched booking out of the queue) | Defer; v1 `p_requeue` only true |
-| D-A4-6 | Scope of consent: confirm that same schedule/price/scope reassignment needs notice, not consent | Confirm |
-| D-A4-7 | Where to run migrations before production (staging, section 11 of the staging doc) | Staging first |
+| D-A4-1 | Apply 111 first and alone, after review | Yes, in a quiet window with a tested rollback |
+| D-A4-2 | Admin assignment is an offer | Yes (as drafted) |
+| D-A4-3 | New edge accepted→assigned (admin reassign, pro withdraw only) | Approve |
+| D-A4-4 | Route professional cancel after acceptance through `professional_withdraw_from_job` (app change not yet drafted: the professional UI/action still calls `transition_job_state` cancel) | Approve |
+| D-A4-5 | Park-from-queue (`admin_hold`) | Defer |
+| D-A4-6 | Reassign with unchanged schedule/price/scope needs notice, not consent | Confirm |
+| D-A4-7 | booking_status sync + backfill of drifted rows | Decide mapping, authorize backfill separately |
+| D-A4-8 | New notification wording (3 strings) | Review |
+| D-A4-9 | No-show consequences for professionals (strikes, ratings) | None in v1 |
+| D-A4-10 | Test authorization on the shared project (isolation, synthetic data, cleanup) | Review the exact effects first |
 
-## 8. Separate proposed enhancement: max 3 pending offers
-Not implemented, not required for A4. If wanted later: `_professional_open_offers(pro) < 3` in eligibility and in the section 5 re-check under the same schedule lock. Trade-off: protects professionals from queue flooding but lowers match rate on a thin supply. Needs matching-metrics data first.
+Separate proposed enhancement, not in A4: cap of 3 pending offers per professional (`open offers < 3` in eligibility and the 111 recheck under the same lock). Needs matching-metrics data first.
 
-## 9. Open risks
-- The race in 1.2 is unreproduced; it is derived from the function bodies. First step on staging is to reproduce it.
-- `notify_on_job_event` must be extended for the new event types; I have not read its CASE list (verify before implementing).
-- Notification delivery is unobservable today (61 rows, all `pending`), so "notified" means a row written.
-- The two legacy verified professionals are left as they are; they can still be offered work.
-- Booking `c779c0d4` is not touched by anything here.
-- Admin UI for these actions can ship without the migrations: it renders the existing read-only workspace and links nothing that needs a missing function.
+## 13. Incomplete or unverified (do not read as ready)
+- No SQL executed or parsed by Postgres; syntax and semantics unchecked.
+- Race and suspension deadlock are inferred, not reproduced.
+- Not re-read: `process_assignment_queue`, `assign_booking`, `customer_cancel_booking`, `notify_on_job_event`, RLS on `job_exceptions`.
+- Quote status vocabulary assumed (`declined`, `expired` are the only statuses that permit reassignment).
+- `booking_status` semantics for an unassigned/withdrawn booking undecided.
+- Application code (Server Actions, Zod validators, UI) for the new RPCs not written; professional app still cancels directly.
+- Grants on `admin_transition_professional_verification` after `CREATE OR REPLACE` need confirmation.
+- Notification link for the former professional; rescheduling a booking not rechecked.

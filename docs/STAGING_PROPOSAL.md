@@ -11,7 +11,7 @@ Date: 2026-11-01. Labels: **[V]** verified in this repo/session, **[P]** propose
 Correction to the brief: the project authenticates with **Supabase Auth** (`@supabase/ssr`), not Clerk. **[V]** No Clerk dependency exists. Staging therefore needs a second Supabase project, not a Clerk instance.
 
 ## Why
-**[V]** The only Supabase project (`azmajqztvcuwajaaldqm`) is shared with production. A4 migrations change privileged functions and constraints, and the concurrency tests create jobs and offers. Neither may run there.
+**[V]** The only Supabase project (`azmajqztvcuwajaaldqm`) is shared with production. A4 migrations change privileged functions and constraints, and the concurrency tests create jobs and offers. *(Superseded by the owner decision above, which permits testing on the shared project subject to the guardrails. Read "may not run" as "may not run without separate authorization of the exact effects.")*
 
 ## Components
 | Area | Proposal |
@@ -32,7 +32,7 @@ Correction to the brief: the project authenticates with **Supabase Auth** (`@sup
 ## Safety rails [P]
 - Test harness refuses to run unless `APP_ENV=staging` and the Supabase URL is not the production project ref.
 - Service-role key for staging stored only in the staging deployment and the developer's local `.env.staging` (git-ignored).
-- Concurrency/authorization SQL tests from `docs/A4_DESIGN.md` section 6 run here, never against production.
+- Concurrency/authorization SQL tests from `docs/A4_DESIGN.md` section 6 run on the staging project **if one is ever created**. On the shared project they run only after the owner separately authorizes their exact effects and isolation (synthetic data, no real professionals reachable, no notifications to real users). Transaction rollback does not guarantee that external side effects cannot occur; concurrency tests need committed sessions and cannot be rolled back. Read-only schema inspection is always permitted. The tests are now in `docs/A4_DESIGN.md` section 8.
 
 ## Cost estimate **[A — unverified; confirm in the dashboard before approving]**
 - Supabase: a second project. Free tier is possible for light use but pauses when idle and has limits; Pro is about USD 25/month per organisation plus compute for a second project (the first small compute is typically covered by the included credit, additional projects bill compute separately). Expect roughly USD 10–25/month extra.
