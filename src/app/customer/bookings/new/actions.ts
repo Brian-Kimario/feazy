@@ -61,6 +61,17 @@ export async function createBookingAction(
     return createBookingFailure(bookingError);
   }
 
+  // ── Record material preferences ─────────────────────────────────────────────
+  // A preference only (never a charge), so a failure here must not fail the booking;
+  // the inspector and the quotation settle materials anyway. Absent before migration 120.
+  if (input.materialIds && input.materialIds.length > 0) {
+    const { error: prefError } = await supabase.rpc('set_booking_material_preferences', {
+      p_booking_id: booking.booking_id,
+      p_material_ids: input.materialIds,
+    });
+    if (prefError) console.error('set_booking_material_preferences error:', prefError.message);
+  }
+
   // ── Offer the job to the best-matching professional ─────────────────────────
   // A failure here must not fail the booking: unmatched bookings are retried
   // by the assignment queue (/api/cron/assignment-queue).

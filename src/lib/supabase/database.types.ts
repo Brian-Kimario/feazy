@@ -524,6 +524,34 @@ export type Database = {
           },
         ]
       }
+      booking_material_preferences: {
+        Row: { booking_id: string; created_at: string; material_id: string }
+        Insert: { booking_id: string; created_at?: string; material_id: string }
+        Update: { booking_id?: string; created_at?: string; material_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "booking_material_preferences_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_visit_materials: {
+        Row: { created_at: string; material_id: string; visit_id: string }
+        Insert: { created_at?: string; material_id: string; visit_id: string }
+        Update: { created_at?: string; material_id?: string; visit_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_visit_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           created_at: string | null
@@ -1403,8 +1431,10 @@ export type Database = {
           brand_id: string | null
           created_at: string | null
           id: string
+          indicative_price: number | null
           is_active: boolean | null
           name: string
+          price_unit: string | null
           specification: string | null
           unit: string
           updated_at: string | null
@@ -1413,8 +1443,10 @@ export type Database = {
           brand_id?: string | null
           created_at?: string | null
           id?: string
+          indicative_price?: number | null
           is_active?: boolean | null
           name: string
+          price_unit?: string | null
           specification?: string | null
           unit: string
           updated_at?: string | null
@@ -1423,8 +1455,10 @@ export type Database = {
           brand_id?: string | null
           created_at?: string | null
           id?: string
+          indicative_price?: number | null
           is_active?: boolean | null
           name?: string
+          price_unit?: string | null
           specification?: string | null
           unit?: string
           updated_at?: string | null
@@ -2901,6 +2935,18 @@ export type Database = {
       }
       inspector_complete_visit: {
         Args: { p_findings: string; p_outcome: string; p_recommendation?: string; p_visit_id: string }
+        Returns: Json
+      }
+      set_booking_material_preferences: {
+        Args: { p_booking_id: string; p_material_ids: string[] }
+        Returns: Json
+      }
+      inspector_confirm_materials: {
+        Args: { p_material_ids: string[]; p_visit_id: string }
+        Returns: Json
+      }
+      admin_set_material_price: {
+        Args: { p_material_id: string; p_price: number; p_unit?: string }
         Returns: Json
       }
       mark_inspection_missed: {

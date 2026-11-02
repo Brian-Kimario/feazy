@@ -78,7 +78,15 @@ export function HowItWorks() {
 }
 
 /* ── Services as an index, not a card grid ──────────────────────────────── */
-export function ServicesIndex({ role, categories }: { role: ViewerRole; categories: HomeCategory[] }) {
+export function ServicesIndex({
+  role,
+  categories,
+  comingSoon = [],
+}: {
+  role: ViewerRole;
+  categories: HomeCategory[];
+  comingSoon?: string[];
+}) {
   return (
     <section id="services" className="scroll-mt-20 bg-paper-2 py-20 sm:py-28">
       <div className={wrap}>
@@ -116,6 +124,11 @@ export function ServicesIndex({ role, categories }: { role: ViewerRole; categori
             </li>
           ))}
         </ul>
+        {comingSoon.length > 0 && (
+          <p className="mt-6 text-[14px] text-ink-3">
+            <span className="font-semibold text-ink-2">Coming soon:</span> {comingSoon.join(', ')}.
+          </p>
+        )}
       </div>
     </section>
   );

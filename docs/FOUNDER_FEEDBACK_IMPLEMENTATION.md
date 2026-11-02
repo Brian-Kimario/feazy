@@ -33,3 +33,34 @@ Branch: `audit/preproduction-remediation`. Status as of 2026-11-02. `pnpm tsc --
 
 ## Open decisions for the founder
 Final tagline and sign-in copy; free-inspection policy; the 12-category list and pro coverage; materials supply and pricing; logo/OG assets.
+
+---
+
+# Round 2: founder decisions (free inspection, inspectors, materials, 12 categories)
+
+**Status: built dark, nothing applied.** Migrations `20261102_119` (inspection foundation) and `20261102_120` (materials and categories) are committed but NOT applied to any database. Both were tested only on a throwaway local Postgres. `NEXT_PUBLIC_FREE_INSPECTION` stays `false` until 119 is applied and the fee/gate flags are switched on. Nothing was pushed, deployed, or changed in DNS or external communications.
+
+## Assessment (the 8 questions)
+1. **Booking architecture vs the inspection model.** Partly. Pricing models `inspection` and `quote_after_inspection` and the quote/approval flow existed; there was no visit, no inspector and no free-inspection path. 119 adds `inspection_visits` beside bookings, without touching job state or payments.
+2. **Simplest safe inspector role.** An existing `professional`-role account with an active `inspectors` row and no professional profile, using `/inspector`. No new auth role, no RLS rewrite; every write goes through SECURITY DEFINER RPCs that check the assigned, active inspector.
+3. **Workflow changes.** Fixed-price services get no visit (they have no unknown to inspect). A missed visit is a recorded outcome, not a silent reschedule. Inspection is gated so a professional is only assigned after the visit result.
+4. **Risky founder assumptions.** Free inspection for every service is an uncapped cost (travel and time) before any revenue; an in-house team limits it to the cities you can staff. Hence costs are recorded by an admin (never estimated) and the admin queue shows the totals. Advertising 12 categories without verified professionals would take bookings that cannot be fulfilled.
+5. **12 categories to skills (proposal).** Existing 8 + Pest Control, Waterproofing, Tiling & Masonry, CCTV & Security (drafted as `coming_soon`, pending your confirmation). Suggested 9 skill types: plumbing, electrical, carpentry, painting, appliance/HVAC repair, cleaning, civil (tiling, masonry, waterproofing), pest control, security/low-voltage. Activate a category (`availability` → `bookable` or `manual_assignment`) only when it has at least one verified professional.
+6. **MVP materials and pricing.** Customer picks materials/brands (preference only) → inspector confirms → quotation fixes the price → customer approves. `materials.indicative_price` is an admin-set guide; null shows "confirmed in your quotation". No inventory, nothing auto-charged.
+7. **Branding.** Keep the logo; only the name changed to Feazy. The taglines in the PDF are centralised in `src/lib/brand.ts`; the final choice is yours.
+8. **Sequence.** Brand → inspection foundation → inspector workspace → materials → categories/coverage → verification. Done in that order.
+
+## Built in round 2
+- 119: availability on categories, inspectors, visits, admin-only visit costs, assignment gate, RPCs. Inspector workspace `/inspector`, admin `/admin/inspections`, customer inspection card.
+- 120: material guide prices, `booking_material_preferences`, `inspection_visit_materials`, RPCs, four draft categories.
+- Booking wizard: structured material selection (hidden until a service has customer-selectable materials), plus an "other parts or brands" note. Preferences are saved after the booking and never fail it.
+- Homepage: "Coming soon" line for inactive categories; booking flow excludes them.
+- Server actions and Zod schemas for inspector material confirmation and admin material pricing, with tests.
+
+## Not built yet (follow-ups)
+- Inspector UI for confirming materials, and showing preferences/confirmed materials to inspector and professional (the RPCs and actions exist).
+- Admin UI for material prices and category `availability`, and a coverage view (categories with zero verified professionals).
+- Applying 119/120, seeding materials, and visual QA in a browser.
+
+## Open decisions
+Final 12-category list; free inspection scope and city limits; per-visit cost budget; who supplies materials; final tagline.

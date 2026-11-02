@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assignInspectorInput,
   completeInspectionInput,
+  confirmMaterialsInput,
+  setMaterialPriceInput,
   markMissedInput,
   recordInspectionCostInput,
   registerInspectorInput,
@@ -49,5 +51,17 @@ describe('registerInspectorInput', () => {
   it('defaults to active and needs a name', () => {
     expect(registerInspectorInput.parse({ userId: id, displayName: 'Asha' }).active).toBe(true);
     expect(registerInspectorInput.safeParse({ userId: id, displayName: ' ' }).success).toBe(false);
+  });
+});
+
+describe('material inputs', () => {
+  it('limits confirmed materials to 20 uuids', () => {
+    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: [id] }).success).toBe(true);
+    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: Array(21).fill(id) }).success).toBe(false);
+    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: ['x'] }).success).toBe(false);
+  });
+  it('accepts a null price to clear it but not a negative one', () => {
+    expect(setMaterialPriceInput.safeParse({ materialId: id, price: null }).success).toBe(true);
+    expect(setMaterialPriceInput.safeParse({ materialId: id, price: -1 }).success).toBe(false);
   });
 });

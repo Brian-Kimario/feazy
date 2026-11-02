@@ -14,6 +14,8 @@ import { mapInspectionError, rpcFailureMessage, type InspectionActionResult } fr
 import {
   assignInspectorInput,
   completeInspectionInput,
+  confirmMaterialsInput,
+  setMaterialPriceInput,
   markMissedInput,
   recordInspectionCostInput,
   registerInspectorInput,
@@ -120,6 +122,45 @@ export async function adminRecordInspectionCost(input: unknown): Promise<AdminRe
         p_visit_id: i.visitId,
         p_amount: i.amount,
         p_note: i.note || undefined,
+      });
+      if (error) return adminFailure('FAILED', mapInspectionError(error));
+      const failure = rpcFailureMessage(data);
+      if (failure) return adminFailure('FAILED', failure);
+      refresh();
+      return { ok: true, data: null };
+    },
+  });
+}
+
+/** Inspector records which materials the job needs. Still not a price: the quotation fixes that. */
+export async function confirmInspectionMaterials(input: unknown): Promise<InspectionActionResult> {
+  const parsed = confirmMaterialsInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('inspector_confirm_materials', {
+    p_visit_id: parsed.data.visitId,
+    p_material_ids: parsed.data.materialIds,
+  });
+  if (error) return { ok: false, error: mapInspectionError(error) };
+  const failure = rpcFailureMessage(data);
+  if (failure) return { ok: false, error: failure };
+  refresh();
+  return { ok: true };
+}
+
+export async function adminSetMaterialPrice(input: unknown): Promise<AdminResult<null>> {
+  return runAdminAction({
+    name: 'admin.material.set_price',
+    schema: setMaterialPriceInput,
+    input,
+    targetType: 'material',
+    targetId: (i) => i.materialId,
+    execute: async ({ input: i }) => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_set_material_price', {
+        p_material_id: i.materialId,
+        p_price: i.price as number,
+        p_unit: i.unit || undefined,
       });
       if (error) return adminFailure('FAILED', mapInspectionError(error));
       const failure = rpcFailureMessage(data);

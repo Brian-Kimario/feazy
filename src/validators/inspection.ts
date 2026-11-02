@@ -37,3 +37,15 @@ export const recordInspectionCostInput = z.object({
   amount: z.number().min(0, 'Cost cannot be negative').max(100000, 'Cost must be at most 1,00,000'),
   note: z.string().trim().max(300, 'Note must be 300 characters or fewer').optional(),
 });
+
+export const confirmMaterialsInput = z.object({
+  visitId: uuid,
+  materialIds: z.array(uuid).max(20, 'Choose at most 20 materials'),
+});
+
+export const setMaterialPriceInput = z.object({
+  materialId: uuid,
+  /** null clears the guide price, so customers see "confirmed in your quotation". */
+  price: z.number().min(0, 'Price cannot be negative').max(10000000, 'Price is too high').nullable(),
+  unit: z.string().trim().max(30, 'Unit must be 30 characters or fewer').optional(),
+});

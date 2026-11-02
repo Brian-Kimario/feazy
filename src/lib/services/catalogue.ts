@@ -17,6 +17,8 @@ export interface ServiceCategory {
   icon_key: string | null
   is_active: boolean
   sort_order: number
+  /** Absent until migration 119 is applied; treat a missing value as bookable. */
+  availability?: string
   created_at: string
   updated_at: string
 }
@@ -90,9 +92,19 @@ function withOptions<S extends { service_options: Array<{ service_option_values:
 }
 
 /**
- * Fetch all active service categories
+ * Fetch all active service categories that customers can book now. Filtering happens in code, not in
+ * the query, so the page keeps working before the availability column exists.
  */
 export async function getServiceCategories(): Promise<ServiceCategory[]> {
+  return (await loadActiveCategories()).filter((c) => c.availability !== 'coming_soon')
+}
+
+/** Categories we plan to offer but cannot yet serve. Shown as "coming soon", never as bookable. */
+export async function getComingSoonCategories(): Promise<ServiceCategory[]> {
+  return (await loadActiveCategories()).filter((c) => c.availability === 'coming_soon')
+}
+
+async function loadActiveCategories(): Promise<ServiceCategory[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -106,7 +118,7 @@ export async function getServiceCategories(): Promise<ServiceCategory[]> {
     throw new Error(`Failed to fetch service categories: ${error.message}`)
   }
 
-  return data || []
+  return (data || []) as ServiceCategory[]
 }
 
 /**

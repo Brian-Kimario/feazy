@@ -9,6 +9,8 @@ export const createBookingSchema = z.object({
   selectedOptions: z.record(uuid, z.string().max(200)).optional(),
   /** Shown to offered professionals before they accept, so it must not hold access codes. */
   problemSummary: z.string().trim().max(1000).optional(),
+  /** Customer-selectable materials; a preference only. The RPC checks them against the service and nothing is charged. */
+  materialIds: z.array(uuid).max(10).optional(),
 });
 
 export type CreateBookingInput = z.input<typeof createBookingSchema>;

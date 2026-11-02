@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/marketing/site-header';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { Hero } from '@/components/home/hero';
 import { FactsStrip, HowItWorks, ServicesIndex, PropertyRecord, ProfessionalSection, Faq, ClosingCta } from '@/components/home/sections';
-import { getServiceCategories } from '@/lib/services/catalogue';
+import { getComingSoonCategories, getServiceCategories } from '@/lib/services/catalogue';
 import type { ViewerRole } from '@/lib/marketing-links';
 import type { HomeCategory } from '@/components/home/sections';
 
@@ -38,6 +38,9 @@ export default async function HomePage() {
   const categories: HomeCategory[] = await getServiceCategories()
     .then((rows) => rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, description: c.description })))
     .catch(() => []);
+  const comingSoon: string[] = await getComingSoonCategories()
+    .then((rows) => rows.map((c) => c.name))
+    .catch(() => []);
   return (
     <div className="flex min-h-screen flex-col bg-porcelain font-sans text-ink">
       <SiteHeader role={role} />
@@ -45,7 +48,7 @@ export default async function HomePage() {
         <Hero role={role} categories={categories} />
         <FactsStrip />
         <HowItWorks />
-        <ServicesIndex role={role} categories={categories} />
+        <ServicesIndex role={role} categories={categories} comingSoon={comingSoon} />
         <PropertyRecord role={role} />
         <ProfessionalSection role={role} />
         <Faq />
