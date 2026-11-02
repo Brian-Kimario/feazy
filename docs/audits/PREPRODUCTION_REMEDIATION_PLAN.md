@@ -176,3 +176,17 @@ Rule per phase: Review → Diagnose → Design → Evaluate → Implement → Ve
 ## 12. Deferred
 
 Fees and refunds (OD-007/009), payout, premium, B2B, dispute model, private message audit access, screen-reader pass, performance measurement, staging project.
+
+## 13. R1-0 baseline results (2026-11-02, read-only)
+
+**Applied migrations [V by object existence]:** 104–116 are applied (admin_cancel_job, admin_reconcile_job, customer_cancel_booking, booking_events, a4 views, verification events, `verification-documents` bucket and `professional_verification_documents` table all present). **117 (notification claims) is NOT applied** (no `claim_notifications`, no claim columns). 110 content not individually diffed [U].
+
+**CRITICAL: production code (`main`) is incompatible with the live schema [V].** The DB is ahead of the deployed app:
+1. `main` calls `transition_professional_verification_status` (admin.ts:566,605; verification.ts:203,399,488). Migration 104 **dropped** it. Professional verification submit and admin approve/reject on production will fail.
+2. `main` customer cancel (bookings.ts:192) calls `transition_booking_state`, which is not executable by `authenticated`. Customer cancellation on production will fail (the original "missing cancel function" defect persists in the deployed app; the fix exists only on this branch).
+3. Other RPCs called by `main` exist with matching signatures (create_booking, decline_job, transition_job_state, etc.).
+Not yet reproduced in a browser on production (owner asked not to spend time on the production URL); this is derived from code plus catalog. Containment options, owner to choose: (a) merge this branch to `main` after review (large: 67+ commits); (b) minimal hotfix PR to `main` pointing the two call sites at the new RPCs; (c) restore a compatibility function in the DB (needs migration approval). I recommend (b) or a staged (a); I have not touched `main`, DB or Vercel.
+
+**Verification:** `verification-documents` bucket now exists on the live DB (A1 doc said absent; stale). Verified-professional/document counts not obtained (column name differs; query not repeated).
+
+**Still open for R1-0:** browser reproduction of F-05..F-26 on localhost, `E2E_TEST_PASSWORD` for Playwright, remaining doc reads. These are not blockers for the R1-A design.
