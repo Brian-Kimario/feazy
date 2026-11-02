@@ -158,6 +158,8 @@ export async function getCompletedBookings(): Promise<BookingWithDetails[]> {
 
 /** What a successful customer cancellation tells the caller. */
 export interface CancelBookingOutcome {
+  /** `cancelled`: done. `review_requested`: from arrival onward Fixify reviews it and nothing changed yet. */
+  outcome: 'cancelled' | 'review_requested'
   bookingId: string
   jobId: string | null
   fromState: string
@@ -169,11 +171,12 @@ export interface CancelBookingOutcome {
 const cancelRpcResult = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
+    outcome: z.enum(['cancelled', 'review_requested']).default('cancelled'),
     booking_id: z.string(),
     job_id: z.string().nullable(),
     from_state: z.string(),
-    offer_withdrawn: z.boolean(),
-    payment_review_required: z.boolean(),
+    offer_withdrawn: z.boolean().default(false),
+    payment_review_required: z.boolean().default(false),
   }),
   z.object({
     ok: z.literal(false),
@@ -228,6 +231,7 @@ export async function cancelBooking(input: CancelBookingInput): Promise<ActionRe
 
   const done = result.data
   return ok({
+    outcome: done.outcome,
     bookingId: done.booking_id,
     jobId: done.job_id,
     fromState: done.from_state,

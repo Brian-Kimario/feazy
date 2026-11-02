@@ -1,15 +1,17 @@
 /**
- * Whether the booking page offers "Cancel booking". Mirrors customer_cancel_booking(), which stays the
- * authority: it refuses in_progress and finished work, and a stale state. This only decides what to show.
+ * Whether the booking page offers "Cancel booking", and whether that cancels at once or asks Fixify to review.
+ * Mirrors customer_cancel_booking(), which stays the authority: from arrival onward it opens a review request
+ * instead of cancelling, and it refuses finished work and a stale state. This only decides what to show.
  */
-const NOT_CANCELLABLE_JOB_STATES = ['in_progress', 'completed', 'closed', 'cancelled'];
+const REVIEW_JOB_STATES = ['arrived', 'quote_pending', 'in_progress'];
+const FINISHED_JOB_STATES = ['completed', 'closed', 'cancelled'];
 
-export type CancelOffer = 'offer' | 'contact_support' | 'none';
+export type CancelOffer = 'offer' | 'request_review' | 'none';
 
 export function cancelOffer(bookingStatus: string, jobState: string | null): CancelOffer {
   if (bookingStatus === 'cancelled' || bookingStatus === 'completed') return 'none';
-  if (jobState === 'in_progress') return 'contact_support';
-  if (jobState && NOT_CANCELLABLE_JOB_STATES.includes(jobState)) return 'none';
+  if (jobState && FINISHED_JOB_STATES.includes(jobState)) return 'none';
+  if (jobState && REVIEW_JOB_STATES.includes(jobState)) return 'request_review';
   return 'offer';
 }
 

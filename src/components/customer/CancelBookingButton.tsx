@@ -16,11 +16,14 @@ export function CancelBookingButton({
   bookingId,
   expectedState,
   professionalAssigned,
+  needsReview = false,
 }: {
   bookingId: string;
   expectedState: string;
   /** A professional has been offered or accepted, so they will be told. */
   professionalAssigned: boolean;
+  /** From arrival onward the request goes to Fixify for review instead of cancelling at once. */
+  needsReview?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -28,6 +31,18 @@ export function CancelBookingButton({
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CancelBookingOutcome | null>(null);
+
+  if (done?.outcome === 'review_requested') {
+    return (
+      <div role="status" className="rounded-2xl border border-line bg-paper p-5 text-sm">
+        <p className="font-semibold text-ink">Cancellation under review</p>
+        <p className="mt-1 text-ink-2">
+          The work has already begun, so Fixify will review your request and contact you. Your booking stays active
+          until then.
+        </p>
+      </div>
+    );
+  }
 
   if (done) {
     return (
@@ -66,13 +81,17 @@ export function CancelBookingButton({
       <p className="font-semibold text-ink">Need to cancel?</p>
       {!open ? (
         <>
-          <p className="mt-1 text-ink-2">You can cancel until the work starts.</p>
+          <p className="mt-1 text-ink-2">
+            {needsReview
+              ? 'The work has begun, so Fixify reviews cancellation requests.'
+              : 'You can cancel until your professional arrives.'}
+          </p>
           <button
             type="button"
             onClick={() => setOpen(true)}
             className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl border border-line-strong px-4 text-sm font-semibold text-ink transition-colors hover:bg-porcelain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
-            Cancel booking
+            {needsReview ? 'Request cancellation' : 'Cancel booking'}
           </button>
         </>
       ) : (
@@ -114,7 +133,7 @@ export function CancelBookingButton({
               aria-busy={pending}
               className="inline-flex min-h-11 items-center justify-center rounded-xl border border-danger px-4 text-sm font-semibold text-danger transition-colors hover:bg-danger-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal disabled:opacity-50"
             >
-              {pending ? 'Cancelling…' : 'Confirm cancellation'}
+              {pending ? 'Sending…' : needsReview ? 'Send request' : 'Confirm cancellation'}
             </button>
             <button type="button" onClick={() => setOpen(false)} className="min-h-11 px-3 text-sm text-ink-3 hover:text-ink">
               Keep booking

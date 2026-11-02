@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CircleCheck, Clock, PartyPopper, SearchX } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getCustomerCase } from '@/lib/services/job-case';
-import { getJobCodeState, getNoShowReportedAt } from '@/lib/services/job-codes';
+import { getCancellationReviewStatus, getJobCodeState, getNoShowReportedAt } from '@/lib/services/job-codes';
 import { noShowEligibility } from '@/lib/job-codes/rules';
 import { toPanelQuote } from '@/lib/quotes/panel';
 import { bookingStatusDisplay, formatSlot, missingProfessional, propertyTypeLabel } from '@/lib/shell/rules';
@@ -69,6 +69,9 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
         now: new Date(),
         reported: noShowReport != null,
       })
+    : null;
+  const cancelReview = job && ['arrived', 'quote_pending', 'in_progress'].includes(job.state)
+    ? await getCancellationReviewStatus(job.id)
     : null;
   const cancel = cancelOffer(booking.status, jobState);
   const isOpen = booking.status !== 'cancelled' && booking.status !== 'completed';
@@ -279,20 +282,25 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
               )}
             </Panel>
           )}
-          {cancel === 'offer' && (
-            <CancelBookingButton
-              bookingId={booking.id}
-              expectedState={expectedCancelState(jobState)}
-              professionalAssigned={professional != null}
-            />
-          )}
-          {cancel === 'contact_support' && (
+          {cancelReview?.status === 'open' ? (
             <Panel className="p-5 text-sm">
-              <p className="font-semibold text-ink">Need to stop the work?</p>
-              <p className="mt-1 text-ink-2">
-                Work has already started, so it cannot be cancelled here. Please contact Feasy support.
-              </p>
+              <p className="font-semibold text-ink">Cancellation under review</p>
+              <p className="mt-1 text-ink-2">Fixify will contact you. Your booking stays active until then.</p>
             </Panel>
+          ) : cancelReview ? (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">Cancellation request reviewed</p>
+              <p className="mt-1 text-ink-2">Please contact Feasy support if you need anything further.</p>
+            </Panel>
+          ) : (
+            cancel !== 'none' && (
+              <CancelBookingButton
+                bookingId={booking.id}
+                expectedState={expectedCancelState(jobState)}
+                professionalAssigned={professional != null}
+                needsReview={cancel === 'request_review'}
+              />
+            )
           )}
 
           <CaseCard title="Booking">

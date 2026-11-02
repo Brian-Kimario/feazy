@@ -1,0 +1,18 @@
+{
+  "migration": "20261102_118_cancellation_policy.sql",
+  "project": "azmajqztvcuwajaaldqm",
+  "run_on": "2026-11-02",
+  "mode": "single transaction, ROLLBACK at end; nothing persisted",
+  "results": {
+    "customer_cancel_in_progress": "ok, outcome=review_requested, job state unchanged",
+    "customer_cancel_repeat": "idempotent, same review_requested, one exception row",
+    "customer_sees_exception": 1,
+    "professional_sees_exception": 1,
+    "professional_raw_cancel": "refused: Not allowed to change this job",
+    "professional_complete_without_code": "blocked by finish-code rule (other edges unchanged)",
+    "customer_cancel_on_the_way": "ok, outcome=cancelled, job and booking both cancelled",
+    "internal_cancel_function_from_client": "refused: permission denied",
+    "in_progress_job_after": "in_progress/pending (unchanged)",
+    "payments_changed": 0
+  }
+}

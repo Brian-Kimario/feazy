@@ -57,6 +57,17 @@ describe('cancelBookingSchema', () => {
   });
 });
 
+describe('cancelBooking review outcome', () => {
+  it('maps a review request and defaults old responses to cancelled', async () => {
+    state.rpc.mockResolvedValueOnce({ data: { ...success, outcome: 'review_requested', from_state: 'in_progress', to_state: 'in_progress' }, error: null });
+    const review = await cancelBooking({ ...valid, expectedState: 'in_progress' });
+    expect(review.success && review.data.outcome).toBe('review_requested');
+    state.rpc.mockResolvedValueOnce({ data: success, error: null });
+    const legacy = await cancelBooking(valid);
+    expect(legacy.success && legacy.data.outcome).toBe('cancelled');
+  });
+});
+
 describe('cancelBooking service', () => {
   it('rejects invalid input without calling the database', async () => {
     const r = await cancelBooking({ ...valid, bookingId: 'x' });
@@ -80,7 +91,7 @@ describe('cancelBooking service', () => {
     });
     expect(r).toEqual({
       success: true,
-      data: { bookingId: BOOKING, jobId: success.job_id, fromState: 'assigned', offerWithdrawn: true, paymentReviewRequired: false },
+      data: { outcome: 'cancelled', bookingId: BOOKING, jobId: success.job_id, fromState: 'assigned', offerWithdrawn: true, paymentReviewRequired: false },
     });
   });
 

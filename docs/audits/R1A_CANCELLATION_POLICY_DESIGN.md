@@ -1,6 +1,6 @@
 # R1-A Design: one cancellation policy
 
-Status: **DESIGN, awaiting owner review gate. No migration written or applied.**
+Status: **APPROVED. Migration 118 written and dry-run (rolled back); not applied, awaiting owner go-ahead.**
 Scope: R1-01 close-out and R1-05 from `PREPRODUCTION_REMEDIATION_PLAN.md`. No fees (owner direction); refunds and fees stay in OD-007.
 Evidence: live catalog of project `azmajqztvcuwajaaldqm`, read 2026-11-02. [V] = read from the live function or table.
 
@@ -41,13 +41,13 @@ In `transition_job_state`, the first allow clause becomes `v_caller = profession
 Backward compatibility: no application code on `main`, the audit branch, or the generated types depends on a professional cancelling this way [V by grep]. Only a direct API caller is affected, which is the intent.
 
 ### 3.2 One internal cancel function
-`_cancel_job_and_booking(job_id, actor, actor_role, reason_category, note, source)`, SECURITY DEFINER, not executable by clients. It performs what `customer_cancel_booking` does today after its checks: job cancel via `transition_job_state` (so codes, events and notifications stay uniform), withdraw the outstanding offer, move the booking, count payments. Callers: `customer_cancel_booking`, the admin resolution path below, and (R1-B) the drift backfill. This removes the per-actor divergence and leaves a single place to change policy.
+`_cancel_job_and_booking(job_id, actor, actor_role, reason_category, note, source)`, SECURITY DEFINER, not executable by clients. It performs what `customer_cancel_booking` does today after its checks: job cancel via `transition_job_state` (so codes, events and notifications stay uniform), withdraw the outstanding offer, move the booking, count payments. Callers: `customer_cancel_booking` and (R1-B) the drift backfill. This removes the per-actor divergence and leaves a single place to change policy.
 `admin_cancel_job` is not rewritten in R1-A. It already updates both rows and has its own audit table; moving it onto the shared function is listed as a later cleanup to keep this change small.
 
 ### 3.3 Review requests reuse `job_exceptions`
 - Extend `job_exceptions_kind_check` with `customer_cancellation_request`. The table already has open/resolved/dismissed status, admin finding and resolution columns, and a unique `(job_id, kind)` so a repeat request is idempotent.
 - `customer_cancel_booking`: when the job is `arrived`, `quote_pending` or `in_progress` (and `on_the_way`/accepted rules per table above are direct), insert the exception with the reason category and note in `detail`, write a `job_events` row `customer_cancellation_requested`, and return `{ok:true, outcome:'review_requested'}`. Direct cancels return `outcome:'cancelled'`. Today's `in_progress` refusal becomes a review request, so the customer is never told to "contact support" with no record.
-- Admin resolves through the existing exception resolve action. Resolution `cancelled` calls `_cancel_job_and_booking`; `no_action`/`customer_declined` leaves the job running. Existing resolution checks (`confirmed` finding, basis, resolver) apply unchanged.
+- Admin acts in two steps, as today: `admin_cancel_job` cancels job and booking (audited), then `admin_resolve_exception` records the resolution. Resolving does not itself cancel. A dismissal leaves the job running. Existing resolution checks apply unchanged. (Corrected after reading `admin_resolve_exception`.)
 
 ### 3.4 Visible "under review"
 Customer, professional and admin job views read the open exception. Wording: "Cancellation under review. Fixify will contact you." Not shown as cancelled and not styled as a terminal state. Booking list gets the same badge. No new column: derived from an open `job_exceptions` row.
