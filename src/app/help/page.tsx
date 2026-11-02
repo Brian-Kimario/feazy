@@ -3,7 +3,7 @@ import { FAQPageSchema } from '@/components/seo/FAQPageSchema';
 import { HelpCenter } from '@/components/help/HelpCenter';
 import { HELP_FAQS } from '@/lib/help/content';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fixify.vercel.app';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://feazy.in';
 const description = 'Answers for customers and professionals on bookings, quotes, codes, payment and safety.';
 
 export const metadata: Metadata = {

@@ -3,13 +3,13 @@ export function OrganizationSchema() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Feazy",
-    url: process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app",
-    logo: `${process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app"}/brand/feasy-logo.svg`,
+    url: process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in",
+    logo: `${process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in"}/brand/feasy-logo.svg`,
     description: "On-demand property maintenance marketplace connecting customers with verified professionals",
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "Customer Support",
-      url: `${process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app"}/support`,
+      url: `${process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in"}/support`,
     },
   };
 

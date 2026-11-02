@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in";
 
 export const metadata: Metadata = {
   title: "Demo Contact | Feazy",

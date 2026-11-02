@@ -15,7 +15,7 @@
  *
  * Required env vars (server-only):
  *   SENDGRID_API_KEY  — SendGrid API key with "Mail Send" permission
- *   EMAIL_FROM        — Verified sender, e.g. "noreply@feasy.in"
+ *   EMAIL_FROM        — Verified sender, e.g. "noreply@feazy.in"
  *
  * @see https://docs.sendgrid.com/api-reference/mail-send/mail-send
  */
@@ -49,7 +49,7 @@ export async function sendEmail(
   payload: EmailSendPayload
 ): Promise<EmailSendResult> {
   const apiKey = process.env.SENDGRID_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM ?? "noreply@feasy.in";
+  const fromEmail = process.env.EMAIL_FROM ?? "noreply@feazy.in";
 
   if (!apiKey) {
     return {
@@ -153,7 +153,7 @@ export function buildEmailHtml(
       <p>
         Feazy | Bengaluru, Karnataka, India<br />
         <a href="${unsubscribeUrl}">Manage notification preferences</a> &nbsp;·&nbsp;
-        <a href="https://feasy.in/privacy">Privacy Policy</a>
+        <a href="https://feazy.in/privacy">Privacy Policy</a>
       </p>
       <p>
         You are receiving this because you have an active Feazy account.<br />

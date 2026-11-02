@@ -83,7 +83,7 @@ export function buildMessage(
   channel: NotificationChannel,
   data: NotificationData
 ): WhatsAppTemplateMessage | SMSMessage | EmailMessage | undefined {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.feasy.in";
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://feazy.in";
   const jobPath = data.jobRef ? `/app/jobs/${data.jobRef}` : "/app";
   const jobUrl = `${data.appBaseUrl ?? base}${jobPath}`;
   const prefUrl = `${data.appBaseUrl ?? base}/app/profile/notifications`;

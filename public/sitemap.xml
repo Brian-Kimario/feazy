@@ -3,7 +3,7 @@
   
   <!-- Home page (high priority) -->
   <url>
-    <loc>https://fixify-amber.vercel.app/</loc>
+    <loc>https://feazy.in/</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
@@ -11,7 +11,7 @@
   
   <!-- Service/help pages (high priority) -->
   <url>
-    <loc>https://fixify-amber.vercel.app/help</loc>
+    <loc>https://feazy.in/help</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
@@ -19,21 +19,21 @@
   
   <!-- Support & contact (medium priority) -->
   <url>
-    <loc>https://fixify-amber.vercel.app/support</loc>
+    <loc>https://feazy.in/support</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/contact</loc>
+    <loc>https://feazy.in/contact</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/demo-contact</loc>
+    <loc>https://feazy.in/demo-contact</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -41,21 +41,21 @@
   
   <!-- Authentication pages (lower priority but indexable) -->
   <url>
-    <loc>https://fixify-amber.vercel.app/auth/login</loc>
+    <loc>https://feazy.in/auth/login</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/auth/register</loc>
+    <loc>https://feazy.in/auth/register</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/auth/register/professional</loc>
+    <loc>https://feazy.in/auth/register/professional</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
@@ -63,28 +63,28 @@
   
   <!-- Legal/policy pages (medium priority) -->
   <url>
-    <loc>https://fixify-amber.vercel.app/terms</loc>
+    <loc>https://feazy.in/terms</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/privacy</loc>
+    <loc>https://feazy.in/privacy</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/cookies</loc>
+    <loc>https://feazy.in/cookies</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://fixify-amber.vercel.app/refund-policy</loc>
+    <loc>https://feazy.in/refund-policy</loc>
     <lastmod>2026-10-05</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
