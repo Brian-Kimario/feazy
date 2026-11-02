@@ -56,6 +56,17 @@ export interface WizardOption {
   values: WizardOptionValue[];
 }
 
+export interface WizardMaterial {
+  id: string;
+  name: string;
+  brand: string | null;
+  specification: string | null;
+  unit: string;
+  /** Guide price set by an admin; null means the price is confirmed in the quotation. */
+  indicativePrice: number | null;
+  priceUnit: string | null;
+}
+
 export interface WizardService {
   id: string;
   name: string;
@@ -66,6 +77,7 @@ export interface WizardService {
   inspection_fee: number | null;
   estimated_duration_minutes: number | null;
   options: WizardOption[];
+  materials?: WizardMaterial[];
 }
 
 export interface WizardProperty {
@@ -92,6 +104,16 @@ interface BookingWizardProps {
 // shown. On site the professional can send a quote with a reason while the job is in progress;
 // the customer approves or declines it, and payment uses the newest approved quote, else the
 // booked amount.
+
+const MATERIALS_MAX = 200;
+
+/** Customer material requests travel with the problem text; they never affect price or the quote. */
+function composeSummary(problem: string, materials: string): string | undefined {
+  const m = materials.trim();
+  const suffix = m ? `Materials requested: ${m}` : '';
+  const p = problem.trim().slice(0, 1000 - (suffix ? suffix.length + 2 : 0));
+  return [p, suffix].filter(Boolean).join('\n\n') || undefined;
+}
 
 interface PriceInfo {
   /** The amount create_booking will store, or null when it stores none. */
@@ -254,6 +276,8 @@ export function BookingWizard({
   const [selectedService, setSelectedService] = useState<WizardService | null>(initialService);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [problemSummary, setProblemSummary] = useState<string>(initialProblemNotes ?? '');
+  const [materialsNote, setMaterialsNote] = useState<string>('');
+  const [materialIds, setMaterialIds] = useState<string[]>([]);
   const [scheduledStart, setScheduledStart] = useState<string>('');
   const [minStart, setMinStart] = useState<string | undefined>(undefined);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(() => {
@@ -275,6 +299,8 @@ export function BookingWizard({
     : undefined;
   const missingOptions = (selectedService?.options ?? []).filter((o) => o.is_required && !selectedOptions[o.id]);
   const price = selectedService ? priceInfo(selectedService) : null;
+  const materialChoices = selectedService?.materials ?? [];
+  const chosenMaterials = materialChoices.filter((m) => materialIds.includes(m.id));
 
   function go(next: number) {
     setStepError(null);
@@ -284,7 +310,10 @@ export function BookingWizard({
   }
 
   function chooseService(svc: WizardService) {
-    if (selectedService?.id !== svc.id) setSelectedOptions({});
+    if (selectedService?.id !== svc.id) {
+      setSelectedOptions({});
+      setMaterialIds([]);
+    }
     setSelectedService(svc);
   }
 
@@ -322,7 +351,8 @@ export function BookingWizard({
         propertyId: selectedPropertyId,
         scheduledStart: new Date(scheduledStart).toISOString(),
         selectedOptions,
-        problemSummary: problemSummary.trim() || undefined,
+        problemSummary: composeSummary(problemSummary, materialsNote),
+        materialIds: materialIds.length > 0 ? materialIds : undefined,
       });
       if (result.success === false) {
         setError(result.error);
@@ -508,6 +538,75 @@ export function BookingWizard({
         </p>
       </div>
 
+      {materialChoices.length > 0 && (
+        <fieldset className="mt-6">
+          <legend className="text-sm font-medium text-ink-2">
+            Materials and brands you prefer <span className="font-normal text-ink-4">(optional)</span>
+          </legend>
+          <p className="mt-1 text-xs text-ink-4">
+            Prices are a guide only. Our inspector confirms what the job needs, and the final price is in the quotation
+            you approve. Nothing is charged for choosing here.
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {materialChoices.map((m) => {
+              const on = materialIds.includes(m.id);
+              const atLimit = !on && materialIds.length >= 10;
+              return (
+                <label
+                  key={m.id}
+                  className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm ${
+                    on ? 'border-teal bg-teal-soft' : 'border-line-strong bg-paper'
+                  } ${atLimit ? 'opacity-50' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={atLimit}
+                    onChange={() =>
+                      setMaterialIds((ids) => (on ? ids.filter((id) => id !== m.id) : [...ids, m.id]))
+                    }
+                    className="mt-0.5 h-4 w-4 accent-teal"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-ink">
+                      {m.brand ? `${m.brand} ` : ''}
+                      {m.name}
+                    </span>
+                    <span className="block text-xs text-ink-3">
+                      {m.indicativePrice != null
+                        ? `About ${money(m.indicativePrice)} per ${m.priceUnit ?? m.unit}`
+                        : 'Price confirmed in your quotation'}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      <div className="mt-6">
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor="materials_note" className="text-sm font-medium text-ink-2">
+            Other parts or brands <span className="font-normal text-ink-4">(optional)</span>
+          </label>
+          <span className="text-xs tabular-nums text-ink-4">{materialsNote.length}/{MATERIALS_MAX}</span>
+        </div>
+        <textarea
+          id="materials_note"
+          value={materialsNote}
+          onChange={(e) => setMaterialsNote(e.target.value)}
+          rows={2}
+          maxLength={MATERIALS_MAX}
+          aria-describedby="materials_note_hint"
+          placeholder="E.g. a specific tap brand, or parts you already have."
+          className={`${inputClass} mt-1.5 resize-y py-2.5`}
+        />
+        <p id="materials_note_hint" className="mt-1 text-xs text-ink-4">
+          Shared with the professional as a request. Materials and their prices are confirmed in the itemised quotation, which you approve before any work starts.
+        </p>
+      </div>
+
       {stepError && <InlineError message={stepError} />}
 
       <StepActions>
@@ -631,7 +730,7 @@ export function BookingWizard({
           <span className="font-semibold text-ink">{selectedService.name}</span>
           {serviceCategory && <span className="block text-sm text-ink-3">{serviceCategory.name}</span>}
         </ReviewRow>
-        {(chosenOptions.length > 0 || problemSummary.trim()) && (
+        {(chosenOptions.length > 0 || problemSummary.trim() || materialsNote.trim() || chosenMaterials.length > 0) && (
           <ReviewRow label="Details" onEdit={() => go(1)}>
             {chosenOptions.map((o) => (
               <span key={o.name} className="block text-sm text-ink-2">
@@ -640,6 +739,19 @@ export function BookingWizard({
             ))}
             {problemSummary.trim() && (
               <span className="mt-1 block whitespace-pre-line break-words text-sm text-ink-2">{problemSummary.trim()}</span>
+            )}
+            {chosenMaterials.length > 0 && (
+              <span className="mt-1 block break-words text-sm text-ink-2">
+                Preferred materials:{' '}
+                <span className="font-medium text-ink">
+                  {chosenMaterials.map((m) => `${m.brand ? `${m.brand} ` : ''}${m.name}`).join(', ')}
+                </span>
+              </span>
+            )}
+            {materialsNote.trim() && (
+              <span className="mt-1 block break-words text-sm text-ink-2">
+                Materials requested: <span className="font-medium text-ink">{materialsNote.trim()}</span>
+              </span>
             )}
           </ReviewRow>
         )}
@@ -661,7 +773,7 @@ export function BookingWizard({
       {error && <InlineError message={error} />}
 
       <p className="mt-6 text-xs text-ink-4">
-        By booking you agree to Feasy’s{' '}
+        By booking you agree to Feazy’s{' '}
         <Link href="/terms" className="underline underline-offset-2 hover:text-ink-2">
           terms
         </Link>
@@ -682,7 +794,7 @@ export function BookingWizard({
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="rounded-3xl border border-line bg-paper p-5 md:p-8">
         <StepBar current={step} onJump={(i) => i < step && go(i)} />
         <div className="mt-8">

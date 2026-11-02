@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 
-export const metadata = { title: 'Payment — Feasy' };
+export const metadata = { title: 'Payment — Feazy' };
 
 // Razorpay redirects here via callback_url after the UPI app completes or fails.
 // We read status from the database — never from redirect query params, which are

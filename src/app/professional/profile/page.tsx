@@ -23,7 +23,7 @@ import { PageContainer, Panel } from '@/components/shell/primitives';
 import { MobileSignOutButton } from '@/components/shared/MobileSignOutButton';
 
 export const metadata = {
-  title: 'Profile — Feasy Professional',
+  title: 'Profile — Feazy Professional',
 };
 
 const NOTICE_TONE = {
@@ -96,7 +96,7 @@ export default async function ProfessionalProfilePage() {
                   view.yearsExperience != null
                     ? `${view.yearsExperience} ${view.yearsExperience === 1 ? 'year' : 'years'} of experience`
                     : null,
-                  memberSince ? `On Feasy since ${memberSince}` : null,
+                  memberSince ? `On Feazy since ${memberSince}` : null,
                 ]
                   .filter(Boolean)
                   .join(' · ') || 'Professional'}

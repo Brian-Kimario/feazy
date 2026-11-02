@@ -11,6 +11,7 @@ import {
   type SignInFailure,
 } from '@/app/auth/actions';
 import { AuthShell, GoogleIcon, authInput } from '@/components/auth/auth-shell';
+import { TAGLINES } from '@/lib/brand';
 import { PasswordField } from '@/components/ui/PasswordField';
 
 const COPY: Record<
@@ -25,19 +26,19 @@ const COPY: Record<
   }
 > = {
   customer: {
-    label: 'I need a repair',
-    heading: 'Welcome back.',
-    sub: 'Pick up your requests, quotes and property record.',
+    label: 'I need a service',
+    heading: TAGLINES.customerSignIn,
+    sub: TAGLINES.customerSignInSub,
     registerHref: '/auth/register',
-    registerText: 'New to Feasy?',
+    registerText: 'New to Feazy?',
     registerCta: 'Create a customer account',
   },
   professional: {
     label: 'I’m a professional',
-    heading: 'Professional sign in.',
-    sub: 'Open your job requests, quotes and earnings.',
+    heading: TAGLINES.professionalSignIn,
+    sub: TAGLINES.professionalSignInSub,
     registerHref: '/auth/register/professional',
-    registerText: 'Not on Feasy yet?',
+    registerText: 'Not on Feazy yet?',
     registerCta: 'Apply as a professional',
   },
 };
@@ -242,7 +243,7 @@ export function LoginPageClient() {
             </Link>
           </p>
           <p className="mt-6 text-center text-[12px] leading-relaxed text-ink-4">
-            By continuing you agree to Feasy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
+            By continuing you agree to Feazy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
             <Link href="/privacy" className="underline underline-offset-2">privacy notice</Link>.
             {isPro && ' Professionals must be verified before accepting jobs.'}
           </p>

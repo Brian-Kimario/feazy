@@ -2,7 +2,7 @@ import { getProfessionalJobs } from '@/app/professional/actions';
 import { JobsFilterClient } from '@/components/professional/JobsFilterClient';
 
 export const metadata = {
-  title: 'My Jobs — Feasy Professional',
+  title: 'My Jobs — Feazy Professional',
 };
 
 export default async function JobsPage() {

@@ -137,7 +137,7 @@ export function OnboardingClient({
               You're all set.
             </h2>
             <p className="mt-4 text-sm leading-6 text-[var(--color-ink-3)]">
-              Your professional account is verified. Start browsing available jobs and growing your business on Feasy.
+              Your professional account is verified. Start browsing available jobs and growing your business on Feazy.
             </p>
             <Link
               href="/professional"

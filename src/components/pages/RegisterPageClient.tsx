@@ -140,7 +140,7 @@ export function RegisterPageClient() {
         Fix things for a living? <Link href="/auth/register/professional" className={linkCls}>Apply as a professional</Link>
       </p>
       <p className="mt-6 text-center text-[12px] leading-relaxed text-ink-4">
-        By continuing you agree to Feasy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
+        By continuing you agree to Feazy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
         <Link href="/privacy" className="underline underline-offset-2">privacy notice</Link>.
       </p>
     </AuthShell>

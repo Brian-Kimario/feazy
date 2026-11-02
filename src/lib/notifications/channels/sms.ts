@@ -21,7 +21,6 @@
  * @see https://trai.gov.in/notifications/regulation/telecom-commercial-communications
  */
 
-"use server";
 
 export interface SMSSendPayload {
   /** E.164 format, e.g. "+919876543210" */

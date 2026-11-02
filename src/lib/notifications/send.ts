@@ -1,7 +1,7 @@
 /**
  * src/lib/notifications/send.ts
  *
- * Main notification orchestrator for Feasy.
+ * Main notification orchestrator for Feazy.
  *
  * Strategy (India-optimised, per PHASE_10_NOTIFICATION_STRATEGY.md):
  *   1. Fetch customer preferences using service-role client (never trust caller-supplied prefs).
@@ -16,7 +16,6 @@
  * the call site if you want belt-and-suspenders safety.
  */
 
-"use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { NotificationChannel, NotificationPreferences, NotificationResult, NotificationType } from "./types";
@@ -24,6 +23,7 @@ import { buildMessage, type NotificationData } from "./templates";
 import { sendWhatsApp } from "./channels/whatsapp";
 import { sendSMS } from "./channels/sms";
 import { sendEmail } from "./channels/email";
+import { isTransientError } from "./classify";
 
 // ─── Public interface ─────────────────────────────────────────────────────────
 
@@ -36,6 +36,8 @@ export interface SendNotificationParams {
   type: NotificationType;
   /** Template variable data. */
   data: NotificationData;
+  /** Set by the dispatcher, which records the outcome on the queued row itself. */
+  skipLog?: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ export interface SendNotificationParams {
 export async function sendNotification(
   params: SendNotificationParams
 ): Promise<NotificationResult> {
-  const { customerId, jobId, type, data } = params;
+  const { customerId, jobId, type, data, skipLog } = params;
 
   try {
     // ── 1. Fetch customer contact info and preferences ──────────────────────
@@ -62,6 +64,7 @@ export async function sendNotification(
 
     if (profileError || !profile) {
       await writeLog(admin, {
+        skip: skipLog,
         customerId,
         jobId,
         type,
@@ -70,7 +73,7 @@ export async function sendNotification(
         status: "failed",
         error: profileError?.message ?? "Customer profile not found",
       });
-      return { success: false, channel: "none", error: "Customer profile not found" };
+      return { success: false, channel: "none", error: "Customer profile not found", retryable: false };
     }
 
     // Fetch email from auth.users via admin (profiles table doesn't store it).
@@ -94,6 +97,7 @@ export async function sendNotification(
 
     if (!bypassDnd && isInDndWindow(prefs.do_not_disturb_start, prefs.do_not_disturb_end)) {
       await writeLog(admin, {
+        skip: skipLog,
         customerId,
         jobId,
         type,
@@ -102,7 +106,7 @@ export async function sendNotification(
         status: "skipped_dnd",
         error: null,
       });
-      return { success: false, channel: "none", error: "Notification suppressed: DND window active" };
+      return { success: false, channel: "none", error: "Notification suppressed: DND window active", retryable: true };
     }
 
     // ── 3. Determine channel order ────────────────────────────────────────────
@@ -114,6 +118,7 @@ export async function sendNotification(
         : ["whatsapp", "sms", "email"];
 
     // ── 4. Try channels in order ──────────────────────────────────────────────
+    let anyTransient = false;
     for (const channel of channelOrder) {
       // Skip if disabled in preferences.
       if (channel === "whatsapp" && !prefs.whatsapp_enabled) continue;
@@ -169,6 +174,7 @@ export async function sendNotification(
 
       // Log this attempt.
       await writeLog(admin, {
+        skip: skipLog,
         customerId,
         jobId,
         type,
@@ -180,14 +186,15 @@ export async function sendNotification(
       });
 
       if (result.success) {
-        return { success: true, channel };
+        return { success: true, channel, messageId: result.messageId };
       }
+      if (isTransientError(result.error)) anyTransient = true;
 
       // Channel failed — try next in order.
     }
 
     // All channels failed.
-    return { success: false, channel: "none", error: "All notification channels failed" };
+    return { success: false, channel: "none", error: "All notification channels failed", retryable: anyTransient };
 
   } catch (err) {
     // Unexpected error — log to console but never propagate.
@@ -196,6 +203,7 @@ export async function sendNotification(
       success: false,
       channel: "none",
       error: err instanceof Error ? err.message : "Unexpected notification error",
+      retryable: true,
     };
   }
 }
@@ -247,6 +255,7 @@ interface LogParams {
   status: "sent" | "delivered" | "failed" | "skipped_dnd";
   providerId?: string;
   error: string | null;
+  skip?: boolean;
 }
 
 async function writeLog(
@@ -255,6 +264,7 @@ async function writeLog(
   params: LogParams
 ): Promise<void> {
   try {
+    if (params.skip) return;
     await admin.from("notification_logs").insert({
       customer_id: params.customerId,
       job_id: params.jobId ?? null,

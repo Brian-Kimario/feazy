@@ -1,4 +1,4 @@
-/* Feasy Brand System — CSS Custom Properties
+/* Feazy Brand System — CSS Custom Properties
  *
  * These variables mirror the Tailwind palette in tailwind.config.ts.
  * Names MUST match the Tailwind key names so there is a single source of truth.
@@ -17,14 +17,14 @@
   --color-ink:         #18211F;   /* primary text */
   --color-ink-2:       #34413D;   /* secondary text */
   --color-ink-3:       #5A6661;   /* tertiary text / label */
-  --color-ink-4:       #7C8681;   /* placeholder / disabled */
+  --color-ink-4:       #626D68;   /* placeholder / disabled */
 
   --color-teal:        #176B5B;   /* primary action */
   --color-teal-deep:   #0D5144;   /* primary action hover */
   --color-teal-soft:   #E2EEE9;   /* teal accent surface */
   --color-teal-wash:   #EFF6F2;   /* teal subtle wash */
 
-  --color-clay:        #A9523D;   /* destructive / warning */
+  --color-clay:        #98462F;   /* destructive / warning */
   --color-clay-soft:   #F3E1DA;   /* clay accent surface */
 
   --color-ochre:       #9B6A1E;   /* caution / pending */
@@ -33,13 +33,13 @@
   --color-blue:        #416B84;   /* informational */
   --color-blue-soft:   #E6EEF2;   /* blue accent surface */
 
-  --color-success:     #2F7D5B;   /* success green */
+  --color-success:     #2A7050;   /* success green */
   --color-success-soft: #E3F0E8;  /* success surface */
 
-  --color-danger:      #B94A43;   /* error / alert red */
+  --color-danger:      #A8403A;   /* error / alert red */
   --color-danger-soft: #F6E3E1;   /* error surface */
 
-  --color-warning:     #9B6A1E;   /* same hue as ochre */
+  --color-warning:     #8A5C14;   /* same hue as ochre */
   --color-warning-soft: #F5EBD7;
 
   --color-line:        #D9DED8;   /* default border */

@@ -36,6 +36,12 @@ export async function updateJobState(
     return { success: false, error: 'Not authenticated. Please log in again.' };
   }
 
+  // A professional no longer cancels a job directly: stepping away goes through
+  // professional_withdraw_from_job, which decides withdraw vs admin review and keeps the booking alive.
+  if (newState === 'cancelled') {
+    return { success: false, error: 'Use "Withdraw from job" to step away from this job.' };
+  }
+
   // 2. Load current job state from DB — never trust client-submitted state
   const { data: job, error: jobError } = await supabase
     .from('jobs')

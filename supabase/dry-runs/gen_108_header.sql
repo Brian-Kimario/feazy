@@ -1,0 +1,28 @@
+-- 20261031_108_consistent_lock_order
+--
+-- A3 deadlock remediation: one lock order everywhere, booking first, then job.
+--
+-- ROOT CAUSE
+--   customer_cancel_booking, transition_booking_state and _offer_next (the matcher) lock the booking row
+--   and then the job row. admin_cancel_job and _release_offer (used by decline_job, offer expiry and the
+--   suspension withdraw) locked the job and then the booking. Two sessions touching the same booking in
+--   opposite orders deadlock; PostgreSQL aborts one with 40P01. Reproduced live on 2026-10-31
+--   (admin cancel lost, state stayed consistent).
+--
+-- LOCK-ORDER CHANGES (functions only; no table, column, grant or signature change)
+--   admin_cancel_job      read booking_id, lock booking, then lock job (was job, then booking).
+--   _release_offer        read booking_id, lock booking, then lock job (was job). Expiry is re-checked under
+--                         the lock so a re-offer or cancel that won the race is not undone.
+--   process_assignment_queue
+--                         expiry loop locks the BOOKING with FOR UPDATE OF b SKIP LOCKED, ordered by booking
+--                         (was FOR UPDATE SKIP LOCKED on jobs); offer loop also SKIP LOCKED on bookings.
+--                         The cron never waits on a customer or admin transaction.
+--   admin_transition_professional_verification
+--                         suspension loop no longer locks jobs up front; _release_offer takes booking then
+--                         job per item, in ascending booking_id order so two suspensions cannot cross.
+--
+-- Callers that wait (customer cancel, admin cancel, decline, suspension) all take booking -> job. The
+-- queue never waits. A retry for 40P01 stays in the app as a defensive measure only.
+--
+-- ROLLBACK: supabase/rollbacks/20261031_108_rollback.sql restores the previous bodies verbatim.
+

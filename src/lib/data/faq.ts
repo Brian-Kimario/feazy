@@ -1,5 +1,5 @@
 /**
- * FAQ Database for Feasy Help System
+ * FAQ Database for Feazy Help System
  * Organized by category for easy maintenance and searchability
  */
 
@@ -17,8 +17,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-01',
     category: 'getting-started',
-    question: 'How does Feasy work?',
-    answer: 'Feasy connects property owners with verified professionals for maintenance and repairs. Simply describe your problem using text, photos, or video. Our system helps classify the issue and matches you with qualified professionals in your area. You\'ll see real-time tracking, get quotes for additional work, and maintain a complete service history for your property.',
+    question: 'How does Feazy work?',
+    answer: 'Feazy connects property owners with verified professionals for maintenance and repairs. Simply describe your problem using text, photos, or video. Our system helps classify the issue and matches you with qualified professionals in your area. You\'ll see real-time tracking, get quotes for additional work, and maintain a complete service history for your property.',
     tags: ['overview', 'process', 'how-it-works'],
   },
   {
@@ -32,14 +32,14 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'gs-03',
     category: 'getting-started',
     question: 'What services are available?',
-    answer: 'Feasy covers four main service areas: Plumbing (leaks, pressure, drainage, fixtures), Electrical (sockets, circuits, lighting, faults), Heating & Cooling (comfort systems, servicing, diagnosis), and General Maintenance (jobs that keep a property working well). If you\'re not sure which service fits your problem, start with a problem description and our system will help narrow it down.',
+    answer: 'Feazy covers four main service areas: Plumbing (leaks, pressure, drainage, fixtures), Electrical (sockets, circuits, lighting, faults), Heating & Cooling (comfort systems, servicing, diagnosis), and General Maintenance (jobs that keep a property working well). If you\'re not sure which service fits your problem, start with a problem description and our system will help narrow it down.',
     tags: ['services', 'categories', 'service-areas'],
   },
   {
     id: 'gs-04',
     category: 'getting-started',
-    question: 'Do I need to be technical to use Feasy?',
-    answer: 'No. Feasy is designed for property owners who just want their problem fixed, not for people who already know the trade. You don\'t need to diagnose the issue or name the service. Just tell us what\'s happening and where. A qualified professional will inspect and confirm what needs to be done.',
+    question: 'Do I need to be technical to use Feazy?',
+    answer: 'No. Feazy is designed for property owners who just want their problem fixed, not for people who already know the trade. You don\'t need to diagnose the issue or name the service. Just tell us what\'s happening and where. A qualified professional will inspect and confirm what needs to be done.',
     tags: ['beginner', 'non-technical', 'ease-of-use'],
   },
 
@@ -62,7 +62,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'cust-03',
     category: 'customer',
     question: 'Can I request the same professional again?',
-    answer: 'Yes. If you\'re happy with a professional and they\'re available, you can request them for future work. Feasy will try to match you, but availability can\'t be guaranteed. The system maintains a record of professionals you\'ve worked with before, making it easy to rebook.',
+    answer: 'Yes. If you\'re happy with a professional and they\'re available, you can request them for future work. Feazy will try to match you, but availability can\'t be guaranteed. The system maintains a record of professionals you\'ve worked with before, making it easy to rebook.',
     tags: ['professionals', 'rebooking', 'preferences'],
   },
   {
@@ -83,7 +83,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'cust-06',
     category: 'customer',
     question: 'What payment methods do you accept?',
-    answer: 'Feasy accepts all major credit and debit cards. Payment is processed securely through our payment provider. You\'ll be invoiced after work is completed. For large jobs with quotes, you may have the option to pay a deposit upon approval, with final payment after completion.',
+    answer: 'Feazy accepts all major credit and debit cards. Payment is processed securely through our payment provider. You\'ll be invoiced after work is completed. For large jobs with quotes, you may have the option to pay a deposit upon approval, with final payment after completion.',
     tags: ['payments', 'cards', 'invoicing', 'security'],
   },
   {
@@ -98,7 +98,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'prof-01',
     category: 'professional',
-    question: 'How do I become a professional on Feasy?',
+    question: 'How do I become a professional on Feazy?',
     answer: 'Visit the "Become a professional" page and start the onboarding. You\'ll provide your basic info, skills, certifications, and verification documents (identity, public liability insurance, background check). Once verified, you\'ll have access to incoming service requests in your area and skills.',
     tags: ['onboarding', 'registration', 'verification'],
   },
@@ -187,7 +187,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     id: 'acc-03',
     category: 'account',
     question: 'What if I forgot my password?',
-    answer: 'Click "Forgot password" on the login page. Enter your email and we\'ll send a reset link. Click the link and choose a new password. If you don\'t see the email, check spam and make sure you\'re using the email associated with your Feasy account.',
+    answer: 'Click "Forgot password" on the login page. Enter your email and we\'ll send a reset link. Click the link and choose a new password. If you don\'t see the email, check spam and make sure you\'re using the email associated with your Feazy account.',
     tags: ['password', 'reset', 'email'],
   },
   {

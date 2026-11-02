@@ -18,7 +18,6 @@
  * Docs: https://razorpay.com/docs/whatsapp-business/
  */
 
-"use server";
 
 /** Shape of a single WhatsApp template parameter (text variable). */
 export interface WhatsAppTemplateParam {
@@ -32,7 +31,7 @@ export interface WhatsAppSendPayload {
   to: string;
   /** Template name exactly as registered with Meta via Razorpay. */
   templateName: string;
-  /** Language code, always "en" for Feasy's English templates. */
+  /** Language code, always "en" for Feazy's English templates. */
   languageCode?: string;
   /** Ordered list of {{1}}, {{2}}, … variable values for the template body. */
   bodyParams: string[];

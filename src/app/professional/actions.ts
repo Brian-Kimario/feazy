@@ -17,12 +17,15 @@ import {
   type JobMediaUploadInput,
   type ReportEtaInput,
   declineJobSchema,
+  professionalWithdrawInput,
   inspectionSchema,
   jobIdSchema,
   type CreateQuoteInput,
   type DeclineJobInput,
+  type ProfessionalWithdrawInput,
   type InspectionInput,
 } from "@/validators";
+import { mapA4Error } from "@/lib/admin/a4-errors";
 import type {
   Job,
   ProfessionalProfile,
@@ -535,6 +538,49 @@ export async function declineJobAction(
   revalidatePath("/professional", "layout");
   const reassigned = Boolean((data as { reassigned?: boolean } | null)?.reassigned);
   return ok({ reassigned });
+}
+
+/**
+ * Step away from an accepted job. The database decides by its own clock: before the visit start the
+ * job goes back to the matching pool and the customer is told ("withdrawn"); at or after the start,
+ * or once work is under way, nothing changes and an admin reviews the request ("review_requested").
+ * The professional must not assume they are released in the second case.
+ */
+export async function withdrawFromJobAction(
+  input: ProfessionalWithdrawInput
+): Promise<ActionResult<{ outcome: "withdrawn" | "review_requested" }>> {
+  const parsed = parseInput(professionalWithdrawInput, input);
+  if (parsed.success === false) return parsed;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("unauthenticated", "Not authenticated");
+
+  const { data, error } = await supabase.rpc("professional_withdraw_from_job", {
+    p_job_id: parsed.data.jobId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    const mapped = mapA4Error(error);
+    if (mapped.code === "NOT_FOUND") return fail("not_found", "Job not found or not assigned to you");
+    if (mapped.code === "STALE_STATE") {
+      return fail("rejected", "This job can no longer be withdrawn from. Reload to see its current state.");
+    }
+    console.error("professional_withdraw_from_job error:", error.message);
+    return fail("failed", "Could not submit your request. Please try again.");
+  }
+
+  const outcome = (data as { outcome?: string } | null)?.outcome;
+  if (outcome !== "withdrawn" && outcome !== "review_requested") {
+    console.error("professional_withdraw_from_job returned an unknown outcome");
+    return fail("failed", "Could not confirm your request. Reload to see the job's state.");
+  }
+
+  revalidatePath("/professional", "layout");
+  revalidatePath(`/professional/jobs/${parsed.data.jobId}`);
+  return ok({ outcome });
 }
 
 export interface JobCustomerContact {

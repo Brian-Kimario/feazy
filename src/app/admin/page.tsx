@@ -1,306 +1,314 @@
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import {
-  getAdminMetrics,
-  getAttentionQueue,
-} from '@/lib/services/admin';
-import { getUnverifiedProfessionals as getVerifQueue } from '@/lib/services/verification';
+import { getAdminMetrics, getAssignmentQueueStatus } from '@/lib/services/admin-reads';
+import { getOperationsQueue } from '@/lib/services/admin-operations';
+import { getRecentAdminActivity } from '@/lib/services/admin-overview';
+import { getOverviewCounts } from '@/lib/services/admin-overview-counts';
+import { getUnverifiedProfessionals } from '@/lib/services/verification-queue';
+import { isAdminFailure } from '@/lib/admin/result';
+import { OPS_TYPE_LABELS, formatDuration, type OpsCase } from '@/lib/admin/operations';
+import { formatDateTime } from '@/lib/admin/format';
+import { AssignmentQueueBanner } from '@/components/admin/AssignmentQueueBanner';
 import { SkeletonDashboard } from '@/components/ui/SkeletonDashboard';
 
 export const metadata = {
-  title: 'Admin Console — Feasy',
+  title: 'Command Center — Feazy Admin',
 };
 
-// Revalidate every 60s — this is an operations dashboard, not realtime
-export const revalidate = 60;
+// Operational figures must not be served stale.
+export const dynamic = 'force-dynamic';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+const QUEUE_PREVIEW = 8;
 
-function priorityBadge(priority: 'high' | 'medium' | 'low') {
-  const map = {
-    high: { label: 'High', cls: 'bg-[#F3E1DA] text-[#A9523D] border-[#DFC0B7]' },
-    medium: { label: 'Medium', cls: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]' },
-    low: { label: 'Low', cls: 'bg-[#E6EEF2] text-[#416B84] border-[#BCD0DB]' },
-  };
-  const { label, cls } = map[priority];
+const SEVERITY: Record<OpsCase['severity'], { label: string; cls: string }> = {
+  high: { label: 'High', cls: 'border-danger/25 bg-danger-soft text-danger' },
+  medium: { label: 'Medium', cls: 'border-warning/25 bg-warning-soft text-warning' },
+  low: { label: 'Low', cls: 'border-info/25 bg-info-soft text-info' },
+};
+
+function caseHref(c: OpsCase): string {
+  return c.type === 'verification' || !c.bookingId ? '/admin/professionals/verification' : `/admin/jobs/${c.bookingId}`;
+}
+
+function Panel({ title, kicker, aside, children }: { title: string; kicker: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${cls}`}>
-      {label}
-    </span>
+    <section className="overflow-hidden rounded-xl border border-line bg-paper">
+      <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">{kicker}</p>
+          <h2 className="text-lg font-bold text-ink">{title}</h2>
+        </div>
+        {aside && <div className="shrink-0 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">{aside}</div>}
+      </div>
+      {children}
+    </section>
   );
 }
 
-function verifStatusBadge(status: string) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending: { label: 'Pending', cls: 'bg-[#E6EEF2] text-[#416B84] border-[#BCD0DB]' },
-    documents_submitted: { label: 'Ready', cls: 'bg-[#C7DCCF] text-[#2F7D5B] border-[#C7DCCF]' },
-    under_review: { label: 'Review', cls: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]' },
-    rejected: { label: 'Rejected', cls: 'bg-[#F3E1DA] text-[#A9523D] border-[#DFC0B7]' },
-  };
-  const cfg = map[status] ?? { label: status, cls: 'bg-[#D9DED8] text-[#5A6661] border-[#C5CBC4]' };
+function ErrorNote({ title, detail }: { title: string; detail: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border ${cfg.cls}`}>
-      {cfg.label}
-    </span>
+    <div role="alert" className="px-5 py-8 text-center">
+      <p className="font-bold text-danger">{title}</p>
+      <p className="text-sm text-ink-3">{detail}</p>
+    </div>
   );
 }
 
-function timeAgo(dateStr: string | null) {
-  if (!dateStr) return '';
-  const d = Math.round((Date.now() - new Date(dateStr).getTime()) / 3600000);
-  if (d < 1) return 'just now';
-  if (d < 24) return `${d}h ago`;
-  return `${Math.floor(d / 24)}d ago`;
+function Tile({
+  label,
+  value,
+  note,
+  href,
+  failed,
+}: {
+  label: string;
+  value: string | number | null;
+  note?: string;
+  href: string;
+  failed: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="block min-h-11 rounded-lg border border-line bg-paper p-4 hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal md:p-5"
+    >
+      {failed ? (
+        <>
+          <div className="text-lg font-bold text-danger">Unavailable</div>
+          <div className="mt-1 text-xs text-ink-3 md:text-sm">{label}</div>
+          <div className="mt-2 text-xs font-semibold text-danger">Could not load. Not zero.</div>
+        </>
+      ) : (
+        <>
+          <div className="text-2xl font-bold text-ink md:text-3xl">{value}</div>
+          <div className="mt-1 text-xs text-ink-3 md:text-sm">{label}</div>
+          {note && <div className="mt-2 text-xs font-semibold text-ink-4">{note}</div>}
+        </>
+      )}
+    </Link>
+  );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default async function AdminPage() {
+export default function AdminPage() {
   return (
     <Suspense fallback={<SkeletonDashboard variant="admin" className="p-6 md:p-8" />}>
-      <AdminPageContent />
+      <CommandCenter />
     </Suspense>
   );
 }
 
-async function AdminPageContent() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect('/auth/login');
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || (profile as any).role !== 'admin') redirect('/');
-
-  // Parallel data fetch
-  const [metricsResult, attentionResult, verifQueueResult] = await Promise.all([
+async function CommandCenter() {
+  // The layout has already enforced the admin role; every service below re-checks it.
+  const [metricsResult, queueResult, matcher, verifResult, activityResult, countsResult] = await Promise.all([
     getAdminMetrics(),
-    getAttentionQueue(),
-    getVerifQueue(),
+    getOperationsQueue(),
+    getAssignmentQueueStatus(),
+    getUnverifiedProfessionals(),
+    getRecentAdminActivity(),
+    getOverviewCounts(),
   ]);
+  const counts = isAdminFailure(countsResult) ? null : countsResult.data;
+  const unmatched = queueResult.ok === false ? null : queueResult.data.cases.filter((c) => c.type === 'unmatched' || c.type === 'stale_pending').length;
 
   const metrics = metricsResult.data;
-  const attentionItems = attentionResult.data;
-  const verifQueue = verifQueueResult.data.slice(0, 5); // show top 5 in sidebar
-
-  // Detect empty state
-  const isEmpty = attentionItems.length === 0 && verifQueue.length === 0;
+  const metricsFailed = !metrics || !!metricsResult.error;
+  const queueFailure = isAdminFailure(queueResult);
+  const queue = isAdminFailure(queueResult) ? null : queueResult.data;
+  const cases = queue?.cases ?? [];
+  const high = cases.filter((c) => c.severity === 'high').length;
+  const noShows = cases.filter((c) => c.type === 'possible_no_show').length;
+  const verifFailed = !!verifResult.error;
+  const verifQueue = verifResult.data.slice(0, 5);
+  const activity = isAdminFailure(activityResult) ? null : activityResult.data;
 
   return (
-    <div className="px-4 md:px-6 py-6 md:py-8 max-w-7xl mx-auto">
-      {/* Page header */}
-      <div className="mb-8">
-        <div className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mb-2">
-          OPERATIONS
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-[#18211F] mb-2">
-          What needs a decision?
-        </h1>
-        <p className="text-[#5A6661] max-w-2xl">
-          Review unresolved jobs, verification work, and system signals without turning operations
-          into a generic analytics dashboard.
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+      <div className="mb-6">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.11em] text-ink-4">Admin · Command Center</p>
+        <h1 className="mb-2 text-3xl font-bold text-ink md:text-4xl">What needs a decision?</h1>
+        <p className="max-w-2xl text-ink-3">
+          Open a case from the list below to investigate it. Every figure here is read live; if one cannot be read it says so
+          rather than showing zero.
         </p>
       </div>
 
-      {/* ── Metrics strip ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-lg p-4 md:p-5">
-          <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
-            {metrics?.openJobs ?? '—'}
-          </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Open jobs</div>
-          {metrics && (
-            <div className="text-xs text-[#7C8681] mt-2 font-semibold">
-              {metrics.jobsAddedToday} added today
-            </div>
-          )}
-        </div>
+      <AssignmentQueueBanner queue={matcher} className="mb-6" />
 
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-lg p-4 md:p-5">
-          <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
-            {metrics?.pendingVerifications ?? '—'}
-          </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Awaiting approval</div>
-          {metrics && metrics.pendingVerifications > 0 && (
-            <div className="text-xs text-[#9B6A1E] mt-2 font-semibold">
-              <Link href="/admin/professionals" className="hover:underline">
-                Review →
-              </Link>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-lg p-4 md:p-5">
-          <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
-            {metrics?.revenueFormatted ?? '—'}
-          </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Total revenue</div>
-          {metrics && (
-            <div className="text-xs text-[#176B5B] mt-2 font-semibold">
-              {metrics.completedJobsTotal} completed jobs
-            </div>
-          )}
-        </div>
-
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-lg p-4 md:p-5">
-          <div className="text-2xl md:text-3xl font-bold text-[#18211F]">
-            {metrics?.activeDisputes ?? 0}
-          </div>
-          <div className="text-xs md:text-sm text-[#5A6661] mt-1">Active disputes</div>
-          <div className="text-xs text-[#7C8681] mt-2 font-semibold">Complaints MVP</div>
-        </div>
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Tile
+          label="Open jobs"
+          value={metrics?.openJobs ?? null}
+          note={metrics ? `${metrics.jobsAddedToday} added today` : undefined}
+          href="/admin/jobs"
+          failed={metricsFailed}
+        />
+        <Tile
+          label="Cases needing a person"
+          value={cases.length}
+          note={`${high} high priority${queue?.truncated ? ' · list may be incomplete' : ''}`}
+          href="/admin/operations"
+          failed={queueFailure}
+        />
+        <Tile
+          label="Payments captured"
+          value={metrics?.revenueFormatted ?? null}
+          note={metrics ? `${metrics.paidPaymentsCount} paid ${metrics.paidPaymentsCount === 1 ? 'payment' : 'payments'}` : undefined}
+          href="/admin/jobs"
+          failed={metricsFailed}
+        />
+        <Tile
+          label="Possible no-shows"
+          value={noShows}
+          note={metrics ? `${metrics.openNoShowReports} open no-show reports` : undefined}
+          href="/admin/operations?type=possible_no_show"
+          failed={queueFailure}
+        />
       </div>
 
-      {/* ── Main two-column grid ──────────────────────────────────────── */}
-      {isEmpty ? (
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl p-8 text-center">
-          <div className="w-12 h-12 mx-auto rounded-full bg-[#E2EEE9] flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-[#176B5B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-bold text-[#18211F] mb-1">No unresolved items</h2>
-          <p className="text-sm text-[#5A6661] max-w-sm mx-auto">
-            Operations are currently clear. All pending verifications and escalations are resolved.
-          </p>
-        </div>
-      ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-24 md:mb-0">
-        {/* Left: Attention Queue */}
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Tile label="Jobs in progress" value={counts?.jobsInProgress ?? null} href="/admin/jobs" failed={counts?.jobsInProgress == null} />
+        <Tile label="Unmatched bookings" value={unmatched} href="/admin/operations?type=unmatched" failed={unmatched === null} />
+        <Tile label="Pending offers" value={counts?.pendingOffers ?? null} href="/admin/operations?type=overdue_offer" failed={counts?.pendingOffers == null} />
+        <Tile label="Open exceptions" value={counts?.openExceptions ?? null} href="/admin/exceptions" failed={counts?.openExceptions == null} />
+      </div>
+
+      <Panel kicker="People" title="Professional monitoring" aside={<Link href="/admin/professionals" className="text-teal-deep hover:underline">Open directory</Link>}>
+        <dl className="grid grid-cols-2 gap-px bg-line md:grid-cols-4">
+          {(
+            [
+              ['Total', counts?.professionals.total],
+              ['Verified', counts?.professionals.verified],
+              ['Pending review', counts?.professionals.pendingReview],
+              ['Available now', counts?.professionals.available],
+              ['Suspended', counts?.professionals.suspended],
+              ['With active jobs', counts?.professionals.withActiveJobs],
+              ['Suspended with active jobs', counts?.suspendedWithActiveJobs],
+            ] as const
+          ).map(([label, v]) => (
+            <div key={label} className="bg-paper p-4">
+              <dt className="text-xs text-ink-3">{label}</dt>
+              <dd className={`mt-1 text-xl font-bold ${v == null ? 'text-danger' : 'text-ink'}`}>{v == null ? 'Unavailable' : v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
+      <div className="mb-8" />
+
+      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl overflow-hidden">
-            <div className="px-5 md:px-6 py-4 md:py-5 border-b border-[#D9DED8] flex items-start justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mb-1">
-                  NEEDS ATTENTION
-                </div>
-                <h2 className="text-lg md:text-xl font-bold text-[#18211F]">
-                  Resolve the next meaningful issue.
-                </h2>
-              </div>
-              <span className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mt-1 flex-shrink-0">
-                {attentionItems.length} ITEM{attentionItems.length !== 1 ? 'S' : ''}
-              </span>
-            </div>
-
-            {attentionItems.length === 0 ? (
-              <div className="px-6 py-10 text-center">
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-bold text-[#18211F]">All clear</p>
-                <p className="text-sm text-[#7C8681]">No items need attention right now.</p>
+          <Panel
+            kicker="Needs attention"
+            title="Priority queue"
+            aside={queueFailure ? 'Unavailable' : `${cases.length} ${cases.length === 1 ? 'case' : 'cases'}`}
+          >
+            {queueFailure ? (
+              <ErrorNote title="Could not load the priority queue" detail="This is not an empty queue. Reload, or open Operations." />
+            ) : cases.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="font-bold text-ink">All clear</p>
+                <p className="text-sm text-ink-3">No cases need attention right now.</p>
               </div>
             ) : (
-              <div className="divide-y divide-[#D9DED8]">
-                {attentionItems.map((item) => (
-                  <div key={item.id} className="px-5 md:px-6 py-4 hover:bg-[#F1EEE5] transition">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-[#18211F] text-sm md:text-base">
-                          {item.label}
-                        </div>
-                        <div className="text-xs text-[#5A6661] mt-1">{item.sub}</div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {priorityBadge(item.priority)}
+              <>
+                {queue?.truncated && (
+                  <p role="status" className="border-b border-line bg-warning-soft px-5 py-2 text-xs font-semibold text-warning">
+                    A query hit its row limit, so this list may be incomplete. Open Operations for the full view.
+                  </p>
+                )}
+                <ul className="divide-y divide-line">
+                  {cases.slice(0, QUEUE_PREVIEW).map((c) => {
+                    const sev = SEVERITY[c.severity];
+                    return (
+                      <li key={c.key}>
                         <Link
-                          href={item.link}
-                          className="px-3 py-1.5 border border-[#D9DED8] rounded-lg text-xs font-semibold text-[#5A6661] hover:bg-[#F1EEE5] hover:text-[#0D5144] transition"
+                          href={caseHref(c)}
+                          className="flex min-h-11 items-start justify-between gap-4 px-5 py-4 hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
                         >
-                          Review
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-bold text-ink md:text-base">
+                              {OPS_TYPE_LABELS[c.type]}: {c.title}
+                            </span>
+                            <span className="mt-1 block text-xs text-ink-3">
+                              {c.reference} · {c.reason}
+                              {c.since && queue ? ` · ${formatDuration(new Date(queue.generatedAt).getTime() - new Date(c.since).getTime())}` : ''}
+                            </span>
+                          </span>
+                          <span className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-bold ${sev.cls}`}>
+                            {sev.label}
+                          </span>
                         </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
-
-            {/* Footer quick links */}
-            <div className="px-5 md:px-6 py-3 border-t border-[#D9DED8] bg-[#F7F4EC]">
-              <Link
-                href="/admin/jobs"
-                className="text-xs font-bold text-[#0D5144] hover:underline"
-              >
-                View all jobs →
+            <div className="border-t border-line bg-paper-2 px-5 py-3">
+              <Link href="/admin/operations" className="inline-flex min-h-11 items-center text-xs font-bold text-teal-deep hover:underline">
+                {cases.length > QUEUE_PREVIEW ? `All ${cases.length} cases in Operations →` : 'Open Operations →'}
               </Link>
             </div>
-          </div>
+          </Panel>
         </div>
 
-        {/* Right: Verification panel + System health */}
-        <div className="space-y-6 order-last md:order-none">
-          {/* Verification panel (appears first on mobile, second on desktop via order) */}
-          <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl overflow-hidden md:order-first order-1">
-            <div className="px-5 md:px-6 py-4 md:py-5 border-b border-[#D9DED8] flex items-start justify-between">
-              <div>
-                <div className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mb-1">
-                  VERIFICATION
-                </div>
-                <h2 className="text-base md:text-lg font-bold text-[#18211F]">Professional files</h2>
-              </div>
-              <span className="text-xs font-bold uppercase tracking-[0.11em] text-[#7C8681] mt-1 flex-shrink-0">
-                {verifQueue.length} PENDING
-              </span>
-            </div>
-
-            {verifQueue.length === 0 ? (
-              <div className="px-5 py-6 text-center text-xs text-[#7C8681]">
-                No pending verifications.
-              </div>
-            ) : (
-              <div className="divide-y divide-[#D9DED8]">
-                {verifQueue.map((pro) => {
-                  const name = pro.full_name || pro.display_name;
-                  const hasAllDocs = pro.documents.length >= 2;
-                  return (
-                    <div
-                      key={pro.user_id}
-                      className={`px-5 md:px-6 py-3 md:py-4 hover:bg-[#F1EEE5] transition ${
-                        hasAllDocs ? 'bg-[#E2EEE9] hover:bg-[#D2E8DF]' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-[#18211F] text-sm truncate">{name}</div>
-                          <div className="text-xs text-[#5A6661] mt-0.5">
-                            {pro.documents.length} doc{pro.documents.length !== 1 ? 's' : ''} ·{' '}
-                            {timeAgo(pro.submitted_at)}
-                          </div>
-                        </div>
-                        {verifStatusBadge(pro.verification_status)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="px-5 py-3 border-t border-[#D9DED8] bg-[#F7F4EC]">
-              <Link
-                href="/admin/professionals"
-                className="text-xs font-bold text-[#0D5144] hover:underline"
-              >
-                Open verification queue →
-              </Link>
-            </div>
+        <Panel kicker="Verification" title="Professional files" aside={verifFailed ? 'Unavailable' : `${verifResult.data.length} pending`}>
+          {verifFailed ? (
+            <ErrorNote title="Could not load verification files" detail="This is not an empty queue." />
+          ) : verifQueue.length === 0 ? (
+            <p className="px-5 py-6 text-center text-xs text-ink-3">No pending verifications.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {verifQueue.map((pro) => (
+                <li key={pro.user_id}>
+                  <Link
+                    href="/admin/professionals/verification"
+                    className="block min-h-11 px-5 py-3 hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal"
+                  >
+                    <span className="block truncate text-sm font-bold text-ink">{pro.full_name || pro.display_name}</span>
+                    <span className="mt-0.5 block text-xs text-ink-3">
+                      {pro.documents.length} {pro.documents.length === 1 ? 'document' : 'documents'}
+                      {pro.submitted_at ? ` · submitted ${formatDateTime(pro.submitted_at)}` : ''}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="border-t border-line bg-paper-2 px-5 py-3">
+            <Link href="/admin/professionals/verification" className="inline-flex min-h-11 items-center text-xs font-bold text-teal-deep hover:underline">
+              Open verification queue →
+            </Link>
           </div>
-        </div>
+        </Panel>
       </div>
-      )}
+
+      <Panel kicker="Audit" title="Recent admin activity" aside={activity ? `${activity.length} latest` : 'Unavailable'}>
+        {!activity ? (
+          <ErrorNote title="Could not load recent activity" detail="The audit log could not be read. This is not an empty log." />
+        ) : activity.length === 0 ? (
+          <p className="px-5 py-6 text-center text-sm text-ink-3">No admin actions have been recorded yet.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {activity.map((a) => (
+              <li key={a.id} className="flex items-start justify-between gap-4 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">
+                    {a.label}
+                    {a.outcome === 'failed' && <span className="ml-2 text-xs font-bold text-danger">Failed</span>}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-3">
+                    {a.actorName}
+                    {a.reason ? ` · ${a.reason}` : ''}
+                  </p>
+                </div>
+                <time dateTime={a.at} className="shrink-0 text-xs text-ink-4">
+                  {formatDateTime(a.at)}
+                </time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
     </div>
   );
 }

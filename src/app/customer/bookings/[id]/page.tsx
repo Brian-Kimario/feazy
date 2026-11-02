@@ -3,8 +3,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CircleCheck, Clock, PartyPopper, SearchX } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
+import { getBookingInspection } from '@/lib/services/inspections';
+import { getBookingMaterials } from '@/lib/services/materials';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
+import { InspectionCard } from '@/components/customer/InspectionCard';
 import { getCustomerCase } from '@/lib/services/job-case';
-import { getJobCodeState, getNoShowReportedAt } from '@/lib/services/job-codes';
+import { getCancellationReviewStatus, getJobCodeState, getNoShowReportedAt } from '@/lib/services/job-codes';
 import { noShowEligibility } from '@/lib/job-codes/rules';
 import { toPanelQuote } from '@/lib/quotes/panel';
 import { bookingStatusDisplay, formatSlot, missingProfessional, propertyTypeLabel } from '@/lib/shell/rules';
@@ -26,10 +30,12 @@ import { QuoteReviewButton } from '@/components/customer/QuoteReviewButton';
 import { JobCodeCard } from '@/components/customer/JobCodeCard';
 import { NoShowReport } from '@/components/customer/NoShowReport';
 import { JobMessages } from '@/components/messages/JobMessages';
+import { CancelBookingButton } from '@/components/customer/CancelBookingButton';
+import { cancelOffer, expectedCancelState } from '@/lib/bookings/cancel-rules';
 import { UPIIntentCheckout } from '@/components/customer/UPIIntentCheckout';
 
 export const metadata: Metadata = {
-  title: 'Booking — Feasy',
+  title: 'Booking — Feazy',
 };
 
 /** bookings.pricing_model, copied from the service at booking time. */
@@ -68,6 +74,12 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
         reported: noShowReport != null,
       })
     : null;
+  const cancelReview = job && ['arrived', 'quote_pending', 'in_progress'].includes(job.state)
+    ? await getCancellationReviewStatus(job.id)
+    : null;
+  const bookingInspection = await getBookingInspection(booking.id);
+  const materials = await getBookingMaterials(booking.id);
+  const cancel = cancelOffer(booking.status, jobState);
   const isOpen = booking.status !== 'cancelled' && booking.status !== 'completed';
   // The matcher only offers bookings whose start is still ahead, so don't promise matching after it.
   const startPassed = new Date(booking.scheduledStart) < new Date();
@@ -128,6 +140,8 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          {bookingInspection && <InspectionCard inspection={bookingInspection} />}
+          <MaterialsPanel materials={materials} audience="customer" />
           {kase.incomplete && <IncompleteNotice />}
 
           {/* What needs the customer now: a quote, a payment, or a new time. */}
@@ -241,7 +255,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                     </>
                   )}
                   <p className="mt-1 text-xs text-ink-3">
-                    This is the professional&apos;s own estimate. Feasy does not track live location.
+                    This is the professional&apos;s own estimate. Feazy does not track live location.
                   </p>
                 </div>
               </div>
@@ -263,6 +277,38 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
 
           {job && professional && (
             <JobMessages userId={user.id} jobId={job.id} jobState={job.state} otherName={proName} />
+          )}
+
+          {booking.status === 'cancelled' && (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">This booking is cancelled</p>
+              {kase.paidAt && (
+                <p className="mt-1 text-ink-2">
+                  You paid for this booking. Cancelling does not refund it automatically. Feazy support reviews it and
+                  will contact you.
+                </p>
+              )}
+            </Panel>
+          )}
+          {cancelReview?.status === 'open' ? (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">Cancellation under review</p>
+              <p className="mt-1 text-ink-2">Feazy will contact you. Your booking stays active until then.</p>
+            </Panel>
+          ) : cancelReview ? (
+            <Panel className="p-5 text-sm">
+              <p className="font-semibold text-ink">Cancellation request reviewed</p>
+              <p className="mt-1 text-ink-2">Please contact Feazy support if you need anything further.</p>
+            </Panel>
+          ) : (
+            cancel !== 'none' && (
+              <CancelBookingButton
+                bookingId={booking.id}
+                expectedState={expectedCancelState(jobState)}
+                professionalAssigned={professional != null}
+                needsReview={cancel === 'request_review'}
+              />
+            )
           )}
 
           <CaseCard title="Booking">

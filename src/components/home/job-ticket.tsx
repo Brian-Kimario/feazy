@@ -67,7 +67,7 @@ const subscribeReducedMotion = (onChange: () => void) => {
 const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 /**
- * A worked example of a Feasy job, cycling through the four trades. It replaces
+ * A worked example of a Feazy job, cycling through the four trades. It replaces
  * the old photo slideshow: instead of stock imagery it shows the product itself.
  * Autoplay pauses on hover/focus, can be paused by hand, and never starts under
  * prefers-reduced-motion.

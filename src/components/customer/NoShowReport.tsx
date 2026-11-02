@@ -5,7 +5,7 @@ import { reportNoShowAction } from '@/lib/job-codes/actions';
 import { formatSlot } from '@/lib/shell/rules';
 
 /**
- * "Professional didn't arrive". Offered 30 minutes after the booked time. The report goes to Feasy
+ * "Professional didn't arrive". Offered 30 minutes after the booked time. The report goes to Feazy
  * for review; it changes nothing about the job, the professional's rating or any charge by itself.
  */
 export function NoShowReport({ jobId, reportedAt }: { jobId: string; reportedAt: string | null }) {
@@ -19,7 +19,7 @@ export function NoShowReport({ jobId, reportedAt }: { jobId: string; reportedAt:
       <div role="status" className="rounded-2xl border border-ochre/30 bg-ochre-soft p-5 text-sm">
         <p className="font-semibold text-ink">We have your report</p>
         <p className="mt-1 text-ink-2">
-          You told us on {formatSlot(reportedAt)} that the professional did not arrive. Feasy support will review it
+          You told us on {formatSlot(reportedAt)} that the professional did not arrive. Feazy support will review it
           and get in touch. Nothing has been charged or changed automatically.
         </p>
       </div>
@@ -48,7 +48,7 @@ export function NoShowReport({ jobId, reportedAt }: { jobId: string; reportedAt:
         </button>
       ) : (
         <fieldset className="mt-3" disabled={pending}>
-          <legend className="text-xs text-ink-3">What would you like Feasy to try?</legend>
+          <legend className="text-xs text-ink-3">What would you like Feazy to try?</legend>
           {(
             [
               ['reassign', 'Find me another professional'],

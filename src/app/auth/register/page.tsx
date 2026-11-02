@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { RegisterPageClient } from '@/components/pages/RegisterPageClient';
 
 export const metadata: Metadata = {
-  title: 'Create Account | Feasy',
-  description: 'Sign up as a customer to start requesting property maintenance services on Feasy',
+  title: 'Create Account | Feazy',
+  description: 'Sign up as a customer to start requesting property maintenance services on Feazy',
   robots: {
     index: false,
     follow: false,

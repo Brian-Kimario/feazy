@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight, Check } from 'lucide-react';
+import { FREE_INSPECTION_PROMISED } from '@/lib/brand';
 import {
-  SERVICES,
   bookingHref,
   comingSoon,
   professionalHref,
   type ViewerRole,
 } from '@/lib/marketing-links';
+
+export type HomeCategory = { id: string; slug: string; name: string; description: string | null };
 
 const wrap = 'mx-auto w-[min(1240px,calc(100%-36px))] sm:w-[min(1240px,calc(100%-48px))]';
 const kicker = 'text-[12px] font-semibold uppercase tracking-[0.16em] text-teal';
@@ -14,9 +16,9 @@ const h2 = 'mt-3 font-editorial text-[clamp(32px,5vw,54px)] font-normal leading-
 
 /* ── Plain facts, not vanity numbers ───────────────────────────────────── */
 const FACTS = [
-  ['Verified first', 'Professionals are checked before they can accept a single job.'],
-  ['Quoted in rupees', 'Itemised quotes. Extra work needs your approval before it starts.'],
-  ['Pay by UPI', 'Settle on the platform once the job is marked complete.'],
+  ['Verified professionals', 'Checked by our team before they can accept a single job.'],
+  ['Clear quotations', 'Itemised, in rupees. Extra work needs your approval before it starts.'],
+  ['Track every job', 'See each step from booking to completion in one place.'],
   ['Kept on record', 'Invoices and service notes stay with your property.'],
 ] as const;
 
@@ -37,10 +39,13 @@ export function FactsStrip() {
 
 /* ── How it works ───────────────────────────────────────────────────────── */
 const STEPS = [
-  ['Describe it', 'A leaking sink, a dead socket, a noisy AC. Everyday words and a photo are enough.'],
-  ['Get matched', 'Your request reaches verified professionals in your area, with the details already attached.'],
-  ['Approve the quote', 'They inspect, then send an itemised quote. You decide. Nothing extra happens without your yes.'],
-  ['Pay and keep proof', 'Pay by UPI when it’s done. The invoice and notes land on your property record.'],
+  ['Choose your service', 'Pick what needs fixing and tell us the problem. Everyday words and a photo are enough.'],
+  [
+    FREE_INSPECTION_PROMISED ? 'Get a free inspection' : 'Get it inspected',
+    'A verified professional visits, looks at the problem and confirms what needs to be done.',
+  ],
+  ['Get a clear quotation', 'You receive an itemised quote in rupees. You decide; nothing extra happens without your yes.'],
+  ['Get the work done', 'The professional completes the job. Pay securely by UPI, and the invoice is saved to your property record.'],
 ] as const;
 
 export function HowItWorks() {
@@ -49,7 +54,7 @@ export function HowItWorks() {
       <div className={`${wrap} grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
         <div className="lg:sticky lg:top-28 lg:self-start">
           <p className={kicker}>How it works</p>
-          <h2 className={h2}>From “something’s wrong” to “sorted”, in four steps.</h2>
+          <h2 className={h2}>From booking to fixed, in four simple steps.</h2>
           <p className="mt-5 max-w-[44ch] text-[16px] leading-relaxed text-ink-3">
             No phone tag, no cash-in-hand guesswork. Every step is visible to you and to the professional.
           </p>
@@ -73,7 +78,15 @@ export function HowItWorks() {
 }
 
 /* ── Services as an index, not a card grid ──────────────────────────────── */
-export function ServicesIndex({ role }: { role: ViewerRole }) {
+export function ServicesIndex({
+  role,
+  categories,
+  comingSoon = [],
+}: {
+  role: ViewerRole;
+  categories: HomeCategory[];
+  comingSoon?: string[];
+}) {
   return (
     <section id="services" className="scroll-mt-20 bg-paper-2 py-20 sm:py-28">
       <div className={wrap}>
@@ -91,10 +104,10 @@ export function ServicesIndex({ role }: { role: ViewerRole }) {
         </div>
 
         <ul className="mt-12 border-t border-ink/80">
-          {SERVICES.map((s, i) => (
+          {categories.map((s, i) => (
             <li key={s.slug} className="border-b border-line-strong">
               <Link
-                href={bookingHref(role, s.slug)}
+                href={bookingHref(role, s.id)}
                 className="group grid grid-cols-[auto_1fr_auto] items-center gap-x-5 py-6 sm:gap-x-10 sm:py-8"
               >
                 <span className="font-mono text-[12px] text-ink-4">{String(i + 1).padStart(2, '0')}</span>
@@ -102,7 +115,7 @@ export function ServicesIndex({ role }: { role: ViewerRole }) {
                   <span className="block font-editorial text-[clamp(26px,4.4vw,44px)] leading-none tracking-[-0.015em] text-ink transition-colors group-hover:text-teal">
                     {s.name}
                   </span>
-                  <span className="mt-2 block max-w-[54ch] text-[14.5px] text-ink-3">{s.blurb}</span>
+                  <span className="mt-2 block max-w-[54ch] text-[14.5px] text-ink-3">{s.description}</span>
                 </span>
                 <span className="grid size-11 place-items-center rounded-full border border-line-strong text-ink transition-all group-hover:border-teal group-hover:bg-teal group-hover:text-paper">
                   <ArrowUpRight size={18} aria-hidden="true" />
@@ -111,6 +124,11 @@ export function ServicesIndex({ role }: { role: ViewerRole }) {
             </li>
           ))}
         </ul>
+        {comingSoon.length > 0 && (
+          <p className="mt-6 text-[14px] text-ink-3">
+            <span className="font-semibold text-ink-2">Coming soon:</span> {comingSoon.join(', ')}.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -248,7 +266,7 @@ export function ProfessionalSection({ role }: { role: ViewerRole }) {
 /* ── FAQ: native details/summary, so it works without JS ────────────────── */
 const FAQ = [
   ['How are professionals verified?', 'Every professional applies, completes onboarding and is reviewed by our team. They can’t accept jobs until they’re verified.'],
-  ['What does it cost to request a repair?', 'You pay for the work in the quote you approve. Nothing extra is added without your approval first.'],
+  ['What does it cost to request a service?', 'You pay for the work in the quote you approve. Nothing extra is added without your approval first.'],
   ['What if more work is needed on the day?', 'The professional sends a new itemised quote through the app. You approve or decline it. Work doesn’t continue until you say yes.'],
   ['How do I pay?', 'By UPI, once the job is marked complete. Your invoice is saved to your property record.'],
   ['Which cities do you cover?', 'We’re starting with a small set of cities and adding more. Create an account and we’ll tell you what’s available at your address.'],
@@ -307,7 +325,7 @@ export function ClosingCta({ role }: { role: ViewerRole }) {
             href={bookingHref(role)}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-paper px-7 text-[15px] font-semibold text-teal-deep transition-colors hover:bg-white"
           >
-            Book a repair <ArrowRight size={16} aria-hidden="true" />
+            Book a service <ArrowRight size={16} aria-hidden="true" />
           </Link>
           <Link
             href={comingSoon('Download the app')}

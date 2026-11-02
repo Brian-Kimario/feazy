@@ -85,7 +85,7 @@ export function SiteHeader({ role }: SiteHeaderProps) {
             className="inline-flex shrink-0 items-center gap-2.5 text-ink"
           >
             <Symbol size="md" className="size-[31px] text-teal" />
-            <span className="font-editorial text-[24px] font-normal tracking-[-0.02em]">Feasy</span>
+            <span className="font-editorial text-[24px] font-normal tracking-[-0.02em]">Feazy</span>
           </Link>
 
           <nav aria-label="Primary" className="ml-auto hidden gap-7 lg:flex">

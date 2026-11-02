@@ -1,0 +1,275 @@
+{
+    "pre": {
+        "fixtures": [
+            {
+                "id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                "pro": null,
+                "state": "assigned",
+                "booking": "cancelled"
+            },
+            {
+                "id": "bb392dfc-1e2f-4243-8c5e-6dd05ffbf281",
+                "pro": null,
+                "state": "assigned",
+                "booking": "cancelled"
+            }
+        ]
+    },
+    "cases": [
+        {
+            "case": "c01 unauthenticated caller",
+            "checks": {
+            },
+            "raised": "Not authenticated",
+            "raised_sqlstate": "42501"
+        },
+        {
+            "case": "c02 anon role has no execute",
+            "checks": {
+            },
+            "raised": "permission denied for function admin_reconcile_job",
+            "raised_sqlstate": "42501"
+        },
+        {
+            "case": "c03 customer of the job",
+            "checks": {
+            },
+            "raised": "Only administrators can reconcile jobs",
+            "raised_sqlstate": "42501"
+        },
+        {
+            "case": "c04 professional",
+            "checks": {
+            },
+            "raised": "Only administrators can reconcile jobs",
+            "raised_sqlstate": "42501"
+        },
+        {
+            "case": "c05 admin, reason too short",
+            "checks": {
+            },
+            "raised": "A reason of 5 to 500 characters is required",
+            "raised_sqlstate": "22023"
+        },
+        {
+            "case": "c06 admin, unknown job",
+            "checks": {
+            },
+            "raised": "Job not found",
+            "raised_sqlstate": "P0002"
+        },
+        {
+            "case": "c07 admin, null expected state",
+            "checks": {
+            },
+            "raised": "Job and expected state are required",
+            "raised_sqlstate": "22023"
+        },
+        {
+            "case": "c08 stale expected state: refused, nothing written",
+            "checks": {
+                "recs": 0,
+                "events": 0,
+                "job_state": "assigned"
+            },
+            "result": {
+                "ok": false,
+                "code": "STALE_STATE",
+                "message": "The job is now assigned, not accepted. Refresh and review."
+            }
+        },
+        {
+            "case": "c09 booking not cancelled: refused",
+            "checks": {
+                "job_state": "assigned"
+            },
+            "result": {
+                "ok": false,
+                "code": "NOT_ELIGIBLE",
+                "message": "The booking is pending, not cancelled. Use job cancellation instead."
+            }
+        },
+        {
+            "case": "c10 job accepted (professional committed): refused",
+            "checks": {
+                "job_state": "accepted"
+            },
+            "result": {
+                "ok": false,
+                "code": "NOT_ELIGIBLE",
+                "message": "The job is accepted. Only an unaccepted (assigned) job can be reconciled automatically; use job cancellation so the people involved are told."
+            }
+        },
+        {
+            "case": "c11 job in_progress: refused",
+            "checks": {
+                "job_state": "in_progress"
+            },
+            "result": {
+                "ok": false,
+                "code": "NOT_ELIGIBLE",
+                "message": "The job is in_progress. Only an unaccepted (assigned) job can be reconciled automatically; use job cancellation so the people involved are told."
+            }
+        },
+        {
+            "case": "c12 job completed: refused, untouched",
+            "checks": {
+                "job_state": "completed"
+            },
+            "result": {
+                "ok": false,
+                "code": "NOT_ELIGIBLE",
+                "message": "The job is completed. Only an unaccepted (assigned) job can be reconciled automatically; use job cancellation so the people involved are told."
+            }
+        },
+        {
+            "case": "c13 captured (paid) payment: refused, payment untouched",
+            "checks": {
+                "job_state": "assigned",
+                "paid_payments": 1
+            },
+            "result": {
+                "ok": false,
+                "code": "NOT_ELIGIBLE",
+                "message": "A payment was captured for this booking. It needs a person to review the payment before the job is changed."
+            }
+        },
+        {
+            "case": "c14 HAPPY PATH: unmatched job of a cancelled booking",
+            "checks": {
+                "job_state": "cancelled",
+                "recon_rows": 1,
+                "cancel_rows": 0,
+                "booking_status": "cancelled",
+                "reconcile_events": 1,
+                "live_mismatch_left": 1,
+                "inapp_notifications": 0,
+                "whatsapp_queue_rows": 0
+            },
+            "result": {
+                "ok": true,
+                "job_id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                "to_state": "cancelled",
+                "booking_id": "c9bca247-db78-40fa-b216-1b699f151e03",
+                "from_state": "assigned",
+                "offer_withdrawn": false
+            }
+        },
+        {
+            "case": "c15 duplicate request after success -> STALE_STATE, one event only",
+            "checks": {
+                "recon_rows": 1,
+                "reconcile_events": 1
+            },
+            "result": {
+                "first": {
+                    "ok": true,
+                    "job_id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                    "to_state": "cancelled",
+                    "booking_id": "c9bca247-db78-40fa-b216-1b699f151e03",
+                    "from_state": "assigned",
+                    "offer_withdrawn": false
+                },
+                "second": {
+                    "ok": false,
+                    "code": "STALE_STATE",
+                    "message": "The job is now cancelled, not assigned. Refresh and review."
+                }
+            }
+        },
+        {
+            "case": "c16 outstanding offer: withdrawn, professional told, customer not",
+            "checks": {
+                "job_state": "cancelled",
+                "offer_expires_at": null,
+                "pro_notifications": 1,
+                "withdrawn_attempts": 1,
+                "whatsapp_queue_rows": 0,
+                "customer_notifications": 0
+            },
+            "result": {
+                "ok": true,
+                "job_id": "bb392dfc-1e2f-4243-8c5e-6dd05ffbf281",
+                "to_state": "cancelled",
+                "booking_id": "43362aee-b33c-422f-bb06-64355a8294c9",
+                "from_state": "assigned",
+                "offer_withdrawn": true
+            }
+        },
+        {
+            "case": "c17 pending payment is preserved exactly",
+            "checks": {
+                "job_state": "cancelled",
+                "other_payments": 0,
+                "pending_payments": 1
+            },
+            "result": {
+                "ok": true,
+                "job_id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                "to_state": "cancelled",
+                "booking_id": "c9bca247-db78-40fa-b216-1b699f151e03",
+                "from_state": "assigned",
+                "offer_withdrawn": false
+            }
+        },
+        {
+            "case": "c18 admin still cannot cancel through transition_job_state directly",
+            "checks": {
+                "job_state": "assigned"
+            },
+            "raised": "Not allowed to change this job",
+            "raised_sqlstate": "P0001"
+        },
+        {
+            "case": "c19 compat: admin_cancel_job still works and notifies as before",
+            "checks": {
+                "customer_kind": "job_cancelled_by_admin",
+                "whatsapp_queue_rows": 1
+            },
+            "result": {
+                "job_id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                "to_state": "cancelled",
+                "booking_id": "c9bca247-db78-40fa-b216-1b699f151e03",
+                "from_state": "assigned",
+                "offer_withdrawn": false,
+                "paid_payment_count": 0,
+                "pending_payment_count": 0,
+                "payment_review_required": false
+            }
+        },
+        {
+            "case": "c20 compat: ordinary professional cancel still notifies customer and queues WhatsApp",
+            "checks": {
+                "customer_kind": "job_cancelled",
+                "whatsapp_queue_rows": 1
+            },
+            "result": true
+        },
+        {
+            "case": "c21 both fixtures reconciled in one transaction: nothing left in the mismatch queue",
+            "checks": {
+                "f14": "cancelled",
+                "f19": "cancelled",
+                "live_mismatch_left": 0
+            },
+            "result": [
+                {
+                    "ok": true,
+                    "job_id": "7153294b-a7cc-4575-9574-7ac4bbca2507",
+                    "to_state": "cancelled",
+                    "booking_id": "c9bca247-db78-40fa-b216-1b699f151e03",
+                    "from_state": "assigned",
+                    "offer_withdrawn": false
+                },
+                {
+                    "ok": true,
+                    "job_id": "bb392dfc-1e2f-4243-8c5e-6dd05ffbf281",
+                    "to_state": "cancelled",
+                    "booking_id": "43362aee-b33c-422f-bb06-64355a8294c9",
+                    "from_state": "assigned",
+                    "offer_withdrawn": false
+                }
+            ]
+        }
+    ]
+}

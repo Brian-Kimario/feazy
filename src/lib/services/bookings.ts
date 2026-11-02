@@ -6,7 +6,10 @@
  * RLS ensures customers can only see/modify their own bookings.
  */
 
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { fail, ok, parseInput, type ActionResult } from '@/lib/actions/result'
+import { cancelBookingSchema, type CancelBookingInput } from '@/validators/booking'
 
 export interface Booking {
   id: string
@@ -153,80 +156,88 @@ export async function getCompletedBookings(): Promise<BookingWithDetails[]> {
   return (data || []) as BookingWithDetails[]
 }
 
+/** What a successful customer cancellation tells the caller. */
+export interface CancelBookingOutcome {
+  /** `cancelled`: done. `review_requested`: from arrival onward Feazy reviews it and nothing changed yet. */
+  outcome: 'cancelled' | 'review_requested'
+  bookingId: string
+  jobId: string | null
+  fromState: string
+  offerWithdrawn: boolean
+  /** A paid payment exists: nothing was refunded; support/admin decides. The UI must say so. */
+  paymentReviewRequired: boolean
+}
+
+const cancelRpcResult = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    outcome: z.enum(['cancelled', 'review_requested']).default('cancelled'),
+    booking_id: z.string(),
+    job_id: z.string().nullable(),
+    from_state: z.string(),
+    offer_withdrawn: z.boolean().default(false),
+    payment_review_required: z.boolean().default(false),
+  }),
+  z.object({
+    ok: z.literal(false),
+    code: z.string(),
+    message: z.string(),
+  }),
+])
+
 /**
- * Cancel a booking using the state machine
- * 
- * This function enforces:
- * - Authorization: User must be the customer who owns the booking
- * - State validation: Booking must be in a cancellable state
- * - Atomicity: Associated job is also cancelled if active
- * - Audit trail: All state transitions recorded in booking_events
+ * Cancel the signed-in customer's own booking via customer_cancel_booking().
+ *
+ * Authorization lives in the database (actor = auth.uid(), ownership checked, job cancelled through
+ * transition_job_state). This only validates input, calls the RPC with the user-scoped client and maps
+ * outcomes to typed results. Ordinary refusals (stale, not eligible, already cancelled) come back as
+ * `rejected` with the database's customer-facing message. Payments are never touched.
  */
-export async function cancelBooking(bookingId: string): Promise<Booking> {
+export async function cancelBooking(input: CancelBookingInput): Promise<ActionResult<CancelBookingOutcome>> {
+  const parsed = parseInput(cancelBookingSchema, input)
+  if (parsed.success === false) return parsed
+  const { bookingId, expectedState, reasonCategory, note } = parsed.data
+
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return fail('unauthenticated', 'Please sign in to cancel a booking.')
 
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    throw new Error('Not authenticated')
-  }
-
-  // Verify user owns this booking
-  const { data: booking, error: fetchError } = await supabase
-    .from('bookings')
-    .select('id, customer_id, booking_status')
-    .eq('id', bookingId)
-    .eq('customer_id', user.id)
-    .single()
-
-  if (fetchError || !booking) {
-    throw new Error('Booking not found or does not belong to you')
-  }
-
-  // The database call needs the state the customer saw: the job's state, or 'no_job' before one exists.
-  const { data: job } = await supabase
-    .from('jobs')
-    .select('current_state')
-    .eq('booking_id', bookingId)
-    .maybeSingle()
-  const expectedState = (job as { current_state: string } | null)?.current_state ?? 'no_job'
-
-  // customer_cancel_booking derives the actor from the session, verifies ownership and cancels the
-  // job and booking together. Failures it reports (stale state, not eligible) come back as ok=false.
-  // @ts-ignore - RPC not in generated types
-  const { data: result, error: rpcError } = await supabase.rpc('customer_cancel_booking', {
+  const { data, error } = await supabase.rpc('customer_cancel_booking', {
     p_booking_id: bookingId,
     p_expected_state: expectedState,
-    p_reason_category: 'other',
-    p_note: null,
+    p_reason_category: reasonCategory,
+    p_note: note,
   })
 
-  if (rpcError) {
-    console.error('Error cancelling booking:', rpcError)
-    throw new Error(`Failed to cancel booking: ${rpcError.message}`)
+  if (error) {
+    switch (error.code) {
+      case '42501':
+        return fail('unauthenticated', 'Please sign in to cancel a booking.')
+      case 'P0002':
+        return fail('not_found', 'We could not find that booking.')
+      case '22023':
+        return fail('invalid_input', 'Please check the cancellation details and try again.')
+      case '40P01':
+      case '40001':
+        return fail('failed', 'Someone else updated this booking at the same moment. Please try again.')
+      default:
+        return fail('failed', 'We could not cancel this booking. Please try again.')
+    }
   }
 
-  const outcome = result as unknown as { ok: boolean; code?: string; message?: string } | null
-  if (!outcome?.ok && outcome?.code !== 'ALREADY_CANCELLED') {
-    throw new Error(outcome?.message ?? 'Failed to cancel booking')
-  }
+  const result = cancelRpcResult.safeParse(data)
+  if (!result.success) return fail('failed', 'We could not confirm the cancellation. Please refresh and check.')
+  if (result.data.ok === false) return fail('rejected', result.data.message)
 
-  // Fetch updated booking to return
-  const { data: updated, error: fetchError2 } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('id', bookingId)
-    .single()
-
-  if (fetchError2 || !updated) {
-    throw new Error('Failed to retrieve cancelled booking')
-  }
-
-  return updated as Booking
+  const done = result.data
+  return ok({
+    outcome: done.outcome,
+    bookingId: done.booking_id,
+    jobId: done.job_id,
+    fromState: done.from_state,
+    offerWithdrawn: done.offer_withdrawn,
+    paymentReviewRequired: done.payment_review_required,
+  })
 }
 
 /**

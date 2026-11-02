@@ -27,7 +27,7 @@ const COLUMNS: ReadonlyArray<{ title: string; links: ReadonlyArray<readonly [str
     links: [
       ['Help centre', '/help'],
       ['Contact us', '/contact'],
-      ['About Feasy', comingSoon('About Feasy')],
+      ['About Feazy', comingSoon('About Feazy')],
       ['Careers', comingSoon('Careers')],
     ],
   },
@@ -50,7 +50,7 @@ export function SiteFooter() {
           <div>
             <Link href="/" className="inline-flex items-center gap-2.5 font-editorial text-[26px] tracking-[-0.02em]">
               <Symbol size="md" className="size-[30px] text-[#7FC4B1]" />
-              Feasy
+              Feazy
             </Link>
             <p className="mt-4 max-w-[34ch] text-[14.5px] leading-relaxed text-porcelain/60">
               Verified home repair professionals, itemised quotes, UPI payment and a record of every job.
@@ -85,7 +85,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-14 flex flex-col gap-2 border-t border-porcelain/15 pt-6 text-[12.5px] text-porcelain/50 sm:flex-row sm:justify-between">
-          <span>© {new Date().getFullYear()} Feasy Technologies. Made in India.</span>
+          <span>© {new Date().getFullYear()} Feazy Technologies. Made in India.</span>
           <span>Payments by UPI and Razorpay.</span>
         </div>
       </div>

@@ -11,10 +11,10 @@ import { SuccessState } from '@/components/ui/SuccessState';
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   // An open offer is answered with RequestCardActions, which asks for a decline reason.
   assigned:      [],
-  accepted:      ['on_the_way', 'cancelled'],
-  on_the_way:    ['arrived', 'cancelled'],
-  arrived:       ['in_progress', 'cancelled'],
-  in_progress:   ['completed', 'cancelled'],
+  accepted:      ['on_the_way'],
+  on_the_way:    ['arrived'],
+  arrived:       ['in_progress'],
+  in_progress:   ['completed'],
   quote_pending: [],
   completed:     [],
   cancelled:     [],

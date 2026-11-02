@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   Feasy UI Component Library — barrel export
+   Feazy UI Component Library — barrel export
    Phase 7: Design System Consolidated
 ───────────────────────────────────────────────────────────────────────────── */
 
@@ -50,3 +50,5 @@ export { Table } from './Table';
 // ── Animation / Utilities ───────────────────────────────────────────────────
 export { AnimationProvider } from './AnimationProvider';
 export { AnimatedCounter } from './AnimatedCounter';
+export { ToastProvider, useToast } from './ToastProvider';
+export { ConfirmDialog } from './ConfirmDialog';

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Edit Profile - Feasy',
+  title: 'Edit Profile - Feazy',
 };
 
 export default async function EditProfilePage() {

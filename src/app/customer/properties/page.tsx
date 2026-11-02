@@ -6,7 +6,7 @@ import { PageContainer } from '@/components/shell/primitives';
 import { PropertiesManager } from './PropertiesManager';
 
 export const metadata = {
-  title: 'Properties — Feasy',
+  title: 'Properties — Feazy',
 };
 
 export default async function PropertiesPage() {

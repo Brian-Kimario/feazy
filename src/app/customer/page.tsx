@@ -50,7 +50,7 @@ import { QuoteDrawer } from '@/components/customer/QuoteDrawer';
 import { toPanelQuote } from '@/lib/quotes/panel';
 
 export const metadata = {
-  title: 'Home — Feasy',
+  title: 'Home — Feazy',
   description: 'Your bookings, quotes and payments in one place.',
 };
 
@@ -137,11 +137,15 @@ export default async function CustomerHomePage({
       {!hasBookings && !shell.error ? (
         <FirstBooking categories={extras.categories} hasProperty={extras.properties.length > 0} />
       ) : (
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
+        <div className="space-y-10">
+          <Section title="Book a service" description="Choose a service to start a new booking.">
+            <CategoryGrid categories={extras.categories} large />
+          </Section>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
           <div className="min-w-0 space-y-10">
             {shell.inbox.length > 0 && (
               <Section
-                title="Needs your action"
+                title="Pending actions"
                 description="Quotes and payments waiting on you."
                 count={shell.inbox.length}
               >
@@ -218,9 +222,6 @@ export default async function CustomerHomePage({
           </div>
 
           <aside className="min-w-0 space-y-10" aria-label="Shortcuts">
-            <Section title="Book a service">
-              <CategoryGrid categories={extras.categories} />
-            </Section>
             <Section
               title="Your properties"
               count={extras.properties.length}
@@ -229,6 +230,7 @@ export default async function CustomerHomePage({
               <PropertyList properties={extras.properties} />
             </Section>
           </aside>
+          </div>
         </div>
       )}
 

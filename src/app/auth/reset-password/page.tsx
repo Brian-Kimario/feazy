@@ -144,7 +144,7 @@ function ResetPasswordContent() {
   if (sessionValid === null) {
     return (
       <main id="main-content" className="page">
-        <section className="visual" aria-label="Feasy home maintenance introduction">
+        <section className="visual" aria-label="Feazy home maintenance introduction">
           <Image 
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=88" 
             alt="Calm bedroom interior"
@@ -185,7 +185,7 @@ function ResetPasswordContent() {
   if (!sessionValid) {
     return (
       <main id="main-content" className="page">
-        <section className="visual" aria-label="Feasy home maintenance introduction">
+        <section className="visual" aria-label="Feazy home maintenance introduction">
           <Image 
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=88" 
             alt="Calm bedroom interior"
@@ -201,7 +201,7 @@ function ResetPasswordContent() {
 
         <section className="form-side">
           <div className="form-wrap">
-            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEASY</span></Link>
+            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
             <div className="error-state">
               <div className="error-icon" aria-hidden="true">⚠</div>
               <p className="form-eyebrow">SESSION EXPIRED</p>
@@ -240,7 +240,7 @@ function ResetPasswordContent() {
   if (success) {
     return (
       <main id="main-content" className="page">
-        <section className="visual" aria-label="Feasy home maintenance introduction">
+        <section className="visual" aria-label="Feazy home maintenance introduction">
           <Image 
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=88" 
             alt="Calm bedroom interior"
@@ -256,7 +256,7 @@ function ResetPasswordContent() {
 
         <section className="form-side">
           <div className="form-wrap">
-            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEASY</span></Link>
+            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
             <div className="success-state">
               <div className="success-icon" aria-hidden="true"><CheckCircle2 /></div>
               <p className="form-eyebrow">PASSWORD RESET</p>
@@ -293,7 +293,7 @@ function ResetPasswordContent() {
   // Main form state
   return (
     <main id="main-content" className="page">
-      <section className="visual" aria-label="Feasy home maintenance introduction">
+      <section className="visual" aria-label="Feazy home maintenance introduction">
         <Image 
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=88" 
             alt="Calm bedroom interior"
@@ -314,10 +314,10 @@ function ResetPasswordContent() {
 
       <section className="form-side">
         <div className="form-wrap">
-          <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEASY</span></Link>
+          <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
           <p className="form-eyebrow">ACCOUNT SECURITY</p>
           <h2>Reset your password.</h2>
-          <p className="sub">Enter a new password for your Feasy account. Make it strong and unique.</p>
+          <p className="sub">Enter a new password for your Feazy account. Make it strong and unique.</p>
 
           <form className="form" onSubmit={handleSubmit} noValidate>
             {error && <div className="status-msg error-msg" role="alert">{error}</div>}
@@ -445,7 +445,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <main id="main-content" className="page">
-        <section className="visual" aria-label="Feasy home maintenance introduction">
+        <section className="visual" aria-label="Feazy home maintenance introduction">
           <Image 
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=88" 
             alt="Calm bedroom interior"

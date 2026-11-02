@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { signOutAction } from '@/app/auth/signout-action';
 
 export const metadata: Metadata = {
-  title: 'Support console | Feasy',
+  title: 'Support console | Feazy',
   robots: { index: false, follow: false },
 };
 
@@ -31,7 +31,7 @@ export default async function SupportLayout({ children }: { children: React.Reac
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-teal">Feasy support</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-teal">Feazy support</p>
             <p className="mt-1 text-sm font-semibold">{profile.full_name || user.email}</p>
           </div>
           <form action={signOut}>

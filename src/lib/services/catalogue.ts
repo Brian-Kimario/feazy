@@ -17,6 +17,8 @@ export interface ServiceCategory {
   icon_key: string | null
   is_active: boolean
   sort_order: number
+  /** Absent until migration 119 is applied; treat a missing value as bookable. */
+  availability?: string
   created_at: string
   updated_at: string
 }
@@ -80,10 +82,29 @@ export interface Material {
   updated_at: string
 }
 
+/** Maps the joined `service_options` / `service_option_values` rows onto the `options[].values` shape. */
+function withOptions<S extends { service_options: Array<{ service_option_values: unknown[] }> }>(service: S) {
+  type O = S['service_options'][number];
+  return {
+    ...service,
+    options: service.service_options.map((o: O) => ({ ...o, values: o.service_option_values as O['service_option_values'] })),
+  };
+}
+
 /**
- * Fetch all active service categories
+ * Fetch all active service categories that customers can book now. Filtering happens in code, not in
+ * the query, so the page keeps working before the availability column exists.
  */
 export async function getServiceCategories(): Promise<ServiceCategory[]> {
+  return (await loadActiveCategories()).filter((c) => c.availability !== 'coming_soon')
+}
+
+/** Categories we plan to offer but cannot yet serve. Shown as "coming soon", never as bookable. */
+export async function getComingSoonCategories(): Promise<ServiceCategory[]> {
+  return (await loadActiveCategories()).filter((c) => c.availability === 'coming_soon')
+}
+
+async function loadActiveCategories(): Promise<ServiceCategory[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -97,7 +118,7 @@ export async function getServiceCategories(): Promise<ServiceCategory[]> {
     throw new Error(`Failed to fetch service categories: ${error.message}`)
   }
 
-  return data || []
+  return (data || []) as ServiceCategory[]
 }
 
 /**
@@ -144,14 +165,11 @@ export async function getServiceCategory(categoryId: string): Promise<{
   }
 
   // Map service_options to options key
-  const mappedServices = (servicesData || []).map((service: any) => ({
-    ...service,
-    options: service.service_options || [],
-  }));
+  const mappedServices = (servicesData || []).map((svc) => withOptions(svc) as ServiceWithOptions);
 
   return {
     category: categoryData,
-    services: mappedServices as ServiceWithOptions[],
+    services: mappedServices,
   }
 }
 
@@ -185,12 +203,8 @@ export async function getService(serviceId: string): Promise<ServiceWithOptions 
   }
 
   // Map service_options to options key
-  const mappedData = data ? {
-    ...data,
-    options: (data as any).service_options || [],
-  } : null;
-
-  return mappedData as ServiceWithOptions | null
+  // pricing_model is a plain string column; the app type narrows it to the allowed values.
+  return data ? (withOptions(data) as ServiceWithOptions) : null
 }
 
 /**
@@ -270,7 +284,7 @@ export async function getServiceMaterials(serviceId: string): Promise<Material[]
 
   // Flatten the response
   return (data || [])
-    .map((item: any) => item.materials)
+    .map((item) => item.materials)
     .filter((m: Material | null) => m !== null && m.is_active)
 }
 
@@ -309,12 +323,9 @@ export async function getFullCatalogue(): Promise<
   }
 
   // Map service_options to options key for each service
-  const mappedData = (data || []).map((category: any) => ({
+  const mappedData = (data || []).map((category) => ({
     ...category,
-    services: (category.services || []).map((service: any) => ({
-      ...service,
-      options: service.service_options || [],
-    })),
+    services: (category.services || []).map((svc) => withOptions(svc) as ServiceWithOptions),
   }));
 
   return mappedData

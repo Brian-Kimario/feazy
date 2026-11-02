@@ -107,12 +107,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: ${data.professionalName ?? "A professional"} assigned to your ${data.serviceName ?? "job"}. Arriving by ${data.scheduledTime ?? "scheduled time"}. ${jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: ${data.professionalName ?? "A professional"} assigned to your ${data.serviceName ?? "job"}. Arriving by ${data.scheduledTime ?? "scheduled time"}. ${jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Professional assigned — ${data.serviceName ?? "Your Job"} | Feasy`;
+        const subject = `Professional assigned — ${data.serviceName ?? "Your Job"} | Feazy`;
         const text = `Hi ${data.customerName}, ${data.professionalName ?? "A professional"} has been assigned to your ${data.serviceName ?? "job"} and will arrive by ${data.scheduledTime ?? "the scheduled time"}. View job: ${jobUrl}`;
         const html = buildEmailHtml(
           data.customerName,
@@ -147,12 +147,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: ${data.professionalName ?? "Professional"} arrived at your property. ${data.serviceName ?? "Job"} starting now. ${jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: ${data.professionalName ?? "Professional"} arrived at your property. ${data.serviceName ?? "Job"} starting now. ${jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Professional has arrived — ${data.serviceName ?? "Your Job"} | Feasy`;
+        const subject = `Professional has arrived — ${data.serviceName ?? "Your Job"} | Feazy`;
         const text = `Hi ${data.customerName}, ${data.professionalName ?? "Your professional"} has arrived at ${data.address ?? "your property"} and is starting your ${data.serviceName ?? "job"} now.`;
         const html = buildEmailHtml(
           data.customerName,
@@ -183,12 +183,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: Quote ${data.quoteAmount ?? ""} ready for your ${data.serviceName ?? "job"}. Expires ${data.quoteExpiry ?? "soon"}. Approve: ${jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: Quote ${data.quoteAmount ?? ""} ready for your ${data.serviceName ?? "job"}. Expires ${data.quoteExpiry ?? "soon"}. Approve: ${jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Quote ready — ${data.quoteAmount ?? ""} for ${data.serviceName ?? "your job"} | Feasy`;
+        const subject = `Quote ready — ${data.quoteAmount ?? ""} for ${data.serviceName ?? "your job"} | Feazy`;
         const text = `Hi ${data.customerName}, a quote of ${data.quoteAmount ?? "the quoted amount"} is ready for your ${data.serviceName ?? "job"}. Valid until ${data.quoteExpiry ?? "the expiry date"}. Review: ${jobUrl}`;
         const html = buildEmailHtml(
           data.customerName,
@@ -211,7 +211,7 @@ export function buildMessage(
       if (channel === "whatsapp") {
         return {
           // Template body:
-          // "✅ Payment of {{1}} received for job #{{2}}. Thank you for using Feasy!"
+          // "✅ Payment of {{1}} received for job #{{2}}. Thank you for using Feazy!"
           templateName: "fixify_payment_received",
           bodyParams: [
             data.paymentAmount ?? "your payment",
@@ -223,12 +223,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: Payment ${data.paymentAmount ?? ""} received for job #${data.jobRef ?? ""}. Thank you! ${jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: Payment ${data.paymentAmount ?? ""} received for job #${data.jobRef ?? ""}. Thank you! ${jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Payment confirmed — ${data.paymentAmount ?? ""} | Feasy`;
+        const subject = `Payment confirmed — ${data.paymentAmount ?? ""} | Feazy`;
         const text = `Hi ${data.customerName}, payment of ${data.paymentAmount ?? "your payment"} for job #${data.jobRef ?? ""} has been received. View invoice: ${jobUrl}`;
         const html = buildEmailHtml(
           data.customerName,
@@ -263,12 +263,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: Your ${data.serviceName ?? "job"} is complete! Rate ${data.professionalName ?? "your professional"}: ${jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: Your ${data.serviceName ?? "job"} is complete! Rate ${data.professionalName ?? "your professional"}: ${jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Job completed — ${data.serviceName ?? "Your Job"} | Feasy`;
+        const subject = `Job completed — ${data.serviceName ?? "Your Job"} | Feazy`;
         const text = `Hi ${data.customerName}, your ${data.serviceName ?? "job"} has been completed by ${data.professionalName ?? "your professional"}. View invoice and leave a review: ${jobUrl}`;
         const html = buildEmailHtml(
           data.customerName,
@@ -292,12 +292,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: Payment ${data.paymentAmount ?? ""} for job #${data.jobRef ?? ""} FAILED. Retry now: ${data.retryLink ?? jobUrl} Reply STOP to unsubscribe.`
+            `Feazy: Payment ${data.paymentAmount ?? ""} for job #${data.jobRef ?? ""} FAILED. Retry now: ${data.retryLink ?? jobUrl} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Action required: Payment failed — ${data.paymentAmount ?? ""} | Feasy`;
+        const subject = `Action required: Payment failed — ${data.paymentAmount ?? ""} | Feazy`;
         const text = `Hi ${data.customerName}, your payment of ${data.paymentAmount ?? ""} for job #${data.jobRef ?? ""} failed. Please retry: ${data.retryLink ?? jobUrl}`;
         const html = buildEmailHtml(
           data.customerName,
@@ -332,12 +332,12 @@ export function buildMessage(
       if (channel === "sms") {
         return {
           body: truncate160(
-            `Feasy: Your ${data.serviceName ?? "job"} #${data.jobRef ?? ""} was cancelled. Rebook: ${data.rebookLink ?? base} Reply STOP to unsubscribe.`
+            `Feazy: Your ${data.serviceName ?? "job"} #${data.jobRef ?? ""} was cancelled. Rebook: ${data.rebookLink ?? base} Reply STOP to unsubscribe.`
           ),
         };
       }
       if (channel === "email") {
-        const subject = `Job cancelled — ${data.serviceName ?? "Your Job"} | Feasy`;
+        const subject = `Job cancelled — ${data.serviceName ?? "Your Job"} | Feazy`;
         const text = `Hi ${data.customerName}, your ${data.serviceName ?? "job"} #${data.jobRef ?? ""} has been cancelled. Rebook: ${data.rebookLink ?? base}`;
         const html = buildEmailHtml(
           data.customerName,

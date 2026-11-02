@@ -5,6 +5,7 @@ import { BookingWizard } from '@/components/customer/BookingWizard';
 import type {
   WizardCategory,
   WizardService,
+  WizardMaterial,
   WizardProperty,
 } from '@/components/customer/BookingWizard';
 import Link from 'next/link';
@@ -12,7 +13,7 @@ import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import { PageContainer } from '@/components/shell/primitives';
 
 export const metadata = {
-  title: 'Book a Service — Feasy',
+  title: 'Book a Service — Feazy',
 };
 
 interface NewBookingPageProps {
@@ -58,7 +59,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
   // ── Load catalogue ──────────────────────────────────────────────────────
   const { data: rawCategories } = await supabase
     .from('service_categories')
-    .select('id, name, slug, description, icon_key')
+    .select('*')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
 
@@ -77,7 +78,31 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
     .eq('is_active', true)
     .order('name', { ascending: true });
 
-  const categories: WizardCategory[] = (rawCategories ?? []).map((c) => ({
+  // Materials a customer may ask for, per service. Empty (not an error) before migration 120 / when none are seeded.
+  const { data: rawServiceMaterials } = await supabase
+    .from('service_materials')
+    .select('service_id, materials(id, name, specification, unit, is_active, indicative_price, price_unit, brands(name))')
+    .eq('is_customer_selectable', true);
+  const materialsByService: Record<string, WizardMaterial[]> = {};
+  for (const row of rawServiceMaterials ?? []) {
+    const m = Array.isArray(row.materials) ? row.materials[0] : row.materials;
+    if (!m || !m.is_active) continue;
+    const brand = Array.isArray(m.brands) ? m.brands[0] : m.brands;
+    (materialsByService[row.service_id] ??= []).push({
+      id: m.id,
+      name: m.name,
+      brand: brand?.name ?? null,
+      specification: m.specification,
+      unit: m.unit,
+      indicativePrice: m.indicative_price ?? null,
+      priceUnit: m.price_unit ?? null,
+    });
+  }
+
+  // Categories still marked coming soon are not bookable; `availability` is absent before migration 119.
+  const categories: WizardCategory[] = (rawCategories ?? [])
+    .filter((c) => c.availability !== 'coming_soon')
+    .map((c) => ({
     id: c.id,
     name: c.name,
     slug: c.slug,
@@ -133,6 +158,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
       inspection_fee: s.inspection_fee,
       estimated_duration_minutes: s.estimated_duration_minutes,
       options,
+      materials: materialsByService[s.id] ?? [],
     });
   }
 

@@ -1,0 +1,248 @@
+{
+ "cases": [
+  {
+   "case": "e01 admin cancel: assigned job with offer, offer withdrawn, record written",
+   "checks": {
+    "job": "cancelled",
+    "record": 1,
+    "booking": "cancelled",
+    "pro_notified": 0,
+    "att_withdrawn": 1
+   },
+   "result": {
+    "job_id": "7a84fae0-5cab-44e1-b5bd-b91e25d50e3a",
+    "to_state": "cancelled",
+    "booking_id": "447a67bf-66b0-42b2-87f6-4143d0b3298a",
+    "from_state": "assigned",
+    "offer_withdrawn": true,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "e02 admin cancel: accepted job",
+   "checks": {
+    "job": "cancelled",
+    "record": 1,
+    "booking": "cancelled"
+   },
+   "result": {
+    "job_id": "9373dd10-3b28-4bf7-a894-abad108440fb",
+    "to_state": "cancelled",
+    "booking_id": "398d16e8-144c-44e5-a4e1-69537052279a",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "e03 admin cancel: stale expected state refused, untouched",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "raised": "The job is now accepted, not assigned. Refresh and review before cancelling.",
+   "raised_sqlstate": "55000"
+  },
+  {
+   "case": "e04 admin cancel: non-admin refused",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "raised": "Only administrators can cancel jobs",
+   "raised_sqlstate": "42501"
+  },
+  {
+   "case": "e05 admin cancel: unknown job",
+   "checks": {},
+   "raised": "Job not found",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "e06 admin cancel: paid payment preserved and counted",
+   "checks": {
+    "job": "cancelled",
+    "paid": 1,
+    "booking": "cancelled"
+   },
+   "result": {
+    "job_id": "8e55a96d-3070-470f-b5d1-8ad5d272fb88",
+    "to_state": "cancelled",
+    "booking_id": "ec34ccbf-39f9-49e7-a3da-8f35bce45997",
+    "from_state": "accepted",
+    "offer_withdrawn": false,
+    "paid_payment_count": 1,
+    "pending_payment_count": 0,
+    "payment_review_required": true
+   }
+  },
+  {
+   "case": "e07 admin cancel: duplicate is refused cleanly",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending",
+    "records": 0
+   },
+   "raised": "The job is now cancelled, not accepted. Refresh and review before cancelling.",
+   "raised_sqlstate": "55000"
+  },
+  {
+   "case": "e08 decline: professional declines, attempt recorded, job offered onward or unassigned",
+   "checks": {
+    "job": "assigned",
+    "pro": null,
+    "booking": "pending",
+    "att_declined": 1
+   },
+   "result": {
+    "reassigned": false
+   }
+  },
+  {
+   "case": "e09 decline: another professional cannot decline",
+   "checks": {
+    "job": "assigned",
+    "booking": "pending"
+   },
+   "raised": "Job not found or no longer awaiting your response",
+   "raised_sqlstate": "P0002"
+  },
+  {
+   "case": "e10 queue: an expired offer is released (expired attempt)",
+   "checks": {
+    "job": "assigned",
+    "booking": "pending",
+    "att_expired": 1
+   },
+   "result": {
+    "failed": 0,
+    "newly_matched": 0,
+    "expired_offers": 1,
+    "still_unmatched": 1
+   }
+  },
+  {
+   "case": "e11 queue: an unexpired offer is left alone",
+   "checks": {
+    "job": "assigned",
+    "pro": "3e86d907-43e8-4b5f-80a3-fd17da3932bd",
+    "booking": "pending",
+    "att_expired": 0
+   },
+   "result": {
+    "failed": 0,
+    "newly_matched": 0,
+    "expired_offers": 0,
+    "still_unmatched": 0
+   }
+  },
+  {
+   "case": "e12 _release_offer(expired) re-checks the deadline under the lock",
+   "checks": {
+    "job": "assigned",
+    "pro": "3e86d907-43e8-4b5f-80a3-fd17da3932bd",
+    "booking": "pending",
+    "att_expired": 0
+   },
+   "raised": "Job is no longer awaiting a response",
+   "raised_sqlstate": "P0001"
+  },
+  {
+   "case": "e13 queue: a cancelled booking with a stale expired offer is not touched",
+   "checks": {
+    "job": "assigned",
+    "booking": "cancelled"
+   },
+   "result": {
+    "failed": 0,
+    "newly_matched": 0,
+    "expired_offers": 1,
+    "still_unmatched": 0
+   }
+  },
+  {
+   "case": "e14 suspension withdraws the pending offer (booking then job order)",
+   "checks": {
+    "job": "assigned",
+    "booking": "pending",
+    "verification": "suspended",
+    "att_withdrawn": 1
+   },
+   "result": {
+    "to_status": "suspended",
+    "active_jobs": 1,
+    "from_status": "verified",
+    "professional_id": "3e86d907-43e8-4b5f-80a3-fd17da3932bd",
+    "offers_withdrawn": 1
+   }
+  },
+  {
+   "case": "e15 suspension does not cancel an accepted job",
+   "checks": {
+    "job": "accepted",
+    "booking": "pending"
+   },
+   "result": {
+    "to_status": "suspended",
+    "active_jobs": 2,
+    "from_status": "verified",
+    "professional_id": "3e86d907-43e8-4b5f-80a3-fd17da3932bd",
+    "offers_withdrawn": 0
+   }
+  },
+  {
+   "case": "e16 customer cancel: assigned with offer still works",
+   "checks": {
+    "job": "cancelled",
+    "booking": "cancelled",
+    "att_withdrawn": 1
+   },
+   "result": {
+    "ok": true,
+    "job_id": "92965f63-3f9c-40c9-bee6-fc6d447120f7",
+    "to_state": "cancelled",
+    "booking_id": "2708dcbf-c82e-4f42-bf17-aec05d4767cf",
+    "from_state": "assigned",
+    "offer_withdrawn": true,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "e17 customer cancel: no job still works",
+   "checks": {
+    "job": null,
+    "booking": "cancelled"
+   },
+   "result": {
+    "ok": true,
+    "job_id": null,
+    "to_state": "cancelled",
+    "booking_id": "cca3fbe0-2cd1-4ef0-ae58-30b09dd6ab35",
+    "from_state": "no_job",
+    "offer_withdrawn": false,
+    "paid_payment_count": 0,
+    "pending_payment_count": 0,
+    "payment_review_required": false
+   }
+  },
+  {
+   "case": "e18 queue still runs on a pending booking (no error)",
+   "checks": {
+    "job": "assigned",
+    "booking": "pending"
+   },
+   "result": {
+    "failed": 0,
+    "newly_matched": 1,
+    "expired_offers": 0,
+    "still_unmatched": 0
+   }
+  }
+ ]
+}

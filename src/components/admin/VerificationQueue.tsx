@@ -11,20 +11,24 @@
  */
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Dialog } from '@/components/ui/Dialog';
 import {
   approveProfessional,
   rejectProfessional,
+  suspendProfessional,
+  reactivateProfessional,
   getDocumentSignedUrl,
+  reviewVerificationDocument,
   type PendingProfessional,
   type VerificationDocument,
 } from '@/lib/services/verification';
 import {
-  suspendProfessional,
-  reactivateProfessional,
   type AdminProfessional,
 } from '@/lib/services/admin';
 import { SuccessState } from '@/components/ui/SuccessState';
+import { isAdminFailure } from '@/lib/admin/result';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -38,11 +42,11 @@ function statusBadge(status: string) {
     },
     documents_submitted: {
       label: 'Docs submitted',
-      class: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]',
+      class: 'bg-[#F5EBD7] text-[#8A5C14] border-[#DDCCAB]',
     },
     under_review: {
       label: 'Under review',
-      class: 'bg-[#F5EBD7] text-[#9B6A1E] border-[#DDCCAB]',
+      class: 'bg-[#F5EBD7] text-[#8A5C14] border-[#DDCCAB]',
     },
     verified: {
       label: 'Verified',
@@ -164,19 +168,29 @@ function DocumentPreviewModal({
 
 function DocumentList({
   documents,
+  inspected,
+  busy,
   onOpenPreview,
+  onInspected,
+  onReview,
 }: {
   documents: VerificationDocument[];
+  /** Ids of documents the reviewer has opened this session; acceptance needs it. */
+  inspected: ReadonlySet<string>;
+  busy: boolean;
   onOpenPreview: (doc: DocPreview) => void;
+  onInspected: (documentId: string) => void;
+  onReview: (documentId: string, decision: 'accepted' | 'rejected', note: string) => Promise<string | null>;
 }) {
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const [errorMap, setErrorMap] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const handleView = async (doc: VerificationDocument) => {
     setLoadingPath(doc.storage_path);
     setErrorMap((prev) => {
       const n = { ...prev };
-      delete n[doc.storage_path];
+      delete n[doc.id];
       return n;
     });
 
@@ -184,54 +198,105 @@ function DocumentList({
     setLoadingPath(null);
 
     if (url) {
+      onInspected(doc.id);
       onOpenPreview({ url, type: doc.document_type, path: doc.storage_path });
     } else {
-      setErrorMap((prev) => ({ ...prev, [doc.storage_path]: error ?? 'Failed to get URL' }));
+      setErrorMap((prev) => ({ ...prev, [doc.id]: error ?? 'Failed to get URL' }));
     }
   };
 
+  const handleReview = async (doc: VerificationDocument, decision: 'accepted' | 'rejected') => {
+    const failure = await onReview(doc.id, decision, (notes[doc.id] ?? '').trim());
+    if (failure) setErrorMap((prev) => ({ ...prev, [doc.id]: failure }));
+  };
+
   if (documents.length === 0) {
-    return <p className="text-xs text-[#7C8681] italic">No documents uploaded yet.</p>;
+    return <p className="text-xs text-[#626D68] italic">No documents uploaded yet.</p>;
   }
 
   return (
     <ul className="space-y-2 mt-2">
-      {documents.map((doc) => (
-        <li
-          key={doc.id}
-          className="flex items-center justify-between gap-3 bg-[#F7F4EC] rounded-lg px-3 py-2"
-        >
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-[#18211F] truncate">
-              {docTypeLabel(doc.document_type)}
-            </div>
-            <div className="text-[11px] text-[#7C8681]">
-              Uploaded {timeAgo(doc.uploaded_at)} ·{' '}
-              <span
-                className={
-                  doc.status === 'accepted'
-                    ? 'text-[#2F7D5B]'
-                    : doc.status === 'rejected'
-                    ? 'text-[#A9523D]'
-                    : 'text-[#9B6A1E]'
-                }
+      {documents.map((doc) => {
+        const note = notes[doc.id] ?? '';
+        const canJudge = doc.status === 'pending' && inspected.has(doc.id);
+        const noteLength = note.trim().length;
+        return (
+          <li key={doc.id} className="bg-[#F7F4EC] rounded-lg px-3 py-2 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-[#18211F] truncate">
+                  {docTypeLabel(doc.document_type)}
+                </div>
+                <div className="text-[11px] text-[#626D68]">
+                  Uploaded {timeAgo(doc.uploaded_at)} ·{' '}
+                  <span
+                    className={
+                      doc.status === 'accepted'
+                        ? 'text-[#2F7D5B]'
+                        : doc.status === 'rejected'
+                        ? 'text-[#A9523D]'
+                        : 'text-[#8A5C14]'
+                    }
+                  >
+                    {doc.status}
+                  </span>
+                </div>
+                {doc.reviewer_notes && (
+                  <p className="text-[11px] text-[#5A6661] mt-0.5">Reviewer note: {doc.reviewer_notes}</p>
+                )}
+                {errorMap[doc.id] && (
+                  <p className="text-[11px] text-[#A9523D] mt-0.5" role="alert">
+                    {errorMap[doc.id]}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleView(doc)}
+                disabled={loadingPath === doc.storage_path}
+                className="flex-shrink-0 min-h-11 px-3 py-1.5 border border-[#D9DED8] rounded-lg text-xs font-semibold text-[#5A6661] hover:bg-[#F1EEE5] hover:text-[#0D5144] transition disabled:opacity-50"
               >
-                {doc.status}
-              </span>
+                {loadingPath === doc.storage_path ? 'Loading…' : 'Inspect Document'}
+              </button>
             </div>
-            {errorMap[doc.storage_path] && (
-              <p className="text-[11px] text-[#A9523D] mt-0.5">{errorMap[doc.storage_path]}</p>
+
+            {doc.status === 'pending' && !canJudge && (
+              <p className="text-[11px] text-[#626D68]">Open the document before you accept or reject it.</p>
             )}
-          </div>
-          <button
-            onClick={() => handleView(doc)}
-            disabled={loadingPath === doc.storage_path}
-            className="flex-shrink-0 px-3 py-1.5 border border-[#D9DED8] rounded-lg text-xs font-semibold text-[#5A6661] hover:bg-[#F1EEE5] hover:text-[#0D5144] transition disabled:opacity-50"
-          >
-            {loadingPath === doc.storage_path ? 'Loading…' : 'Inspect Document'}
-          </button>
-        </li>
-      ))}
+
+            {canJudge && (
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-[#18211F]" htmlFor={`doc-note-${doc.id}`}>
+                  Note (required to reject, at least 5 characters)
+                </label>
+                <textarea
+                  id={`doc-note-${doc.id}`}
+                  rows={2}
+                  maxLength={500}
+                  value={note}
+                  onChange={(e) => setNotes((prev) => ({ ...prev, [doc.id]: e.target.value }))}
+                  className="w-full resize-none rounded-lg border border-[#D9DED8] bg-white px-3 py-2 text-xs text-[#18211F] focus:outline-none focus:border-[#5FE3B0]"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => handleReview(doc, 'rejected')}
+                    disabled={busy || noteLength < 5}
+                    className="min-h-11 px-3.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
+                  >
+                    Reject document
+                  </button>
+                  <button
+                    onClick={() => handleReview(doc, 'accepted')}
+                    disabled={busy}
+                    className="min-h-11 px-3.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
+                  >
+                    Accept document
+                  </button>
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -258,11 +323,31 @@ function ProfessionalCard({
   const [actionError, setActionError] = useState<string | null>(null);
   const [showSuccessState, setShowSuccessState] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [inspected, setInspected] = useState<ReadonlySet<string>>(new Set());
+  const [reviewed, setReviewed] = useState<Record<string, { status: 'accepted' | 'rejected'; note: string | null }>>({});
+
+  // Reviews made here show at once; the database stays the authority when Approve is pressed.
+  const documents: VerificationDocument[] = professional.documents.map((d) =>
+    reviewed[d.id] ? { ...d, status: reviewed[d.id].status, reviewer_notes: reviewed[d.id].note } : d,
+  );
+  const idAccepted = documents.some((d) => d.document_type === 'id' && d.status === 'accepted');
+
+  const handleReviewDocument = async (
+    documentId: string,
+    decision: 'accepted' | 'rejected',
+    note: string,
+  ): Promise<string | null> => {
+    setActionError(null);
+    const result = await reviewVerificationDocument({ documentId, decision, note: note || undefined });
+    if (isAdminFailure(result)) return result.error;
+    setReviewed((prev) => ({ ...prev, [documentId]: { status: result.data.status, note: note || null } }));
+    return null;
+  };
 
   const handleApprove = () => {
     setActionError(null);
     startTransition(async () => {
-      const result = await approveProfessional(professional.user_id);
+      const result = await approveProfessional(professional.user_id, professional.verification_status);
       if (result.success) {
         setShowSuccessState(true);
       } else {
@@ -278,7 +363,7 @@ function ProfessionalCard({
     }
     setActionError(null);
     startTransition(async () => {
-      const result = await rejectProfessional(professional.user_id, rejectReason);
+      const result = await rejectProfessional(professional.user_id, professional.verification_status, rejectReason);
       if (result.success) {
         setShowRejectModal(false);
         onActionDone(professional.user_id);
@@ -304,7 +389,7 @@ function ProfessionalCard({
               label: 'View profile',
               onClick: () => {
                 onActionDone(professional.user_id);
-                router.push(`/admin/professionals?view=${professional.user_id}`);
+                router.push(`/admin/professionals/verification?view=${professional.user_id}`);
               },
             }}
             secondaryAction={{
@@ -330,7 +415,7 @@ function ProfessionalCard({
               <span className="font-bold text-[#18211F] text-base">{name}</span>
               {statusBadge(professional.verification_status)}
             </div>
-            <div className="text-xs text-[#7C8681] mt-1">
+            <div className="text-xs text-[#626D68] mt-1">
               {professional.email ?? '—'} · {professional.years_experience ?? '?'} yrs exp
             </div>
             {professional.submitted_at && (
@@ -363,15 +448,26 @@ function ProfessionalCard({
             {professional.bio && (
               <p className="text-xs text-[#5A6661] mb-3 italic">&ldquo;{professional.bio}&rdquo;</p>
             )}
-            <DocumentList documents={professional.documents} onOpenPreview={onOpenPreview} />
+            <DocumentList
+              documents={documents}
+              inspected={inspected}
+              busy={isPending}
+              onOpenPreview={onOpenPreview}
+              onInspected={(id) => setInspected((prev) => new Set(prev).add(id))}
+              onReview={handleReviewDocument}
+            />
           </div>
         )}
 
         {/* Action footer */}
         <div className="px-5 py-3 border-t border-[#D9DED8] flex items-center justify-between gap-3 bg-[#F7F4EC]">
-          {actionError && (
-            <p className="text-xs text-[#A9523D] font-medium flex-1">{actionError}</p>
-          )}
+          {actionError ? (
+            <p className="text-xs text-[#A9523D] font-medium flex-1" role="alert">{actionError}</p>
+          ) : !idAccepted ? (
+            <p className="text-xs text-[#626D68] flex-1">
+              Approve unlocks once the Government ID document has been inspected and accepted.
+            </p>
+          ) : null}
           <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={() => {
@@ -379,14 +475,14 @@ function ProfessionalCard({
                 setActionError(null);
               }}
               disabled={isPending}
-              className="px-3.5 py-1.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
+              className="min-h-11 px-3.5 py-1.5 border border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] text-xs font-bold rounded-lg hover:bg-[#EDD1C8] transition disabled:opacity-50"
             >
               Reject
             </button>
             <button
               onClick={handleApprove}
-              disabled={isPending}
-              className="px-3.5 py-1.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
+              disabled={isPending || !idAccepted}
+              className="min-h-11 px-3.5 py-1.5 bg-[#18211F] text-white text-xs font-bold rounded-lg hover:bg-[#0D5144] transition disabled:opacity-50"
             >
               {isPending ? 'Processing…' : 'Approve'}
             </button>
@@ -421,9 +517,9 @@ function ProfessionalCard({
                   setActionError(null);
                 }}
                 placeholder="E.g. Licence document is expired or unreadable. Please re-upload a valid, current government document."
-                className="w-full resize-none rounded-xl border border-[#D9DED8] bg-white px-4 py-3 text-sm text-[#18211F] placeholder-[#9BA5A0] focus:outline-none focus:border-[#5FE3B0] transition"
+                className="w-full resize-none rounded-xl border border-[#D9DED8] bg-white px-4 py-3 text-sm text-[#18211F] placeholder-[#626D68] focus:outline-none focus:border-[#5FE3B0] transition"
               />
-              <p className="text-[11px] text-[#7C8681] mt-1">{rejectReason.trim().length} / min 5 chars</p>
+              <p className="text-[11px] text-[#626D68] mt-1">{rejectReason.trim().length} / min 5 chars</p>
             </div>
 
             {actionError && <p className="text-xs text-[#A9523D] font-medium">{actionError}</p>}
@@ -462,7 +558,10 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
   const [actionErr, setActionErr] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
 
-  const handleToggleSuspend = (pro: AdminProfessional) => {
+  const [reasonFor, setReasonFor] = useState<AdminProfessional | null>(null);
+  const [reasonText, setReasonText] = useState('');
+
+  const handleToggleSuspend = (pro: AdminProfessional, reason: string) => {
     setActioningId(pro.user_id);
     setActionErr((prev) => {
       const n = { ...prev };
@@ -473,8 +572,8 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
     startTransition(async () => {
       const isSuspended = pro.verification_status === 'suspended';
       const res = isSuspended
-        ? await reactivateProfessional(pro.user_id)
-        : await suspendProfessional(pro.user_id);
+        ? await reactivateProfessional(pro.user_id, reason)
+        : await suspendProfessional(pro.user_id, reason);
 
       setActioningId(null);
       if (res.success) {
@@ -518,7 +617,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, email…"
-          className="px-4 py-2 border border-[#D9DED8] rounded-xl bg-white text-sm text-[#18211F] placeholder-[#9BA5A0] focus:outline-none focus:border-[#5FE3B0] transition w-full sm:w-64"
+          className="px-4 py-2 border border-[#D9DED8] rounded-xl bg-white text-sm text-[#18211F] placeholder-[#626D68] focus:outline-none focus:border-[#5FE3B0] transition w-full sm:w-64"
         />
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -540,7 +639,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
 
       {/* Directory Table */}
       {filtered.length === 0 ? (
-        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl p-8 text-center text-sm text-[#7C8681]">
+        <div className="bg-[#FFFEFA] border border-[#D9DED8] rounded-xl p-8 text-center text-sm text-[#626D68]">
           No professionals found matching query.
         </div>
       ) : (
@@ -548,7 +647,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#D9DED8] bg-[#F7F4EC] text-left text-xs font-bold text-[#7C8681] uppercase tracking-wide">
+                <tr className="border-b border-[#D9DED8] bg-[#F7F4EC] text-left text-xs font-bold text-[#626D68] uppercase tracking-wide">
                   <th className="px-5 py-3">Professional</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Rating</th>
@@ -560,8 +659,10 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                 {filtered.map((pro) => (
                   <tr key={pro.user_id} className="hover:bg-[#F7F4EC] transition">
                     <td className="px-5 py-3.5">
-                      <div className="font-bold text-[#18211F]">{pro.display_name}</div>
-                      <div className="text-xs text-[#7C8681]">{pro.email ?? 'No email'}</div>
+                      <Link href={`/admin/professionals/${pro.user_id}`} className="font-bold text-[#18211F] hover:underline">
+                        {pro.display_name}
+                      </Link>
+                      <div className="text-xs text-[#626D68]">{pro.email ?? 'No email'}</div>
                     </td>
                     <td className="px-5 py-3.5">{statusBadge(pro.verification_status)}</td>
                     <td className="px-5 py-3.5 text-xs font-medium text-[#18211F]">
@@ -574,12 +675,16 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                           {actionErr[pro.user_id]}
                         </span>
                       )}
+                      {(pro.verification_status === 'verified' || pro.verification_status === 'suspended') && (
                       <button
-                        onClick={() => handleToggleSuspend(pro)}
+                        onClick={() => {
+                          setReasonText('');
+                          setReasonFor(pro);
+                        }}
                         disabled={actioningId === pro.user_id || isPending}
                         className={`px-3 py-1 text-xs font-bold rounded-lg border transition disabled:opacity-50 ${
                           pro.verification_status === 'suspended'
-                            ? 'border-[#C7DCCF] bg-[#E2EEE9] text-[#2F7D5B] hover:bg-[#D2E8DF]'
+                            ? 'border-[#C7DCCF] bg-[#E2EEE9] text-[#1C5E41] hover:bg-[#D2E8DF]'
                             : 'border-[#DFC0B7] bg-[#F3E1DA] text-[#A9523D] hover:bg-[#EDD1C8]'
                         }`}
                       >
@@ -589,6 +694,7 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
                           ? 'Reactivate'
                           : 'Suspend'}
                       </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -596,6 +702,48 @@ function AllProfessionalsDirectory({ initialList }: { initialList: AdminProfessi
             </table>
           </div>
         </div>
+      )}
+      {reasonFor && (
+        <Dialog
+          title={`${reasonFor.verification_status === 'suspended' ? 'Reactivate' : 'Suspend'} ${reasonFor.display_name}`}
+          onClose={() => setReasonFor(null)}
+          description={
+            reasonFor.verification_status === 'suspended'
+              ? 'They stay unavailable until they switch availability on themselves.'
+              : 'Pending offers are withdrawn and no new work is offered. Active jobs are flagged, not cancelled.'
+          }
+        >
+          <div className="space-y-3">
+            <label htmlFor="suspend-reason" className="sr-only">
+              Reason
+            </label>
+            <textarea
+              id="suspend-reason"
+              value={reasonText}
+              onChange={(e) => setReasonText(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Reason (required, at least 5 characters)"
+              className="w-full rounded-xl border border-line p-3 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setReasonFor(null)} className="min-h-11 px-4 py-2 text-sm font-bold rounded-xl border border-line">
+                Cancel
+              </button>
+              <button
+                disabled={reasonText.trim().length < 5 || isPending}
+                onClick={() => {
+                  const target = reasonFor;
+                  setReasonFor(null);
+                  handleToggleSuspend(target, reasonText.trim());
+                }}
+                className="min-h-11 px-4 py-2 text-sm font-bold rounded-xl bg-clay text-white disabled:opacity-50"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </Dialog>
       )}
     </div>
   );
@@ -637,11 +785,11 @@ export default function VerificationQueue({
           className={`pb-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
             activeTab === 'queue'
               ? 'border-[#0D5144] text-[#0D5144]'
-              : 'border-transparent text-[#7C8681] hover:text-[#18211F]'
+              : 'border-transparent text-[#626D68] hover:text-[#18211F]'
           }`}
         >
           Verification Queue
-          <span className="px-2 py-0.5 rounded-full text-xs bg-[#E2EEE9] text-[#2F7D5B]">
+          <span className="px-2 py-0.5 rounded-full text-xs bg-[#E2EEE9] text-[#1C5E41]">
             {professionals.length}
           </span>
         </button>
@@ -652,11 +800,11 @@ export default function VerificationQueue({
             className={`pb-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
               activeTab === 'all'
                 ? 'border-[#0D5144] text-[#0D5144]'
-                : 'border-transparent text-[#7C8681] hover:text-[#18211F]'
+                : 'border-transparent text-[#626D68] hover:text-[#18211F]'
             }`}
           >
             All Registered Technicians
-            <span className="px-2 py-0.5 rounded-full text-xs bg-gray-200 text-[#5A6661]">
+            <span className="px-2 py-0.5 rounded-full text-xs bg-[#E4E7E2] text-[#3F4A45]">
               {allProfessionals.length}
             </span>
           </button>
@@ -685,7 +833,7 @@ export default function VerificationQueue({
                 </button>
               ))}
             </div>
-            <span className="text-xs text-[#7C8681]">
+            <span className="text-xs text-[#626D68]">
               {filtered.length} professional{filtered.length !== 1 ? 's' : ''} awaiting review
             </span>
           </div>
@@ -704,7 +852,7 @@ export default function VerificationQueue({
                 <polyline points="16 24 21 29 33 18" />
               </svg>
               <p className="font-bold text-[#18211F] mb-1">Queue cleared</p>
-              <p className="text-sm text-[#7C8681]">No pending professional files require action.</p>
+              <p className="text-sm text-[#626D68]">No pending professional files require action.</p>
             </div>
           ) : (
             <div className="space-y-4">

@@ -110,7 +110,7 @@ export function ProfessionalRegisterForm() {
 
   return (
     <>
-      <h1 className="font-editorial text-[clamp(34px,5vw,44px)] font-normal leading-[1.05] tracking-[-0.02em]">Apply to work on Feasy.</h1>
+      <h1 className="font-editorial text-[clamp(34px,5vw,44px)] font-normal leading-[1.05] tracking-[-0.02em]">Apply to work on Feazy.</h1>
       <p className="mt-2 text-[15px] text-ink-3">Create your professional account. We verify credentials before you can accept jobs.</p>
 
       {error && (
@@ -176,7 +176,7 @@ export function ProfessionalRegisterForm() {
         Need a repair instead? <Link href="/auth/register" className={linkCls}>Register as a customer</Link>
       </p>
       <p className="mt-6 text-center text-[12px] leading-relaxed text-ink-4">
-        By continuing you agree to Feasy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
+        By continuing you agree to Feazy’s <Link href="/terms" className="underline underline-offset-2">terms</Link> and{' '}
         <Link href="/privacy" className="underline underline-offset-2">privacy notice</Link>.
       </p>
     </>

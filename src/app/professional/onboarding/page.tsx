@@ -3,7 +3,7 @@ import { Card, Button } from '@/components/ui';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Professional Setup - Feasy',
+  title: 'Professional Setup - Feazy',
 };
 
 export default async function ProfessionalOnboardingPage() {

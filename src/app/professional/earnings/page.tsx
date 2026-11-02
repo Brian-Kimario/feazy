@@ -21,7 +21,7 @@ import { PLATFORM_TIME_ZONE } from '@/lib/shell/rules';
 import { EmptyState, PageContainer, PageHeader, Panel, StatusPill } from '@/components/shell/primitives';
 
 export const metadata = {
-  title: 'Earnings — Feasy Professional',
+  title: 'Earnings — Feazy Professional',
 };
 
 const VIEWS = ['all', 'paid', 'awaiting_payment', 'in_hand'] as const;

@@ -4,13 +4,15 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { JobTicket } from './job-ticket';
-import { SERVICES, bookingHref, professionalHref, type ViewerRole } from '@/lib/marketing-links';
+import { TAGLINES, inspectionLabel } from '@/lib/brand';
+import { bookingHref, professionalHref, type ViewerRole } from '@/lib/marketing-links';
+import type { HomeCategory } from './sections';
 
-export function Hero({ role }: { role: ViewerRole }) {
+export function Hero({ role, categories }: { role: ViewerRole; categories: HomeCategory[] }) {
   const [service, setService] = useState<string | undefined>();
   const isPro = role === 'professional';
   const href = bookingHref(role, service);
-  const cta = !role || role === 'customer' ? (service ? 'Book this repair' : 'Book a repair') : 'Open your dashboard';
+  const cta = !role || role === 'customer' ? (service ? 'Book this service' : 'Book a service') : 'Open your dashboard';
 
   return (
     <section className="relative overflow-hidden pt-[68px] sm:pt-[76px]">
@@ -25,11 +27,10 @@ export function Hero({ role }: { role: ViewerRole }) {
             Home repairs across India
           </p>
           <h1 className="mt-4 font-editorial text-[clamp(40px,7.4vw,76px)] font-normal leading-[1.02] tracking-[-0.025em] text-ink">
-            Home repairs, done properly <em className="italic text-teal-deep">and written down.</em>
+            {TAGLINES.homeHeadline} <em className="italic text-teal-deep">{TAGLINES.homeHeadlineEmphasis}</em>
           </h1>
           <p className="mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
-            Describe the problem, get an itemised quote from a verified professional, pay by UPI when
-            it&rsquo;s fixed, and keep the proof for the next time something goes wrong.
+            {TAGLINES.homeSub}
           </p>
 
           {!isPro && (
@@ -38,15 +39,15 @@ export function Hero({ role }: { role: ViewerRole }) {
                 What needs fixing?
               </p>
               <div role="radiogroup" aria-labelledby="hero-service-label" className="mt-3 flex flex-wrap gap-2">
-                {SERVICES.map((s) => {
-                  const on = service === s.slug;
+                {categories.map((s) => {
+                  const on = service === s.id;
                   return (
                     <button
-                      key={s.slug}
+                      key={s.id}
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      onClick={() => setService(on ? undefined : s.slug)}
+                      onClick={() => setService(on ? undefined : s.id)}
                       className={`min-h-11 cursor-pointer rounded-xl border px-4 text-[14px] font-medium transition-colors ${
                         on
                           ? 'border-teal bg-teal text-paper'
@@ -64,6 +65,9 @@ export function Hero({ role }: { role: ViewerRole }) {
               >
                 {cta} <ArrowRight size={16} aria-hidden="true" />
               </Link>
+              <p className="mt-3 text-[13px] text-ink-3">
+                {inspectionLabel('Get')}, then approve a clear quotation before any work starts.
+              </p>
             </div>
           )}
 

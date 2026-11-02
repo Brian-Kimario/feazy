@@ -119,28 +119,6 @@ export async function verifyAdminAccess(userId: string): Promise<boolean> {
   }
 }
 
-export async function updateUserRole(
-  userId: string,
-  newRole: 'customer' | 'professional' | 'admin' | 'support'
-): Promise<{ success: boolean; data?: any; error?: string }> {
-  try {
-    const admin = await createAdminClient()
-    // @ts-ignore - Supabase SDK type inference issue
-    const { data, error } = await (admin as any)
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId)
-      .select()
-      .single()
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
-  } catch (error: any) {
-    console.error('Error updating user role:', error)
-    return { success: false, error: error?.message || 'Failed to update role' };
-  }
-}
-
 export async function logAdminAction(
   adminId: string,
   action: string,

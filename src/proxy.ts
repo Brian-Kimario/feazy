@@ -89,6 +89,7 @@ export async function proxy(request: NextRequest) {
     "/customer": "customer",
     "/professional": "professional",
     "/professional/onboarding": "professional",
+    "/inspector": "professional",
     "/admin": "admin",
     "/support": "support",
   };
@@ -208,6 +209,12 @@ export async function proxy(request: NextRequest) {
 
     if (pathname.startsWith("/customer") && userRole !== "customer") {
       const target = userRole === "professional" ? "/professional" : userRole === "admin" ? "/admin" : userRole === "support" ? "/support" : "/";
+      return redirectWithSession(target);
+    }
+
+    // Inspector workspace: professional-role accounts; the layout checks the active inspector row.
+    if (pathname.startsWith("/inspector") && userRole !== "professional") {
+      const target = userRole === "customer" ? "/customer" : userRole === "admin" ? "/admin" : userRole === "support" ? "/support" : "/";
       return redirectWithSession(target);
     }
 

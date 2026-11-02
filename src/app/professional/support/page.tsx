@@ -12,7 +12,7 @@ import {
 import { PageContainer } from '@/components/shell/primitives';
 
 export const metadata = {
-  title: 'Help & support — Feasy Professional',
+  title: 'Help & support — Feazy Professional',
 };
 
 interface Topic {
@@ -164,7 +164,7 @@ export default function ProfessionalSupportPage() {
       <h1 className="mt-1 font-editorial text-3xl font-semibold leading-tight tracking-[-0.02em] text-ink md:text-4xl">
         How can we help?
       </h1>
-      <p className="mt-2 max-w-xl text-ink-3">How requests, jobs and payments work on Feasy, and how to reach us.</p>
+      <p className="mt-2 max-w-xl text-ink-3">How requests, jobs and payments work on Feazy, and how to reach us.</p>
 
       <nav aria-label="Help topics" className="mt-8">
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">

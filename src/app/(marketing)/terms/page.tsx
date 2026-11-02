@@ -4,19 +4,19 @@ import { Metadata } from 'next';
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | Feasy',
-  description: 'Feasy marketplace terms of service for customers and service professionals',
+  title: 'Terms of Service | Feazy',
+  description: 'Feazy marketplace terms of service for customers and service professionals',
   openGraph: {
-    title: 'Terms of Service | Feasy',
-    description: 'Feasy marketplace terms of service',
+    title: 'Terms of Service | Feazy',
+    description: 'Feazy marketplace terms of service',
     url: `${siteUrl}/terms`,
     type: 'website',
     images: [{ url: "/og-image-1200x630.png", width: 1200, height: 630, alt: "Terms" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: 'Terms of Service | Feasy',
-    description: 'Feasy marketplace terms of service',
+    title: 'Terms of Service | Feazy',
+    description: 'Feazy marketplace terms of service',
     images: ["/og-image-1200x630.png"],
   },
   alternates: {
@@ -49,21 +49,21 @@ export default function TermsPage() {
         <div className="max-w-none space-y-8 text-[15px] leading-7 [&_p]:mb-3 [&_ul]:ml-1 [&_a]:text-teal [&_a]:underline [&_a:hover]:text-teal-deep">
           {/* Section 1 */}
           <section>
-            <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">1. Feasy's Role as a Marketplace</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">1. Feazy's Role as a Marketplace</h2>
             <p className="text-ink-3">
-              Feasy is a digital marketplace platform that connects customers with independent service professionals. 
-              Feasy does not directly perform services, provide labor, or employ service professionals. 
-              Instead, Feasy facilitates transactions between customers and professionals who operate as independent contractors.
+              Feazy is a digital marketplace platform that connects customers with independent service professionals. 
+              Feazy does not directly perform services, provide labor, or employ service professionals. 
+              Instead, Feazy facilitates transactions between customers and professionals who operate as independent contractors.
             </p>
             <p className="text-ink-3">
-              When you use Feasy, you are entering into agreements directly with service professionals, not with Feasy.
+              When you use Feazy, you are entering into agreements directly with service professionals, not with Feazy.
             </p>
           </section>
 
           {/* Section 2 */}
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">2. Customer Responsibilities</h2>
-            <p className="text-ink-3">As a customer using Feasy, you agree to:</p>
+            <p className="text-ink-3">As a customer using Feazy, you agree to:</p>
             <ul className="list-disc list-inside text-ink-3 space-y-2">
               <li>Provide accurate, complete, and truthful information in service requests</li>
               <li>Describe services needed with sufficient detail for professionals to provide accurate quotes</li>
@@ -71,14 +71,14 @@ export default function TermsPage() {
               <li>Grant professionals safe and reasonable access to your property</li>
               <li>Provide accurate scheduling and location information</li>
               <li>Comply with all applicable laws and regulations</li>
-              <li>Not engage professionals through channels outside of Feasy to avoid platform protections</li>
+              <li>Not engage professionals through channels outside of Feazy to avoid platform protections</li>
             </ul>
           </section>
 
           {/* Section 3 */}
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">3. Professional Responsibilities</h2>
-            <p className="text-ink-3">Service professionals using Feasy agree to:</p>
+            <p className="text-ink-3">Service professionals using Feazy agree to:</p>
             <ul className="list-disc list-inside text-ink-3 space-y-2">
               <li>Provide truthful information about qualifications, licenses, and experience</li>
               <li>Perform services in a professional and workmanlike manner</li>
@@ -124,7 +124,7 @@ export default function TermsPage() {
               <strong>[PROVISIONAL — Pending Legal Review]</strong> This section requires review by a qualified legal professional.
             </p>
             <p className="text-ink-3">
-              Feasy facilitates marketplace interactions but does not directly perform services. 
+              Feazy facilitates marketplace interactions but does not directly perform services. 
               Responsibility for the quality, workmanship, and outcomes of services rests solely with the service professional. 
               Customers should verify professional credentials and qualifications before engaging services.
             </p>
@@ -148,7 +148,7 @@ export default function TermsPage() {
               <strong>[PROVISIONAL — Pending Legal Review]</strong> Detailed dispute resolution procedures to be added.
             </p>
             <p className="text-ink-3">
-              If a dispute arises between a customer and professional, Feasy may assist with mediation. 
+              If a dispute arises between a customer and professional, Feazy may assist with mediation. 
               Unresolved disputes may be pursued through applicable legal channels.
             </p>
           </section>
@@ -157,7 +157,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">9. Professional Verification</h2>
             <p className="text-ink-3">
-              Feasy maintains a verification program for service professionals. Verification is not a guarantee of competence 
+              Feazy maintains a verification program for service professionals. Verification is not a guarantee of competence 
               but indicates that professionals have submitted identity documentation and background information. 
               Customers should still verify credentials and qualifications independently.
             </p>
@@ -167,7 +167,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">10. Changes to These Terms</h2>
             <p className="text-ink-3">
-              Feasy reserves the right to modify these terms at any time. Changes will be effective when posted. 
+              Feazy reserves the right to modify these terms at any time. Changes will be effective when posted. 
               Continued use of the platform after changes are posted constitutes acceptance of the new terms.
             </p>
           </section>

@@ -27,7 +27,6 @@ const client = {
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => client }));
 
 import { adminTransition } from '@/lib/services/verification-transition';
-import { cancelBooking } from '@/lib/services/bookings';
 
 beforeEach(() => {
   rpc.mockReset();
@@ -58,30 +57,5 @@ describe('adminTransition', () => {
     profileRow = null;
     expect((await adminTransition(client as never, 'p1', 'suspend', 'reason')).error).not.toBeNull();
     expect(rpc).not.toHaveBeenCalled();
-  });
-});
-
-describe('cancelBooking', () => {
-  it('uses customer_cancel_booking with the job state the customer saw', async () => {
-    rpc.mockResolvedValue({ data: { ok: true }, error: null });
-    await cancelBooking('b1');
-    expect(rpc).toHaveBeenCalledWith('customer_cancel_booking', {
-      p_booking_id: 'b1',
-      p_expected_state: 'assigned',
-      p_reason_category: 'other',
-      p_note: null,
-    });
-  });
-
-  it('uses no_job when no job exists', async () => {
-    jobRow = null;
-    rpc.mockResolvedValue({ data: { ok: true }, error: null });
-    await cancelBooking('b1');
-    expect(rpc.mock.calls[0][1].p_expected_state).toBe('no_job');
-  });
-
-  it('throws on ok=false results', async () => {
-    rpc.mockResolvedValue({ data: { ok: false, code: 'STALE_STATE', message: 'changed' }, error: null });
-    await expect(cancelBooking('b1')).rejects.toThrow('changed');
   });
 });
