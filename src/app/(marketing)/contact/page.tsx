@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ContactPageClient } from '@/components/pages/ContactPageClient';
 import { getCurrentProfile, getCurrentUser } from '@/lib/auth';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fixify.vercel.app';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://feazy.in';
 
 export const metadata: Metadata = {
   title: 'Contact Feazy | Get Help with Property Maintenance',

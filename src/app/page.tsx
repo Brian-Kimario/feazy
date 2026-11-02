@@ -8,7 +8,7 @@ import { getComingSoonCategories, getServiceCategories } from '@/lib/services/ca
 import type { ViewerRole } from '@/lib/marketing-links';
 import type { HomeCategory } from '@/components/home/sections';
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in";
 
 export const metadata: Metadata = {
   title: "Feazy — Book Verified Home Repair Professionals",

@@ -20,7 +20,7 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://feazy.in";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
