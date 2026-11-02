@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getActiveInspector } from '@/lib/services/inspections';
 import { getProfessionalShell } from '@/lib/services/shell';
 import { getNotificationFeed } from '@/lib/services/notifications';
 import { getUnreadMessageCount } from '@/lib/services/messages';
@@ -34,6 +35,8 @@ export default async function ProLayout({ children }: { children: React.ReactNod
     .eq('id', user.id)
     .single();
   if (!profile || profile.role !== 'professional') redirect('/customer');
+  // In-house inspectors use their own workspace.
+  if (await getActiveInspector(user.id)) redirect('/inspector');
 
   const [shell, feed, unreadMessages] = await Promise.all([
     getProfessionalShell(user.id),

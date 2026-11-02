@@ -24,7 +24,7 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Feazy — Property Maintenance, Made Simple",
+  title: "Feazy — Home care, made effortless",
   description:
     "Connect with verified professionals for plumbing, electrical, handyman and other property maintenance services. Describe your problem and let Feazy handle the rest.",
   keywords: [
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     "handyman",
   ],
   openGraph: {
-    title: "Feazy — Property Maintenance, Made Simple",
+    title: "Feazy — Home care, made effortless",
     description: "Connect with verified professionals for property maintenance services",
     url: siteUrl,
     type: "website",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Feazy — Property Maintenance, Made Simple",
+    title: "Feazy — Home care, made effortless",
     description: "Connect with verified professionals for property maintenance services",
     images: ["/og-image-1200x630.png"],
   },

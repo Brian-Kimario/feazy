@@ -584,6 +584,108 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_visit_costs: {
+        Row: {
+          visit_id: string
+          amount: number
+          note: string | null
+          recorded_by: string
+          recorded_at: string
+        }
+        Insert: {
+          visit_id: string
+          amount: number
+          note?: string | null
+          recorded_by: string
+          recorded_at?: string
+        }
+        Update: {
+          visit_id?: string
+          amount?: number
+          note?: string | null
+          recorded_by?: string
+          recorded_at?: string
+        }
+        Relationships: []
+      }
+      inspection_visits: {
+        Row: {
+          id: string
+          booking_id: string
+          inspector_id: string | null
+          status: string
+          scheduled_start: string | null
+          completed_at: string | null
+          outcome: string | null
+          findings: string | null
+          recommendation: string | null
+          missed_reason: string | null
+          missed_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          inspector_id?: string | null
+          status?: string
+          scheduled_start?: string | null
+          completed_at?: string | null
+          outcome?: string | null
+          findings?: string | null
+          recommendation?: string | null
+          missed_reason?: string | null
+          missed_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          inspector_id?: string | null
+          status?: string
+          scheduled_start?: string | null
+          completed_at?: string | null
+          outcome?: string | null
+          findings?: string | null
+          recommendation?: string | null
+          missed_reason?: string | null
+          missed_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inspectors: {
+        Row: {
+          user_id: string
+          display_name: string
+          phone: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          display_name: string
+          phone?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          display_name?: string
+          phone?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inspections: {
         Row: {
           created_at: string | null
@@ -2293,6 +2395,7 @@ export type Database = {
       }
       service_categories: {
         Row: {
+          availability: string
           created_at: string | null
           description: string | null
           icon_key: string | null
@@ -2304,6 +2407,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          availability?: string
           created_at?: string | null
           description?: string | null
           icon_key?: string | null
@@ -2315,6 +2419,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          availability?: string
           created_at?: string | null
           description?: string | null
           icon_key?: string | null
@@ -2777,6 +2882,45 @@ export type Database = {
           p_request_id: string
         }
         Returns: Json
+      }
+      admin_set_inspector: {
+        Args: { p_active?: boolean; p_display_name: string; p_phone?: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_assign_inspector: {
+        Args: { p_inspector_id: string; p_scheduled_start: string; p_visit_id: string }
+        Returns: Json
+      }
+      admin_record_inspection_cost: {
+        Args: { p_amount: number; p_note?: string; p_visit_id: string }
+        Returns: Json
+      }
+      admin_inspection_metrics: {
+        Args: { p_since?: string }
+        Returns: Json
+      }
+      inspector_complete_visit: {
+        Args: { p_findings: string; p_outcome: string; p_recommendation?: string; p_visit_id: string }
+        Returns: Json
+      }
+      mark_inspection_missed: {
+        Args: { p_reason: string; p_visit_id: string }
+        Returns: Json
+      }
+      get_inspection_visit_site: {
+        Args: { p_visit_id: string }
+        Returns: {
+          access_notes: string | null
+          address_line_1: string | null
+          address_line_2: string | null
+          area: string | null
+          city: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          postal_code: string | null
+          problem_summary: string | null
+          service_name: string | null
+        }[]
       }
       admin_cancel_job: {
         Args: {
