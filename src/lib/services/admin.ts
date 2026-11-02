@@ -15,6 +15,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
+import { adminTransition } from './verification-transition';
 import { missingProfessional } from '@/lib/shell/rules';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -561,15 +562,7 @@ export async function suspendProfessional(professionalId: string): Promise<{
   try {
     const supabase = await createClient();
 
-    // Use state machine to transition verification status
-    // @ts-ignore
-    const { error } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'suspended',
-      p_admin_user_id: auth.userId,
-      p_reason: 'Professional suspended by admin',
-      p_metadata: { admin_user: auth.userId },
-    });
+    const { error } = await adminTransition(supabase, professionalId, 'suspend', 'Professional suspended by admin');
 
     if (error) return { success: false, error: (error as any).message };
 
@@ -600,15 +593,7 @@ export async function reactivateProfessional(professionalId: string): Promise<{
   try {
     const supabase = await createClient();
 
-    // Use state machine to transition verification status
-    // @ts-ignore
-    const { error } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'verified',
-      p_admin_user_id: auth.userId,
-      p_reason: 'Professional reactivated by admin',
-      p_metadata: { admin_user: auth.userId },
-    });
+    const { error } = await adminTransition(supabase, professionalId, 'reactivate', 'Professional reactivated by admin');
 
     if (error) return { success: false, error: (error as any).message };
 

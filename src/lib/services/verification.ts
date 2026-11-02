@@ -16,6 +16,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { adminTransition } from './verification-transition';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -197,19 +198,14 @@ export async function uploadVerificationDocument(
       return { success: false, error: 'Failed to record document. Contact support.' };
     }
 
-    // ── Update verification + profile statuses via state machine ─────────────
-    // Use RPC to transition verification status with authorization and audit
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: statusError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: user.id,
-      p_new_status: 'documents_submitted',
-      p_admin_user_id: user.id,  // Professional action, so mark as self-initiated
-      p_reason: 'Professional uploaded verification documents',
-      p_metadata: { verification_id: verificationId },
-    });
+    // ── Submit for review via the verification state machine ─────────────────
+    // Idempotent: returns changed=false when the status cannot move (already submitted, or
+    // required documents still missing), so it is safe to call after every upload.
+    // @ts-ignore - RPC not in generated types
+    const { error: statusError } = await supabase.rpc('submit_professional_verification');
 
     if (statusError) {
-      console.error('[Verification] Failed to transition verification status:', statusError);
+      console.error('[Verification] Failed to submit verification:', statusError);
       return { success: false, error: 'Failed to update verification status. Contact support.' };
     }
 
@@ -394,15 +390,8 @@ export async function approveProfessional(
       return { success: false, error: 'Not authorised — admin only' };
     }
 
-    // Use state machine to transition verification status with admin authorization
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'verified',
-      p_admin_user_id: user.id,
-      p_reason: 'Admin approved professional verification',
-      p_metadata: { admin_user: user.id },
-    });
+    // Admin transition through the verification state machine (actor derived from the session).
+    const { error: stateError } = await adminTransition(supabase, professionalId, 'approve', 'Admin approved professional verification');
 
     if (stateError) {
       console.error('[Verification] Failed to transition verification status:', stateError);
@@ -483,15 +472,8 @@ export async function rejectProfessional(
       return { success: false, error: 'Not authorised — admin only' };
     }
 
-    // Use state machine to transition verification status with admin authorization
-    // @ts-ignore - New RPC function not yet in generated types
-    const { error: stateError } = await supabase.rpc('transition_professional_verification_status', {
-      p_professional_id: professionalId,
-      p_new_status: 'rejected',
-      p_admin_user_id: user.id,
-      p_reason: reason,
-      p_metadata: { admin_user: user.id },
-    });
+    // Admin transition through the verification state machine (actor derived from the session).
+    const { error: stateError } = await adminTransition(supabase, professionalId, 'reject', reason);
 
     if (stateError) {
       console.error('[Verification] Failed to transition verification status:', stateError);
