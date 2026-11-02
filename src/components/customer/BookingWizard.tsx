@@ -794,7 +794,7 @@ export function BookingWizard({
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="rounded-3xl border border-line bg-paper p-5 md:p-8">
         <StepBar current={step} onJump={(i) => i < step && go(i)} />
         <div className="mt-8">

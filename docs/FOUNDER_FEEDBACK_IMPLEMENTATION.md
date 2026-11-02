@@ -70,7 +70,7 @@ Founder defaults accepted: 12-category catalogue (4 new stay Coming Soon until c
 - Vitest 564 passing; `pnpm tsc --noEmit` clean for `src`.
 - Local throwaway Postgres (not Supabase): 119 journey (book, gate, assign, missed, complete, cost, metrics, no-repair path) and 120 materials journey: admin catalogue RPCs, customer blocked from admin RPCs, atomic booking, rollback on bad material, idempotent re-save, confirm/replace, invalid material and zero quantity refused, other inspector and unrelated customer denied, confirmed hidden until completion, confirm refused after completion, cancelled visit cannot complete, duplicate completion creates no second job.
 - Browser: homepage (desktop + 375px, no horizontal overflow, new headline), customer sign-in copy, auth redirects for gated routes.
-- **Not verified in a browser:** authenticated pages (booking wizard materials, inspector, admin catalogue/inspections, professional job). They need a local Supabase auth stack; the shared project must not be mutated.
+- **Round 4: authenticated verification done** on a disposable local Supabase stack (real Auth), see `docs/FEAZY_DEPLOYMENT_CHECKLIST.md`. 8 Playwright journeys pass; quotation approval verified over PostgREST with real JWTs. Fixed a mobile wizard overflow and added inspection findings to the professional job page.
 
 ## Migration readiness (119 then 120; 120 depends on 119)
 - Order: 119 → 120. Both are additive; 120 only adds columns/tables/functions and four `coming_soon` categories.
@@ -81,9 +81,8 @@ Founder defaults accepted: 12-category catalogue (4 new stay Coming Soon until c
 - No notifications are triggered by either migration.
 
 ## Remaining
-- Apply 119/120 to staging (authorization needed), seed materials and a real inspector, then browser QA of authenticated screens.
+- Production apply of 119 then 120 (owner approval needed), seed real materials and inspectors. Follow `docs/FEAZY_DEPLOYMENT_CHECKLIST.md`.
 - Onboard verified professionals for categories with zero coverage.
-- Optional: unit tests for the new admin validators.
 
 ## Open decisions
 City limits for free inspection; whether fixed-price services skip inspection.

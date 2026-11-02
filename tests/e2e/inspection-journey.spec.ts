@@ -1,0 +1,222 @@
+import { test, expect, type Page } from '@playwright/test'
+
+/**
+ * Authenticated inspection + materials journey. Runs only against a disposable LOCAL Supabase stack
+ * seeded with supabase/seeds/local_synthetic_catalogue.sql and the synthetic *@feazy.test accounts.
+ * Opt in with E2E_LOCAL_JOURNEY=1 and PLAYWRIGHT_TEST_BASE_URL. Never point this at a shared project.
+ */
+const ENABLED = process.env.E2E_LOCAL_JOURNEY === '1'
+const PASSWORD = process.env.E2E_LOCAL_PASSWORD ?? ''
+const SHOTS = process.env.E2E_SHOTS_DIR
+
+test.skip(!ENABLED, 'set E2E_LOCAL_JOURNEY=1 against a local stack')
+test.describe.configure({ mode: 'serial' })
+
+async function signIn(page: Page, door: 'customer' | 'professional', email: string) {
+  await page.goto(`/auth/login?as=${door}&logged_out=1`)
+  await page.getByPlaceholder('you@example.com').fill(email)
+  await page.getByPlaceholder('Enter your password').fill(PASSWORD)
+  await page.locator('form button[type="submit"]').click()
+  await page.waitForURL((u) => !u.pathname.startsWith('/auth/login'))
+}
+
+async function shot(page: Page, name: string) {
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
+}
+
+let bookingUrl = ''
+const inspectorUserId = process.env.E2E_INSPECTOR_ID ?? ''
+
+test('customer books a free inspection and picks materials', async ({ page }) => {
+  await signIn(page, 'customer', 'customer@feazy.test')
+  await page.goto('/customer/bookings/new')
+  // Coming-soon categories are not offered.
+  await expect(page.getByRole('tab', { name: 'Pest Control' })).toHaveCount(0)
+  await page.getByRole('tab', { name: 'Plumbing' }).click()
+  await page.getByRole('button', { name: /Leak repair/ }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await expect(page.getByText('Materials and brands you prefer')).toBeVisible()
+  await shot(page, 'customer-wizard-materials')
+  await page.getByLabel(/Jaquar Basin tap/).check()
+  await page.getByLabel(/Waterproofing sealant/).check()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  const d = new Date(Date.now() + 3 * 86400000)
+  d.setHours(11, 0, 0, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  await page.locator('#scheduled_start').fill(
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T11:00`,
+  )
+  await page.getByRole('button', { name: 'Review' }).last().click()
+  await shot(page, 'customer-wizard-review')
+  await page.getByRole('button', { name: 'Confirm booking' }).click()
+  await page.getByRole('button', { name: /View booking/ }).click()
+  await page.waitForURL(/\/customer\/bookings\/[0-9a-f-]{36}/)
+  bookingUrl = new URL(page.url()).pathname
+  await expect(page.getByText(/free inspection/i).first()).toBeVisible()
+  await expect(page.getByText('Jaquar Basin tap').first()).toBeVisible()
+  await shot(page, 'customer-booking-detail')
+})
+
+test('admin registers an inspector and assigns the free visit', async ({ page }) => {
+  await signIn(page, 'customer', 'admin@feazy.test')
+  await page.goto('/admin/inspections')
+  await expect(page.getByRole('heading', { name: 'Free inspections' })).toBeVisible()
+  await expect(page.getByText(/Needs action \(1\)/)).toBeVisible()
+  // Failed action: a non-inspector account id is refused.
+  await page.getByLabel(/Account id/).fill('00000000-0000-0000-0000-000000000000')
+  await page.getByLabel(/^Name/).fill('Ghost')
+  await page.getByRole('button', { name: 'Register inspector' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  // Successful registration.
+  await page.getByLabel(/Account id/).fill(inspectorUserId)
+  await page.getByLabel(/^Name/).fill('Ravi Inspector')
+  await page.getByLabel(/^Phone/).fill('9000000001')
+  await page.getByRole('button', { name: 'Register inspector' }).click()
+  await expect(page.getByRole('status')).toHaveText('Saved.')
+  await page.reload()
+  await expect(page.getByText('Ravi Inspector ·')).toBeVisible()
+  await page.getByLabel('Inspector').selectOption({ label: 'Ravi Inspector' })
+  const d = new Date(Date.now() + 2 * 86400000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  await page.getByLabel('Visit time').fill(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`)
+  await page.getByRole('button', { name: 'Assign' }).click()
+  await expect(page.getByRole('status')).toHaveText('Assigned.')
+  await shot(page, 'admin-inspections')
+})
+
+test('inspector confirms materials and submits findings', async ({ page }) => {
+  await signIn(page, 'professional', 'inspector@feazy.test')
+  await page.goto('/inspector')
+  await shot(page, 'inspector-dashboard')
+  await page.getByRole('link', { name: /Leak repair/ }).first().click()
+  await page.waitForURL(/\/inspector\/visits\//)
+  await expect(page.getByText('Customer asked').first()).toBeVisible()
+  // Failed action: report too short keeps the submit disabled.
+  await expect(page.getByRole('button', { name: 'Submit report' })).toBeDisabled()
+  await page.getByLabel(/Jaquar Basin tap/).check()
+  await page.getByLabel(/Quantity/).first().fill('2')
+  await page.getByRole('button', { name: 'Save materials' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Materials saved' })).toBeVisible()
+  // Failed action: zero quantity refused.
+  await page.getByLabel(/Quantity/).first().fill('0')
+  await page.getByRole('button', { name: 'Save materials' }).click()
+  await expect(page.getByRole('alert').first()).toBeVisible()
+  await page.getByLabel(/Quantity/).first().fill('2')
+  await page.getByRole('button', { name: 'Save materials' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Materials saved' })).toBeVisible()
+  await shot(page, 'inspector-visit')
+  await page.getByLabel(/Findings/).fill('Basin tap cartridge worn; supply valve seized. Replacement needed.')
+  await page.getByRole('button', { name: 'Submit report' }).click()
+  await page.waitForLoadState('networkidle')
+  await shot(page, 'inspector-after-report')
+})
+
+test('customer sees findings and confirmed materials; unauthorized roles are blocked', async ({ page, browser }) => {
+  await signIn(page, 'customer', 'customer@feazy.test')
+  await page.goto(bookingUrl)
+  await expect(page.getByText(/Basin tap cartridge worn/)).toBeVisible()
+  await expect(page.getByText(/Jaquar Basin tap/).first()).toBeVisible()
+  await shot(page, 'customer-after-inspection')
+  for (const path of ['/admin/inspections', '/admin/catalogue', '/inspector']) {
+    await page.goto(path)
+    await expect(page).not.toHaveURL(new RegExp(`${path}$`))
+  }
+  // A different customer cannot open someone else's booking.
+  const ctx = await browser.newContext({ baseURL: 'http://localhost:3100' })
+  const other = await ctx.newPage()
+  await signIn(other, 'customer', 'stranger@feazy.test')
+  const res = await other.goto(bookingUrl)
+  await expect(other.getByText(/Basin tap cartridge worn/)).toHaveCount(0)
+  expect(res?.status() === 404 || !other.url().endsWith(bookingUrl) || (await other.getByText(/not found|can.t find|no access/i).count()) > 0).toBeTruthy()
+  await ctx.close()
+})
+
+test('admin catalogue: availability controls the booking flow and material pricing validates', async ({ page, browser }) => {
+  await signIn(page, 'customer', 'admin@feazy.test')
+  await page.goto('/admin/catalogue')
+  await shot(page, 'admin-catalogue')
+  const painting = page.locator('li', { hasText: 'Painting' }).filter({ has: page.getByLabel('Availability') }).first()
+  await expect(painting.getByRole('status').filter({ hasText: 'No verified professionals' })).toBeVisible()
+  const customerCtx = await browser.newContext({ baseURL: 'http://localhost:3100' })
+  const cust = await customerCtx.newPage()
+  await signIn(cust, 'customer', 'customer@feazy.test')
+  await cust.goto('/customer/bookings/new')
+  await expect(cust.getByRole('tab', { name: 'Painting' })).toBeVisible()
+  await painting.getByLabel('Availability').selectOption('coming_soon')
+  await painting.getByRole('button', { name: 'Save' }).click()
+  await expect(painting.getByText('Saved.')).toBeVisible()
+  await cust.goto('/customer/bookings/new')
+  await expect(cust.getByRole('tab', { name: 'Painting' })).toHaveCount(0)
+  // restore
+  await painting.getByLabel('Availability').selectOption('bookable')
+  await painting.getByRole('button', { name: 'Save' }).click()
+  await expect(painting.getByText('Saved.')).toBeVisible()
+  // material pricing: invalid refused, valid saved and shown to customers
+  const tap = page.locator('div', { has: page.locator('input[value="Basin tap"]') }).last()
+  const priceField = page.getByLabel(/Guide price/).first()
+  await priceField.fill('-5')
+  await page.getByRole('button', { name: 'Save material' }).first().click()
+  await expect(page.getByRole('alert').first()).toBeVisible()
+  await priceField.fill('1500')
+  await page.getByRole('button', { name: 'Save material' }).first().click()
+  await expect(page.getByText('Saved.').first()).toBeVisible()
+  void tap
+  await customerCtx.close()
+})
+
+test('fixed-price service books directly with no inspection visit', async ({ page }) => {
+  await signIn(page, 'customer', 'customer@feazy.test')
+  await page.goto('/customer/bookings/new')
+  await page.getByRole('tab', { name: 'Electrical' }).click()
+  await page.getByRole('button', { name: /Fan installation/ }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
+  const d = new Date(Date.now() + 4 * 86400000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  await page.locator('#scheduled_start').fill(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T12:00`)
+  await page.getByRole('button', { name: 'Review' }).last().click()
+  await page.getByRole('button', { name: 'Confirm booking' }).click()
+  await page.getByRole('button', { name: /View booking/ }).click()
+  await page.waitForURL(/\/customer\/bookings\/[0-9a-f-]{36}/)
+  await expect(page.getByText(/free inspection/i)).toHaveCount(0)
+  await shot(page, 'customer-fixed-price-booking')
+})
+
+test('mobile layouts render without horizontal overflow', async ({ browser }) => {
+  const ctx = await browser.newContext({ baseURL: 'http://localhost:3100', viewport: { width: 375, height: 812 } })
+  const page = await ctx.newPage()
+  const check = async (name: string) => {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow, `${name} overflows`).toBeLessThanOrEqual(1)
+    await shot(page, `mobile-${name}`)
+  }
+  await signIn(page, 'customer', 'customer@feazy.test')
+  await page.goto('/customer/bookings/new'); await check('customer-wizard')
+  await page.goto(bookingUrl); await check('customer-booking')
+  await ctx.clearCookies()
+  await signIn(page, 'professional', 'inspector@feazy.test')
+  await page.goto('/inspector'); await check('inspector')
+  await ctx.clearCookies()
+  await signIn(page, 'customer', 'admin@feazy.test')
+  await page.goto('/admin/inspections'); await check('admin-inspections')
+  await page.goto('/admin/catalogue'); await check('admin-catalogue')
+  await ctx.close()
+})
+
+test('professional sees the inspected job with confirmed materials and can accept it', async ({ page }) => {
+  await signIn(page, 'professional', 'pro@feazy.test')
+  await page.goto('/professional/requests')
+  await shot(page, 'professional-requests')
+  const card = page.getByRole('article', { name: /Leak repair/ })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Accept', exact: true }).click()
+  await page.waitForURL(/\/professional\/jobs\/[0-9a-f-]{36}/, { timeout: 15000 }).catch(async () => {
+    await page.goto('/professional/jobs')
+    await page.getByRole('link', { name: /Leak repair/ }).first().click()
+    await page.waitForURL(/\/professional\/jobs\/[0-9a-f-]{36}/)
+  })
+  await expect(page.getByText(/Jaquar Basin tap/).first()).toBeVisible()
+  await expect(page.getByText(/Basin tap cartridge worn/).first()).toBeVisible()
+  await shot(page, 'professional-job')
+  await shot(page, 'professional-job-accepted')
+})

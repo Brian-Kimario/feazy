@@ -26,6 +26,7 @@ import { RequestCardActions } from '@/components/professional/RequestCardActions
 import { JobInspectionAndQuote } from '@/components/professional/JobInspectionAndQuote';
 import { ArrivalWindowForm } from '@/components/professional/ArrivalWindowForm';
 import { JobMessages } from '@/components/messages/JobMessages';
+import { createClient } from '@/lib/supabase/server';
 import { getBookingMaterials } from '@/lib/services/materials';
 import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
 import { JobMediaUploader } from '@/components/professional/JobMediaUploader';
@@ -78,6 +79,17 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
 
   const { job, booking, contact, property } = kase;
   const materials = await getBookingMaterials(job.bookingId);
+  // Findings from the free inspection that preceded this job. RLS only exposes completed visits of your own jobs;
+  // the query is empty (not an error) before migration 119.
+  const supabase = await createClient();
+  const { data: visitRows } = await supabase
+    .from('inspection_visits')
+    .select('findings, recommendation, completed_at')
+    .eq('booking_id', job.bookingId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1);
+  const visit = visitRows?.[0] ?? null;
   // Only the stages that need a code ask for one: the start code on site, the finish code during the work.
   const codeState = job.state === 'arrived' || job.state === 'in_progress' ? await getJobCodeState(id) : null;
   const codeVerified = codeState?.status === 'used';
@@ -127,6 +139,15 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {kase.incomplete && <IncompleteNotice />}
+          {visit?.findings && (
+            <Panel className="p-5">
+              <h2 className="text-sm font-bold text-ink">Inspection findings</h2>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-ink-2">{visit.findings}</p>
+              {visit.recommendation && (
+                <p className="mt-2 text-sm text-ink-3">Recommendation: {visit.recommendation}</p>
+              )}
+            </Panel>
+          )}
           <MaterialsPanel materials={materials} audience="professional" />
 
           {/* The one thing to do next. */}

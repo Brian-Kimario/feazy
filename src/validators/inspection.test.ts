@@ -7,6 +7,9 @@ import {
   markMissedInput,
   recordInspectionCostInput,
   registerInspectorInput,
+  setCategoryAvailabilityInput,
+  upsertMaterialInput,
+  setMaterialServicesInput,
 } from './inspection';
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -65,5 +68,30 @@ describe('material inputs', () => {
   it('accepts a null price to clear it but not a negative one', () => {
     expect(setMaterialPriceInput.safeParse({ materialId: id, price: null }).success).toBe(true);
     expect(setMaterialPriceInput.safeParse({ materialId: id, price: -1 }).success).toBe(false);
+  });
+});
+
+describe('admin catalogue validators', () => {
+  const id = '11111111-1111-4111-8111-111111111111';
+
+  it('accepts only known availabilities', () => {
+    expect(setCategoryAvailabilityInput.safeParse({ categoryId: id, availability: 'coming_soon' }).success).toBe(true);
+    expect(setCategoryAvailabilityInput.safeParse({ categoryId: id, availability: 'open' }).success).toBe(false);
+    expect(setCategoryAvailabilityInput.safeParse({ categoryId: 'x', availability: 'bookable' }).success).toBe(false);
+  });
+
+  it('requires a name and unit for materials, with bounds', () => {
+    const ok = { name: 'Tap', unit: 'piece', isActive: true };
+    expect(upsertMaterialInput.safeParse(ok).success).toBe(true);
+    expect(upsertMaterialInput.safeParse({ ...ok, name: '  ' }).success).toBe(false);
+    expect(upsertMaterialInput.safeParse({ ...ok, unit: '' }).success).toBe(false);
+    expect(upsertMaterialInput.safeParse({ ...ok, name: 'x'.repeat(121) }).success).toBe(false);
+    expect(upsertMaterialInput.safeParse({ ...ok, id: 'nope' }).success).toBe(false);
+  });
+
+  it('accepts a service list that can be empty and rejects non-uuids', () => {
+    expect(setMaterialServicesInput.safeParse({ materialId: id, serviceIds: [] }).success).toBe(true);
+    expect(setMaterialServicesInput.safeParse({ materialId: id, serviceIds: [id] }).success).toBe(true);
+    expect(setMaterialServicesInput.safeParse({ materialId: id, serviceIds: ['bad'] }).success).toBe(false);
   });
 });
