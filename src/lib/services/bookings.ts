@@ -187,20 +187,32 @@ export async function cancelBooking(bookingId: string): Promise<Booking> {
     throw new Error('Booking not found or does not belong to you')
   }
 
-  // Call state machine function to transition booking status
-  // @ts-ignore - New RPC function not yet in generated types
-  const { data: result, error: rpcError } = await supabase.rpc('transition_booking_state', {
+  // The database call needs the state the customer saw: the job's state, or 'no_job' before one exists.
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('current_state')
+    .eq('booking_id', bookingId)
+    .maybeSingle()
+  const expectedState = (job as { current_state: string } | null)?.current_state ?? 'no_job'
+
+  // customer_cancel_booking derives the actor from the session, verifies ownership and cancels the
+  // job and booking together. Failures it reports (stale state, not eligible) come back as ok=false.
+  // @ts-ignore - RPC not in generated types
+  const { data: result, error: rpcError } = await supabase.rpc('customer_cancel_booking', {
     p_booking_id: bookingId,
-    p_new_status: 'cancelled',
-    p_actor_user_id: user.id,
-    p_actor_role: 'customer',
-    p_reason: 'Customer requested cancellation',
-    p_metadata: {},
+    p_expected_state: expectedState,
+    p_reason_category: 'other',
+    p_note: null,
   })
 
   if (rpcError) {
-    console.error('Error cancelling booking via state machine:', rpcError)
+    console.error('Error cancelling booking:', rpcError)
     throw new Error(`Failed to cancel booking: ${rpcError.message}`)
+  }
+
+  const outcome = result as unknown as { ok: boolean; code?: string; message?: string } | null
+  if (!outcome?.ok && outcome?.code !== 'ALREADY_CANCELLED') {
+    throw new Error(outcome?.message ?? 'Failed to cancel booking')
   }
 
   // Fetch updated booking to return
