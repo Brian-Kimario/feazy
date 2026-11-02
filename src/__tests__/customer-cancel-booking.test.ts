@@ -134,6 +134,62 @@ describe('cancelBooking service', () => {
   });
 });
 
+describe('cancelBooking regression: concurrency, duplicates and side effects', () => {
+  it('treats a serialization failure (40001) as a retryable failure', async () => {
+    state.rpc.mockResolvedValue({ data: null, error: { code: '40001', message: 'could not serialize' } });
+    const r = await cancelBooking(valid);
+    expect(r).toMatchObject({ success: false, code: 'failed' });
+    expect(r.success === false && r.error).toMatch(/try again/i);
+    expect(JSON.stringify(r)).not.toContain('could not serialize');
+  });
+
+  it('a duplicate request after success is rejected, not reported as a second cancellation', async () => {
+    state.rpc.mockResolvedValueOnce({ data: success, error: null });
+    state.rpc.mockResolvedValueOnce({
+      data: { ok: false, code: 'ALREADY_CANCELLED', message: 'This booking is already cancelled.' },
+      error: null,
+    });
+    const first = await cancelBooking(valid);
+    const second = await cancelBooking(valid);
+    expect(first.success).toBe(true);
+    expect(second).toMatchObject({ success: false, code: 'rejected', error: 'This booking is already cancelled.' });
+  });
+
+  it('two simultaneous submits yield exactly one success when the database refuses the loser', async () => {
+    state.rpc.mockResolvedValueOnce({ data: success, error: null });
+    state.rpc.mockResolvedValueOnce({
+      data: { ok: false, code: 'STALE_STATE', message: 'This booking just changed.' },
+      error: null,
+    });
+    const results = await Promise.all([cancelBooking(valid), cancelBooking(valid)]);
+    expect(results.filter((r) => r.success)).toHaveLength(1);
+  });
+
+  it('never sends a caller-supplied identity or extra fields to the database', async () => {
+    state.rpc.mockResolvedValue({ data: success, error: null });
+    await cancelBooking({ ...valid, customerId: 'attacker', p_actor: 'attacker' } as never);
+    const [, args] = state.rpc.mock.calls[0];
+    expect(Object.keys(args).sort()).toEqual(['p_booking_id', 'p_expected_state', 'p_note', 'p_reason_category']);
+  });
+
+  it('only calls the one RPC: no table access, so payments are never touched', async () => {
+    state.rpc.mockResolvedValue({ data: success, error: null });
+    await cancelBooking(valid);
+    expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(state.rpc.mock.calls[0][0]).toBe('customer_cancel_booking');
+    const src = fs.readFileSync(path.resolve(__dirname, '../lib/services/bookings.ts'), 'utf8');
+    const cancel = src.slice(src.indexOf('export async function cancelBooking'), src.indexOf('export async function getBookingStats'))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(cancel).not.toMatch(/createAdminClient|\.from\(/);
+  });
+
+  it('does not report success when the RPC call itself throws', async () => {
+    state.rpc.mockRejectedValue(new Error('network down'));
+    await expect(cancelBooking(valid)).rejects.toThrow('network down');
+    state.rpc.mockReset();
+  });
+});
+
 describe('cancelBookingAction', () => {
   it('revalidates customer pages only on success', async () => {
     state.rpc.mockResolvedValue({ data: success, error: null });
