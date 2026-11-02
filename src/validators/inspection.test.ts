@@ -55,10 +55,12 @@ describe('registerInspectorInput', () => {
 });
 
 describe('material inputs', () => {
-  it('limits confirmed materials to 20 uuids', () => {
-    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: [id] }).success).toBe(true);
-    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: Array(21).fill(id) }).success).toBe(false);
-    expect(confirmMaterialsInput.safeParse({ visitId: id, materialIds: ['x'] }).success).toBe(false);
+  it('validates confirmed material items', () => {
+    const item = { materialId: id, quantity: 2, sourcing: 'feazy' as const };
+    expect(confirmMaterialsInput.safeParse({ visitId: id, items: [item] }).success).toBe(true);
+    expect(confirmMaterialsInput.safeParse({ visitId: id, items: [item, item] }).success).toBe(false);
+    expect(confirmMaterialsInput.safeParse({ visitId: id, items: [{ ...item, quantity: 0 }] }).success).toBe(false);
+    expect(confirmMaterialsInput.safeParse({ visitId: id, items: [{ ...item, sourcing: 'x' }] }).success).toBe(false);
   });
   it('accepts a null price to clear it but not a negative one', () => {
     expect(setMaterialPriceInput.safeParse({ materialId: id, price: null }).success).toBe(true);

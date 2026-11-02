@@ -48,28 +48,30 @@ export async function createBookingAction(
     return fail('unauthenticated', 'Not authenticated. Please sign in.');
   }
 
-  const { data: rows, error: bookingError } = await supabase.rpc('create_booking', {
-    p_service_id: input.serviceId,
-    p_property_id: input.propertyId,
-    p_scheduled_start: scheduledDate.toISOString(),
-    p_problem_summary: input.problemSummary || undefined,
-    p_options: input.selectedOptions ?? {},
-  });
+  // With material preferences the booking and preferences are saved in one transaction, so a
+  // preference can never be lost while the booking succeeds.
+  const materialIds = input.materialIds ?? [];
+  const { data: rows, error: bookingError } =
+    materialIds.length > 0
+      ? await supabase.rpc('create_booking_with_materials', {
+          p_service_id: input.serviceId,
+          p_property_id: input.propertyId,
+          p_scheduled_start: scheduledDate.toISOString(),
+          p_problem_summary: input.problemSummary || '',
+          p_options: input.selectedOptions ?? {},
+          p_material_ids: materialIds,
+        })
+      : await supabase.rpc('create_booking', {
+          p_service_id: input.serviceId,
+          p_property_id: input.propertyId,
+          p_scheduled_start: scheduledDate.toISOString(),
+          p_problem_summary: input.problemSummary || undefined,
+          p_options: input.selectedOptions ?? {},
+        });
   const booking = rows?.[0];
 
   if (bookingError || !booking) {
     return createBookingFailure(bookingError);
-  }
-
-  // ── Record material preferences ─────────────────────────────────────────────
-  // A preference only (never a charge), so a failure here must not fail the booking;
-  // the inspector and the quotation settle materials anyway. Absent before migration 120.
-  if (input.materialIds && input.materialIds.length > 0) {
-    const { error: prefError } = await supabase.rpc('set_booking_material_preferences', {
-      p_booking_id: booking.booking_id,
-      p_material_ids: input.materialIds,
-    });
-    if (prefError) console.error('set_booking_material_preferences error:', prefError.message);
   }
 
   // ── Offer the job to the best-matching professional ─────────────────────────
@@ -101,6 +103,9 @@ function createBookingFailure(error: { code?: string; message: string } | null):
     case '22023':
       // A past start time (already checked above, so clock skew), a service with no price,
       // an option that is no longer offered, or an urgency that is switched off.
+      if (error.message.includes('material')) {
+        return fail('rejected', 'One of the materials you chose is no longer available. Please go back and choose again.');
+      }
       if (error.message.includes('option')) {
         return fail('rejected', 'One of the options you chose is no longer available. Please go back and choose again.');
       }

@@ -38,14 +38,48 @@ export const recordInspectionCostInput = z.object({
   note: z.string().trim().max(300, 'Note must be 300 characters or fewer').optional(),
 });
 
-export const confirmMaterialsInput = z.object({
-  visitId: uuid,
-  materialIds: z.array(uuid).max(20, 'Choose at most 20 materials'),
+export const confirmedMaterialItem = z.object({
+  materialId: uuid,
+  quantity: z.number().positive('Quantity must be more than 0').max(100000, 'Quantity is too high'),
+  sourcing: z.enum(['customer', 'feazy']),
+  note: z.string().trim().max(200, 'Note must be 200 characters or fewer').optional(),
 });
+
+export const confirmMaterialsInput = z
+  .object({
+    visitId: uuid,
+    items: z.array(confirmedMaterialItem).max(20, 'Choose at most 20 materials'),
+  })
+  .refine((v) => new Set(v.items.map((i) => i.materialId)).size === v.items.length, {
+    message: 'Each material can be listed once',
+    path: ['items'],
+  });
 
 export const setMaterialPriceInput = z.object({
   materialId: uuid,
   /** null clears the guide price, so customers see "confirmed in your quotation". */
   price: z.number().min(0, 'Price cannot be negative').max(10000000, 'Price is too high').nullable(),
   unit: z.string().trim().max(30, 'Unit must be 30 characters or fewer').optional(),
+});
+
+export const CATEGORY_AVAILABILITY = ['bookable', 'manual_assignment', 'coming_soon'] as const;
+export type CategoryAvailability = (typeof CATEGORY_AVAILABILITY)[number];
+
+export const setCategoryAvailabilityInput = z.object({
+  categoryId: uuid,
+  availability: z.enum(CATEGORY_AVAILABILITY, { message: 'Choose an availability' }),
+});
+
+export const upsertMaterialInput = z.object({
+  id: uuid.optional(),
+  name: z.string().trim().min(1, 'Enter a name').max(120, 'Name must be 120 characters or fewer'),
+  brand: z.string().trim().max(80, 'Brand must be 80 characters or fewer').optional(),
+  specification: z.string().trim().max(300, 'Specification must be 300 characters or fewer').optional(),
+  unit: z.string().trim().min(1, 'Enter a unit').max(30, 'Unit must be 30 characters or fewer'),
+  isActive: z.boolean(),
+});
+
+export const setMaterialServicesInput = z.object({
+  materialId: uuid,
+  serviceIds: z.array(uuid).max(200),
 });

@@ -26,6 +26,8 @@ import { RequestCardActions } from '@/components/professional/RequestCardActions
 import { JobInspectionAndQuote } from '@/components/professional/JobInspectionAndQuote';
 import { ArrivalWindowForm } from '@/components/professional/ArrivalWindowForm';
 import { JobMessages } from '@/components/messages/JobMessages';
+import { getBookingMaterials } from '@/lib/services/materials';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
 import { JobMediaUploader } from '@/components/professional/JobMediaUploader';
 
 export const metadata: Metadata = {
@@ -75,6 +77,7 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
   }
 
   const { job, booking, contact, property } = kase;
+  const materials = await getBookingMaterials(job.bookingId);
   // Only the stages that need a code ask for one: the start code on site, the finish code during the work.
   const codeState = job.state === 'arrived' || job.state === 'in_progress' ? await getJobCodeState(id) : null;
   const codeVerified = codeState?.status === 'used';
@@ -124,6 +127,7 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {kase.incomplete && <IncompleteNotice />}
+          <MaterialsPanel materials={materials} audience="professional" />
 
           {/* The one thing to do next. */}
           <Panel className="border-teal/30 p-5">

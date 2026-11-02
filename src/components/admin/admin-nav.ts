@@ -18,6 +18,7 @@ export const ADMIN_NAV: AdminNavSection[] = [
       { href: '/admin/operations', label: 'Operations', icon: 'operations' },
       { href: '/admin/exceptions', label: 'Exceptions', icon: 'operations' },
       { href: '/admin/inspections', label: 'Inspections', icon: 'verification' },
+      { href: '/admin/catalogue', label: 'Catalogue & materials', icon: 'jobs' },
     ],
   },
   { label: 'Jobs & Bookings', items: [{ href: '/admin/jobs', label: 'Jobs', icon: 'jobs' }] },

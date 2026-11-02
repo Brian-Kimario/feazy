@@ -2,6 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getMyVisit } from '@/lib/services/inspections';
 import { formatDateTime } from '@/lib/admin/format';
+import { getVisitMaterials } from '@/lib/services/materials';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
+import { ConfirmMaterialsForm } from '@/components/inspector/ConfirmMaterialsForm';
 import { InspectionReportForm } from '@/components/inspector/InspectionReportForm';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +19,7 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
   const item = await getMyVisit(user.id, id);
   if (!item) notFound();
   const { visit, site } = item;
+  const materials = await getVisitMaterials(visit.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-6 md:py-8">
@@ -39,6 +43,10 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
         </section>
       )}
 
+      {(visit.status !== 'scheduled' || materials.options.length === 0) && (
+        <div className="mt-6"><MaterialsPanel materials={materials} audience="inspector" /></div>
+      )}
+
       {visit.status === 'completed' ? (
         <section className="mt-6 rounded-xl border border-line bg-paper p-5 text-sm text-ink-2">
           <h2 className="mb-2 font-bold text-ink">Your report</h2>
@@ -47,7 +55,15 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
           {visit.recommendation && <p className="mt-2 whitespace-pre-wrap">Recommendation: {visit.recommendation}</p>}
         </section>
       ) : visit.status === 'scheduled' ? (
-        <InspectionReportForm visitId={visit.id} />
+        <>
+          <ConfirmMaterialsForm
+            visitId={visit.id}
+            options={materials.options}
+            preferenceIds={materials.preferences.map((p) => p.material_id)}
+            confirmed={materials.confirmed}
+          />
+          <InspectionReportForm visitId={visit.id} />
+        </>
       ) : (
         <p className="mt-6 rounded-xl border border-line bg-paper p-5 text-sm text-ink-3">
           This visit is {visit.status}. {visit.missed_reason ?? ''}

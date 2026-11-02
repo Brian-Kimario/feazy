@@ -407,7 +407,7 @@ export async function getCustomerCase(userId: string, bookingId: string): Promis
 /* ── Professional ─────────────────────────────────────────────────────────── */
 
 export interface ProfessionalCase extends CaseRecords {
-  job: { id: string; state: string; offerExpiresAt: string | null };
+  job: { id: string; state: string; offerExpiresAt: string | null; bookingId: string };
   booking: {
     reference: string | null;
     scheduledStart: string | null;
@@ -432,7 +432,7 @@ export async function getProfessionalCase(userId: string, jobId: string): Promis
   const { data, error } = await supabase
     .from('jobs')
     .select(
-      `${JOB_COLUMNS}, offer_expires_at,
+      `${JOB_COLUMNS}, offer_expires_at, booking_id,
        booking:bookings!jobs_booking_id_fkey (
          booking_reference, scheduled_start, scheduled_end, created_at, booking_status,
          problem_summary, intake_options, pricing_model, quoted_or_base_amount,
@@ -471,7 +471,7 @@ export async function getProfessionalCase(userId: string, jobId: string): Promis
 
   return {
     ...records,
-    job: { id: data.id, state: data.current_state, offerExpiresAt: data.offer_expires_at },
+    job: { id: data.id, state: data.current_state, offerExpiresAt: data.offer_expires_at, bookingId: data.booking_id },
     booking: {
       reference: booking?.booking_reference ?? null,
       scheduledStart: booking?.scheduled_start ?? null,

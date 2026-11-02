@@ -16,6 +16,9 @@ import {
   completeInspectionInput,
   confirmMaterialsInput,
   setMaterialPriceInput,
+  setCategoryAvailabilityInput,
+  upsertMaterialInput,
+  setMaterialServicesInput,
   markMissedInput,
   recordInspectionCostInput,
   registerInspectorInput,
@@ -139,7 +142,12 @@ export async function confirmInspectionMaterials(input: unknown): Promise<Inspec
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('inspector_confirm_materials', {
     p_visit_id: parsed.data.visitId,
-    p_material_ids: parsed.data.materialIds,
+    p_items: parsed.data.items.map((i) => ({
+      material_id: i.materialId,
+      quantity: i.quantity,
+      sourcing: i.sourcing,
+      note: i.note ?? '',
+    })),
   });
   if (error) return { ok: false, error: mapInspectionError(error) };
   const failure = rpcFailureMessage(data);
@@ -166,6 +174,78 @@ export async function adminSetMaterialPrice(input: unknown): Promise<AdminResult
       const failure = rpcFailureMessage(data);
       if (failure) return adminFailure('FAILED', failure);
       refresh();
+      return { ok: true, data: null };
+    },
+  });
+}
+
+export async function adminSetCategoryAvailability(input: unknown): Promise<AdminResult<null>> {
+  return runAdminAction({
+    name: 'admin.category.set_availability',
+    schema: setCategoryAvailabilityInput,
+    input,
+    targetType: 'service_category',
+    targetId: (i) => i.categoryId,
+    execute: async ({ input: i }) => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_set_category_availability', {
+        p_category_id: i.categoryId,
+        p_availability: i.availability,
+      });
+      if (error) return adminFailure('FAILED', mapInspectionError(error));
+      const failure = rpcFailureMessage(data);
+      if (failure) return adminFailure('FAILED', failure);
+      revalidatePath('/admin/catalogue');
+      revalidatePath('/customer/bookings/new');
+      return { ok: true, data: null };
+    },
+  });
+}
+
+export async function adminUpsertMaterial(input: unknown): Promise<AdminResult<null>> {
+  return runAdminAction({
+    name: 'admin.material.upsert',
+    schema: upsertMaterialInput,
+    input,
+    targetType: 'material',
+    targetId: (i) => i.id ?? 'new',
+    execute: async ({ input: i }) => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_upsert_material', {
+        p_id: i.id as string,
+        p_name: i.name,
+        p_brand: i.brand ?? '',
+        p_specification: i.specification ?? '',
+        p_unit: i.unit,
+        p_is_active: i.isActive,
+      });
+      if (error) return adminFailure('FAILED', mapInspectionError(error));
+      const failure = rpcFailureMessage(data);
+      if (failure) return adminFailure('FAILED', failure);
+      revalidatePath('/admin/catalogue');
+      return { ok: true, data: null };
+    },
+  });
+}
+
+export async function adminSetMaterialServices(input: unknown): Promise<AdminResult<null>> {
+  return runAdminAction({
+    name: 'admin.material.set_services',
+    schema: setMaterialServicesInput,
+    input,
+    targetType: 'material',
+    targetId: (i) => i.materialId,
+    execute: async ({ input: i }) => {
+      const supabase = await createClient();
+      const { data, error } = await supabase.rpc('admin_set_material_services', {
+        p_material_id: i.materialId,
+        p_service_ids: i.serviceIds,
+      });
+      if (error) return adminFailure('FAILED', mapInspectionError(error));
+      const failure = rpcFailureMessage(data);
+      if (failure) return adminFailure('FAILED', failure);
+      revalidatePath('/admin/catalogue');
+      revalidatePath('/customer/bookings/new');
       return { ok: true, data: null };
     },
   });

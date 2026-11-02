@@ -57,10 +57,33 @@ Final tagline and sign-in copy; free-inspection policy; the 12-category list and
 - Homepage: "Coming soon" line for inactive categories; booking flow excludes them.
 - Server actions and Zod schemas for inspector material confirmation and admin material pricing, with tests.
 
-## Not built yet (follow-ups)
-- Inspector UI for confirming materials, and showing preferences/confirmed materials to inspector and professional (the RPCs and actions exist).
-- Admin UI for material prices and category `availability`, and a coverage view (categories with zero verified professionals).
-- Applying 119/120, seeding materials, and visual QA in a browser.
+## Round 3: build completed (local only)
+Founder defaults accepted: 12-category catalogue (4 new stay Coming Soon until coverage is verified), free inspection never weakened, FEAZY bears recorded actual costs, materials are preferences until an approved quotation.
+
+- **Atomic booking + preferences:** `create_booking_with_materials` (120) saves the booking and its material preferences in one transaction; a bad material rolls the booking back. Without materials the app uses plain `create_booking`, so pre-120 databases keep working. Replace-all RPCs make retries idempotent.
+- **Inspector:** `/inspector/visits/[id]` shows preferences, lets the assigned inspector confirm materials (quantity, who arranges, note) while the visit is open, then submit findings. Confirmed materials reach the customer and professional only after the visit completes. They inform the quotation; they never replace its approval.
+- **Customer / professional:** `MaterialsPanel` shows preferences vs confirmed (with sourcing) and a "guide, not a price" note.
+- **Admin:** `/admin/catalogue`: category availability, verified-professional count per category with a warning for bookable categories with none, material create/edit, guide prices, active flag, service links.
+- **RPCs added to 120:** `admin_set_category_availability`, `admin_upsert_material`, `admin_set_material_services`, `get_booking_materials`, `get_visit_materials`, `create_booking_with_materials`; `inspector_confirm_materials` now takes items with quantity/sourcing/note. Rollback script drops all of them.
+
+## Verification
+- Vitest 564 passing; `pnpm tsc --noEmit` clean for `src`.
+- Local throwaway Postgres (not Supabase): 119 journey (book, gate, assign, missed, complete, cost, metrics, no-repair path) and 120 materials journey: admin catalogue RPCs, customer blocked from admin RPCs, atomic booking, rollback on bad material, idempotent re-save, confirm/replace, invalid material and zero quantity refused, other inspector and unrelated customer denied, confirmed hidden until completion, confirm refused after completion, cancelled visit cannot complete, duplicate completion creates no second job.
+- Browser: homepage (desktop + 375px, no horizontal overflow, new headline), customer sign-in copy, auth redirects for gated routes.
+- **Not verified in a browser:** authenticated pages (booking wizard materials, inspector, admin catalogue/inspections, professional job). They need a local Supabase auth stack; the shared project must not be mutated.
+
+## Migration readiness (119 then 120; 120 depends on 119)
+- Order: 119 → 120. Both are additive; 120 only adds columns/tables/functions and four `coming_soon` categories.
+- RLS: new tables have policies in the same migration; writes go through SECURITY DEFINER RPCs with role checks; internal helper revoked.
+- Compatibility: app tolerates both unapplied (materials read as empty, plain `create_booking`, `availability` absent treated as bookable). Fee/gate flags stay off.
+- Rollback: scripts in `supabase/rollbacks/`. After data exists, dropping tables loses inspections/materials; take a backup first.
+- Coverage (read-only live check): verified professionals Electrical 2, Plumbing 1, every other category 0. Keep such categories Coming Soon or manual assignment before launch.
+- No notifications are triggered by either migration.
+
+## Remaining
+- Apply 119/120 to staging (authorization needed), seed materials and a real inspector, then browser QA of authenticated screens.
+- Onboard verified professionals for categories with zero coverage.
+- Optional: unit tests for the new admin validators.
 
 ## Open decisions
-Final 12-category list; free inspection scope and city limits; per-visit cost budget; who supplies materials; final tagline.
+City limits for free inspection; whether fixed-price services skip inspection.

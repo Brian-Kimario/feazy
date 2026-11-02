@@ -539,9 +539,9 @@ export type Database = {
         ]
       }
       inspection_visit_materials: {
-        Row: { created_at: string; material_id: string; visit_id: string }
-        Insert: { created_at?: string; material_id: string; visit_id: string }
-        Update: { created_at?: string; material_id?: string; visit_id?: string }
+        Row: { created_at: string; material_id: string; note: string | null; quantity: number; sourcing: string; visit_id: string }
+        Insert: { created_at?: string; material_id: string; note?: string | null; quantity?: number; sourcing?: string; visit_id: string }
+        Update: { created_at?: string; material_id?: string; note?: string | null; quantity?: number; sourcing?: string; visit_id?: string }
         Relationships: [
           {
             foreignKeyName: "inspection_visit_materials_material_id_fkey"
@@ -2942,8 +2942,39 @@ export type Database = {
         Returns: Json
       }
       inspector_confirm_materials: {
-        Args: { p_material_ids: string[]; p_visit_id: string }
+        Args: { p_items: Json; p_visit_id: string }
         Returns: Json
+      }
+      admin_set_category_availability: {
+        Args: { p_availability: string; p_category_id: string }
+        Returns: Json
+      }
+      admin_upsert_material: {
+        Args: { p_brand: string; p_id: string; p_is_active: boolean; p_name: string; p_specification: string; p_unit: string }
+        Returns: Json
+      }
+      admin_set_material_services: {
+        Args: { p_material_id: string; p_service_ids: string[] }
+        Returns: Json
+      }
+      get_booking_materials: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
+      get_visit_materials: {
+        Args: { p_visit_id: string }
+        Returns: Json
+      }
+      create_booking_with_materials: {
+        Args: {
+          p_material_ids: string[]
+          p_options: Json
+          p_problem_summary: string
+          p_property_id: string
+          p_scheduled_start: string
+          p_service_id: string
+        }
+        Returns: { booking_id: string; booking_reference: string }[]
       }
       admin_set_material_price: {
         Args: { p_material_id: string; p_price: number; p_unit?: string }

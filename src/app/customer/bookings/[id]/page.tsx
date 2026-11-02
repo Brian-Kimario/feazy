@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, CircleCheck, Clock, PartyPopper, SearchX } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getBookingInspection } from '@/lib/services/inspections';
+import { getBookingMaterials } from '@/lib/services/materials';
+import { MaterialsPanel } from '@/components/materials/MaterialsPanel';
 import { InspectionCard } from '@/components/customer/InspectionCard';
 import { getCustomerCase } from '@/lib/services/job-case';
 import { getCancellationReviewStatus, getJobCodeState, getNoShowReportedAt } from '@/lib/services/job-codes';
@@ -76,6 +78,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
     ? await getCancellationReviewStatus(job.id)
     : null;
   const bookingInspection = await getBookingInspection(booking.id);
+  const materials = await getBookingMaterials(booking.id);
   const cancel = cancelOffer(booking.status, jobState);
   const isOpen = booking.status !== 'cancelled' && booking.status !== 'completed';
   // The matcher only offers bookings whose start is still ahead, so don't promise matching after it.
@@ -138,6 +141,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {bookingInspection && <InspectionCard inspection={bookingInspection} />}
+          <MaterialsPanel materials={materials} audience="customer" />
           {kase.incomplete && <IncompleteNotice />}
 
           {/* What needs the customer now: a quote, a payment, or a new time. */}
