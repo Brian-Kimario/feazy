@@ -54,7 +54,7 @@ export function ArrivalWindowForm({
         {heading}
       </p>
       <p className="mt-0.5 text-xs text-ink-3">
-        {runningLate ? 'Pick a new arrival window. ' : ''}The customer sees this as your estimate. Feasy does not
+        {runningLate ? 'Pick a new arrival window. ' : ''}The customer sees this as your estimate. Feazy does not
         track your location.
       </p>
       <div role="radiogroup" aria-labelledby={groupId} className="mt-3 flex flex-wrap gap-2">

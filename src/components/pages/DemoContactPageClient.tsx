@@ -24,7 +24,7 @@ export function DemoContactPageClient() {
         <div className="container max-w-4xl mx-auto px-4 py-12 sm:py-16">
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">Request a Demo</h1>
           <p className="text-muted-foreground text-lg">
-            See Feasy in action. Submit your demo request and our team will get back to you as soon as possible.
+            See Feazy in action. Submit your demo request and our team will get back to you as soon as possible.
           </p>
         </div>
       </div>

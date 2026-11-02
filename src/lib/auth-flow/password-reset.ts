@@ -17,7 +17,7 @@ export function classifyResetError(error: { status?: number; code?: string; mess
 
 export const RESET_FAILURE_COPY: Record<ResetFailure, string> = {
   rate_limited: 'Too many reset emails were requested. Wait a few minutes and try again.',
-  network: 'We could not reach Feasy. Check your connection and try again.',
+  network: 'We could not reach Feazy. Check your connection and try again.',
   unknown: 'We could not send the reset link right now. Please try again.',
 };
 

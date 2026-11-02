@@ -1,5 +1,5 @@
 /**
- * Whether the booking page offers "Cancel booking", and whether that cancels at once or asks Fixify to review.
+ * Whether the booking page offers "Cancel booking", and whether that cancels at once or asks Feazy to review.
  * Mirrors customer_cancel_booking(), which stays the authority: from arrival onward it opens a review request
  * instead of cancelling, and it refuses finished work and a stale state. This only decides what to show.
  */

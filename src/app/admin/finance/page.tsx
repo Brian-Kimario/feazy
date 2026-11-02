@@ -3,7 +3,7 @@ import { listPayments } from '@/lib/services/admin-payments';
 import { paymentDirectoryInput, PAYMENT_STATUSES, inr } from '@/lib/admin/finance-directory';
 import { isAdminFailure } from '@/lib/admin/result';
 
-export const metadata = { title: 'Finance — Feasy Admin' };
+export const metadata = { title: 'Finance — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');

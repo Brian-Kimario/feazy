@@ -4,7 +4,7 @@ import { isAdminFailure } from '@/lib/admin/result';
 import { formatDateTime } from '@/lib/admin/format';
 import { ASSIGNMENTS, ASSIGNMENT_LABELS, LIFECYCLES, LIFECYCLE_LABELS, directoryInput, type Lifecycle } from '@/lib/admin/booking-directory';
 
-export const metadata = { title: 'Jobs & Bookings — Feasy Admin' };
+export const metadata = { title: 'Jobs & Bookings — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const TONE: Record<Lifecycle, string> = {

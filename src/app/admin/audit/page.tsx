@@ -3,7 +3,7 @@ import { listAuditLog } from '@/lib/services/admin-audit';
 import { auditInput, describeAction, AUDIT_SCOPES, AUDIT_SCOPE_LABELS, AUDIT_OUTCOMES, AUDIT_AREAS } from '@/lib/admin/audit-directory';
 import { isAdminFailure } from '@/lib/admin/result';
 
-export const metadata = { title: 'Activity & audit — Feasy Admin' };
+export const metadata = { title: 'Activity & audit — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });

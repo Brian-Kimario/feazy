@@ -5,7 +5,7 @@ import { getUnverifiedProfessionals } from '@/lib/services/verification-queue';
 import { getAllProfessionals } from '@/lib/services/admin-reads';
 
 export const metadata = {
-  title: 'Professional Verification — Feasy Admin',
+  title: 'Professional Verification — Feazy Admin',
 };
 
 // Revalidate every 60 s so the list stays reasonably fresh without SSE

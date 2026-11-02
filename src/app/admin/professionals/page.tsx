@@ -3,7 +3,7 @@ import { listProfessionals } from '@/lib/services/admin-professional-directory';
 import { PRO_STATUSES, PRO_STATUS_LABELS, professionalDirectoryInput } from '@/lib/admin/professional-directory';
 import { isAdminFailure } from '@/lib/admin/result';
 
-export const metadata = { title: 'Professionals — Feasy Admin' };
+export const metadata = { title: 'Professionals — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

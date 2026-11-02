@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Symbol } from '@/components/brand/Symbol';
+import { TAGLINES } from '@/lib/brand';
 
 export type AuthAudience = 'customer' | 'professional';
 
@@ -11,13 +12,13 @@ export const AUDIENCE_PANEL: Record<
 > = {
   customer: {
     kicker: 'For customers',
-    heading: 'Your home, looked after and written down.',
-    points: ['Track every job from request to payment', 'Approve itemised quotes before work starts', 'Keep invoices and warranties on file'],
+    heading: TAGLINES.customerSignIn,
+    points: ['Track every job from booking to completion', 'Approve itemised quotes before work starts', 'Keep invoices and warranties on file'],
     foot: 'Quoted in rupees. Paid by UPI. Kept on record.',
   },
   professional: {
     kicker: 'For professionals',
-    heading: 'Your jobs, quotes and earnings in one place.',
+    heading: TAGLINES.professionalSignIn,
     points: ['See new requests near you', 'Send itemised quotes from your phone', 'Get paid by UPI when the job is done'],
     foot: 'Professionals are verified before they can accept jobs.',
   },
@@ -71,7 +72,7 @@ export function AuthShell({
         />
         <Link href="/" className="relative inline-flex w-fit items-center gap-2.5 font-editorial text-[26px] tracking-[-0.02em]">
           <Symbol size="md" className={`size-[30px] ${accent}`} />
-          Feasy
+          Feazy
         </Link>
         <div className="relative max-w-[30rem]">
           <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${accent}`}>{panel.kicker}</p>
@@ -95,7 +96,7 @@ export function AuthShell({
         <div className={`flex items-center justify-between px-5 py-4 sm:px-10 lg:hidden ${isPro ? 'bg-ink text-porcelain' : 'bg-teal-wash text-ink'}`}>
           <Link href="/" className="inline-flex items-center gap-2 font-editorial text-[22px] tracking-[-0.02em]">
             <Symbol size="md" className={`size-[26px] ${accent}`} />
-            Feasy
+            Feazy
           </Link>
           <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${isPro ? 'bg-porcelain/10 text-[#7FC4B1]' : 'bg-teal/10 text-teal-deep'}`}>
             {panel.kicker}

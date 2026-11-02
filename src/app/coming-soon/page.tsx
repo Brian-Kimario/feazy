@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { StatusPage, statusBtnGhost, statusBtnPrimary } from '@/components/marketing/status-page';
 
 export const metadata: Metadata = {
-  title: 'Coming soon | Feasy',
+  title: 'Coming soon | Feazy',
   robots: { index: false, follow: false },
 };
 
@@ -23,7 +23,7 @@ export default async function ComingSoonPage({ searchParams }: { searchParams: P
         </>
       }
     >
-      <p>We’re still building this part of Feasy. Booking a repair and applying as a professional both work today.</p>
+      <p>We’re still building this part of Feazy. Booking a repair and applying as a professional both work today.</p>
     </StatusPage>
   );
 }

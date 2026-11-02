@@ -158,7 +158,7 @@ export async function getCompletedBookings(): Promise<BookingWithDetails[]> {
 
 /** What a successful customer cancellation tells the caller. */
 export interface CancelBookingOutcome {
-  /** `cancelled`: done. `review_requested`: from arrival onward Fixify reviews it and nothing changed yet. */
+  /** `cancelled`: done. `review_requested`: from arrival onward Feazy reviews it and nothing changed yet. */
   outcome: 'cancelled' | 'review_requested'
   bookingId: string
   jobId: string | null

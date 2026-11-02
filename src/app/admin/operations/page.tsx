@@ -9,7 +9,7 @@ import { AssignmentQueueBanner } from '@/components/admin/AssignmentQueueBanner'
 import { formatDateTime } from '@/lib/admin/format';
 
 export const metadata = {
-  title: 'Operations — Feasy Admin',
+  title: 'Operations — Feazy Admin',
 };
 
 export const dynamic = 'force-dynamic';

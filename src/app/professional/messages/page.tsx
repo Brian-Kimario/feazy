@@ -4,7 +4,7 @@ import { getMessageInbox } from '@/lib/services/messages';
 import { PageContainer, PageHeader } from '@/components/shell/primitives';
 import { MessageInbox } from '@/components/messages/MessageInbox';
 
-export const metadata = { title: 'Messages — Feasy' };
+export const metadata = { title: 'Messages — Feazy' };
 
 export default async function MessagesPage() {
   const supabase = await createClient();

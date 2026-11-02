@@ -10,8 +10,8 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
-  title: 'Admin Console — Feasy',
-  description: 'Feasy operations and admin panel',
+  title: 'Admin Console — Feazy',
+  description: 'Feazy operations and admin panel',
 };
 
 interface AdminLayoutProps {

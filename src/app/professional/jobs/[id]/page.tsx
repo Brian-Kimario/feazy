@@ -29,7 +29,7 @@ import { JobMessages } from '@/components/messages/JobMessages';
 import { JobMediaUploader } from '@/components/professional/JobMediaUploader';
 
 export const metadata: Metadata = {
-  title: 'Job — Feasy Professional',
+  title: 'Job — Feazy Professional',
 };
 
 /** States where the professional can move the job forward with StateTransitionButtons. */

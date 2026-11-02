@@ -61,7 +61,7 @@ const DEFAULT_ACTIVITIES: ActivityItem[] = [
     id: 'act-4',
     type: 'invoice_ready',
     title: 'Invoice generated & receipt stored',
-    description: 'Payment processed for ₹145.00 with 12-month Feasy Warranty.',
+    description: 'Payment processed for ₹145.00 with 12-month Feazy Warranty.',
     timestamp: '3 days ago',
     reference: 'INV-9021',
     link: '/customer/bookings',

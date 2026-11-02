@@ -3,7 +3,7 @@ import { Mail, ArrowRight } from 'lucide-react';
 import { Symbol } from '@/components/brand/Symbol';
 
 export const metadata = {
-  title: 'Check your email — Feasy',
+  title: 'Check your email — Feazy',
 };
 
 export default function VerifyEmailPage() {
@@ -18,7 +18,7 @@ export default function VerifyEmailPage() {
       <div className="relative z-10 flex justify-center pt-8">
         <Link href="/" className="flex items-center gap-2 group">
           <Symbol size="md" className="h-8 w-8 transition-transform group-hover:scale-105" />
-          <span className="font-bold text-[#f4f5f3] text-lg tracking-tight">Feasy</span>
+          <span className="font-bold text-[#f4f5f3] text-lg tracking-tight">Feazy</span>
         </Link>
       </div>
 
@@ -44,7 +44,7 @@ export default function VerifyEmailPage() {
           <div className="bg-[#15171c] border border-[#262a31] rounded-2xl p-6 text-left space-y-3">
             <p className="text-[#f4f5f3] text-sm font-semibold">What happens next:</p>
             {[
-              'Open the email from Feasy',
+              'Open the email from Feazy',
               'Click the "Confirm account" link',
               'You\'ll be redirected to your dashboard',
             ].map((step, i) => (

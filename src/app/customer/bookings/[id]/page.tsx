@@ -31,7 +31,7 @@ import { cancelOffer, expectedCancelState } from '@/lib/bookings/cancel-rules';
 import { UPIIntentCheckout } from '@/components/customer/UPIIntentCheckout';
 
 export const metadata: Metadata = {
-  title: 'Booking — Feasy',
+  title: 'Booking — Feazy',
 };
 
 /** bookings.pricing_model, copied from the service at booking time. */
@@ -247,7 +247,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
                     </>
                   )}
                   <p className="mt-1 text-xs text-ink-3">
-                    This is the professional&apos;s own estimate. Feasy does not track live location.
+                    This is the professional&apos;s own estimate. Feazy does not track live location.
                   </p>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
               <p className="font-semibold text-ink">This booking is cancelled</p>
               {kase.paidAt && (
                 <p className="mt-1 text-ink-2">
-                  You paid for this booking. Cancelling does not refund it automatically. Feasy support reviews it and
+                  You paid for this booking. Cancelling does not refund it automatically. Feazy support reviews it and
                   will contact you.
                 </p>
               )}
@@ -285,12 +285,12 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
           {cancelReview?.status === 'open' ? (
             <Panel className="p-5 text-sm">
               <p className="font-semibold text-ink">Cancellation under review</p>
-              <p className="mt-1 text-ink-2">Fixify will contact you. Your booking stays active until then.</p>
+              <p className="mt-1 text-ink-2">Feazy will contact you. Your booking stays active until then.</p>
             </Panel>
           ) : cancelReview ? (
             <Panel className="p-5 text-sm">
               <p className="font-semibold text-ink">Cancellation request reviewed</p>
-              <p className="mt-1 text-ink-2">Please contact Feasy support if you need anything further.</p>
+              <p className="mt-1 text-ink-2">Please contact Feazy support if you need anything further.</p>
             </Panel>
           ) : (
             cancel !== 'none' && (

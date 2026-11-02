@@ -7,7 +7,7 @@ import { EmptyState, PageContainer, PageHeader } from '@/components/shell/primit
 import { RequestCard } from '@/components/professional/RequestCard';
 
 export const metadata = {
-  title: 'Requests — Feasy',
+  title: 'Requests — Feazy',
 };
 
 export default async function RequestsPage() {

@@ -24,7 +24,7 @@ export function StatusPage({ kicker, title, children, actions, detail }: StatusP
       <header className="mx-auto flex h-[76px] w-full max-w-[1240px] items-center">
         <Link href="/" className="inline-flex items-center gap-2.5">
           <Symbol size="md" className="size-[30px] text-teal" />
-          <span className="font-editorial text-[24px] tracking-[-0.02em]">Feasy</span>
+          <span className="font-editorial text-[24px] tracking-[-0.02em]">Feazy</span>
         </Link>
       </header>
       <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col justify-center pb-24">

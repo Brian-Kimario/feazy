@@ -93,6 +93,16 @@ interface BookingWizardProps {
 // the customer approves or declines it, and payment uses the newest approved quote, else the
 // booked amount.
 
+const MATERIALS_MAX = 200;
+
+/** Customer material requests travel with the problem text; they never affect price or the quote. */
+function composeSummary(problem: string, materials: string): string | undefined {
+  const m = materials.trim();
+  const suffix = m ? `Materials requested: ${m}` : '';
+  const p = problem.trim().slice(0, 1000 - (suffix ? suffix.length + 2 : 0));
+  return [p, suffix].filter(Boolean).join('\n\n') || undefined;
+}
+
 interface PriceInfo {
   /** The amount create_booking will store, or null when it stores none. */
   amount: number | null;
@@ -254,6 +264,7 @@ export function BookingWizard({
   const [selectedService, setSelectedService] = useState<WizardService | null>(initialService);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [problemSummary, setProblemSummary] = useState<string>(initialProblemNotes ?? '');
+  const [materialsNote, setMaterialsNote] = useState<string>('');
   const [scheduledStart, setScheduledStart] = useState<string>('');
   const [minStart, setMinStart] = useState<string | undefined>(undefined);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(() => {
@@ -322,7 +333,7 @@ export function BookingWizard({
         propertyId: selectedPropertyId,
         scheduledStart: new Date(scheduledStart).toISOString(),
         selectedOptions,
-        problemSummary: problemSummary.trim() || undefined,
+        problemSummary: composeSummary(problemSummary, materialsNote),
       });
       if (result.success === false) {
         setError(result.error);
@@ -508,6 +519,28 @@ export function BookingWizard({
         </p>
       </div>
 
+      <div className="mt-6">
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor="materials_note" className="text-sm font-medium text-ink-2">
+            Materials or parts you’d like used <span className="font-normal text-ink-4">(optional)</span>
+          </label>
+          <span className="text-xs tabular-nums text-ink-4">{materialsNote.length}/{MATERIALS_MAX}</span>
+        </div>
+        <textarea
+          id="materials_note"
+          value={materialsNote}
+          onChange={(e) => setMaterialsNote(e.target.value)}
+          rows={2}
+          maxLength={MATERIALS_MAX}
+          aria-describedby="materials_note_hint"
+          placeholder="E.g. a specific tap brand, or parts you already have."
+          className={`${inputClass} mt-1.5 resize-y py-2.5`}
+        />
+        <p id="materials_note_hint" className="mt-1 text-xs text-ink-4">
+          Shared with the professional as a request. Materials and their prices are confirmed in the itemised quotation, which you approve before any work starts.
+        </p>
+      </div>
+
       {stepError && <InlineError message={stepError} />}
 
       <StepActions>
@@ -631,7 +664,7 @@ export function BookingWizard({
           <span className="font-semibold text-ink">{selectedService.name}</span>
           {serviceCategory && <span className="block text-sm text-ink-3">{serviceCategory.name}</span>}
         </ReviewRow>
-        {(chosenOptions.length > 0 || problemSummary.trim()) && (
+        {(chosenOptions.length > 0 || problemSummary.trim() || materialsNote.trim()) && (
           <ReviewRow label="Details" onEdit={() => go(1)}>
             {chosenOptions.map((o) => (
               <span key={o.name} className="block text-sm text-ink-2">
@@ -640,6 +673,11 @@ export function BookingWizard({
             ))}
             {problemSummary.trim() && (
               <span className="mt-1 block whitespace-pre-line break-words text-sm text-ink-2">{problemSummary.trim()}</span>
+            )}
+            {materialsNote.trim() && (
+              <span className="mt-1 block break-words text-sm text-ink-2">
+                Materials requested: <span className="font-medium text-ink">{materialsNote.trim()}</span>
+              </span>
             )}
           </ReviewRow>
         )}
@@ -661,7 +699,7 @@ export function BookingWizard({
       {error && <InlineError message={error} />}
 
       <p className="mt-6 text-xs text-ink-4">
-        By booking you agree to Feasy’s{' '}
+        By booking you agree to Feazy’s{' '}
         <Link href="/terms" className="underline underline-offset-2 hover:text-ink-2">
           terms
         </Link>

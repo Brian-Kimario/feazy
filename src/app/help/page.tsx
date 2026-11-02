@@ -7,15 +7,15 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fixify.vercel.app';
 const description = 'Answers for customers and professionals on bookings, quotes, codes, payment and safety.';
 
 export const metadata: Metadata = {
-  title: 'Help Centre | Feasy',
+  title: 'Help Centre | Feazy',
   description,
   alternates: { canonical: `${siteUrl}/help` },
   openGraph: {
-    title: 'Help Centre | Feasy',
+    title: 'Help Centre | Feazy',
     description,
     url: `${siteUrl}/help`,
     type: 'website',
-    images: [{ url: '/og-image-1200x630.png', width: 1200, height: 630, alt: 'Feasy help centre' }],
+    images: [{ url: '/og-image-1200x630.png', width: 1200, height: 630, alt: 'Feazy help centre' }],
   },
 };
 

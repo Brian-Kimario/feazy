@@ -1,7 +1,7 @@
 /**
  * src/lib/notifications/send.ts
  *
- * Main notification orchestrator for Feasy.
+ * Main notification orchestrator for Feazy.
  *
  * Strategy (India-optimised, per PHASE_10_NOTIFICATION_STRATEGY.md):
  *   1. Fetch customer preferences using service-role client (never trust caller-supplied prefs).

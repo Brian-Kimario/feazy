@@ -46,7 +46,7 @@ import {
 } from '@/components/shell/primitives';
 import { RequestCard } from '@/components/professional/RequestCard';
 
-export const metadata = { title: 'Today — Feasy' };
+export const metadata = { title: 'Today — Feazy' };
 
 const money = (amount: number) => formatCurrency(amount, { minimumFractionDigits: 0 });
 

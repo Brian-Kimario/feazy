@@ -35,9 +35,9 @@ export function HelpCenter() {
     <div className="min-h-screen bg-porcelain text-ink">
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex h-16 w-full max-w-3xl items-center justify-between px-4">
-          <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-editorial text-[20px]" aria-label="Feasy home">
+          <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-editorial text-[20px]" aria-label="Feazy home">
             <Symbol size="sm" />
-            Feasy
+            Feazy
           </Link>
           <Link
             href="/auth/login"

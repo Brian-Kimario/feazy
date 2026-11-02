@@ -4,7 +4,7 @@ import { Card, Button } from '@/components/ui';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'My Bids — Feasy Professional',
+  title: 'My Bids — Feazy Professional',
 };
 
 /** Shape returned by the DB query */

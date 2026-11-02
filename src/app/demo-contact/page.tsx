@@ -4,14 +4,14 @@ import { DemoContactPageClient } from '@/components/pages/DemoContactPageClient'
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fixify.vercel.app';
 
 export const metadata: Metadata = {
-  title: 'Demo Contact | Feasy',
-  description: 'Submit a demo request to see Feasy in action',
+  title: 'Demo Contact | Feazy',
+  description: 'Submit a demo request to see Feazy in action',
   alternates: {
     canonical: `${siteUrl}/demo-contact`,
   },
   openGraph: {
-    title: 'Demo Contact | Feasy',
-    description: 'Request a demo of the Feasy property maintenance platform',
+    title: 'Demo Contact | Feazy',
+    description: 'Request a demo of the Feazy property maintenance platform',
     url: `${siteUrl}/demo-contact`,
     type: 'website',
     images: [
@@ -19,14 +19,14 @@ export const metadata: Metadata = {
         url: '/og-image-1200x630.png',
         width: 1200,
         height: 630,
-        alt: 'Feasy demo',
+        alt: 'Feazy demo',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Demo Contact | Feasy',
-    description: 'Request a demo of the Feasy property maintenance platform',
+    title: 'Demo Contact | Feazy',
+    description: 'Request a demo of the Feazy property maintenance platform',
     images: ['/og-image-1200x630.png'],
   },
 };

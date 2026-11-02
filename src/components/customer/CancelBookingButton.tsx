@@ -22,7 +22,7 @@ export function CancelBookingButton({
   expectedState: string;
   /** A professional has been offered or accepted, so they will be told. */
   professionalAssigned: boolean;
-  /** From arrival onward the request goes to Fixify for review instead of cancelling at once. */
+  /** From arrival onward the request goes to Feazy for review instead of cancelling at once. */
   needsReview?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -37,7 +37,7 @@ export function CancelBookingButton({
       <div role="status" className="rounded-2xl border border-line bg-paper p-5 text-sm">
         <p className="font-semibold text-ink">Cancellation under review</p>
         <p className="mt-1 text-ink-2">
-          The work has already begun, so Fixify will review your request and contact you. Your booking stays active
+          The work has already begun, so Feazy will review your request and contact you. Your booking stays active
           until then.
         </p>
       </div>
@@ -50,7 +50,7 @@ export function CancelBookingButton({
         <p className="font-semibold text-ink">Booking cancelled</p>
         {done.paymentReviewRequired && (
           <p className="mt-1 text-ink-2">
-            You have already paid for this booking. Cancelling does not refund it automatically. Feasy support will
+            You have already paid for this booking. Cancelling does not refund it automatically. Feazy support will
             review it and contact you.
           </p>
         )}
@@ -83,7 +83,7 @@ export function CancelBookingButton({
         <>
           <p className="mt-1 text-ink-2">
             {needsReview
-              ? 'The work has begun, so Fixify reviews cancellation requests.'
+              ? 'The work has begun, so Feazy reviews cancellation requests.'
               : 'You can cancel until your professional arrives.'}
           </p>
           <button

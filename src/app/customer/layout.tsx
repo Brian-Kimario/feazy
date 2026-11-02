@@ -16,7 +16,7 @@ import type { NavItem } from '@/components/shell/nav';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
-  title: 'Dashboard — Feasy',
+  title: 'Dashboard — Feazy',
   description: 'Book repairs, track professionals and manage your properties',
 };
 

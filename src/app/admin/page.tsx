@@ -12,7 +12,7 @@ import { AssignmentQueueBanner } from '@/components/admin/AssignmentQueueBanner'
 import { SkeletonDashboard } from '@/components/ui/SkeletonDashboard';
 
 export const metadata = {
-  title: 'Command Center — Feasy Admin',
+  title: 'Command Center — Feazy Admin',
 };
 
 // Operational figures must not be served stale.

@@ -11,7 +11,7 @@
  * The HTML templates in this file include:
  *  - A footer with unsubscribe link (placeholder — wire to actual preference URL).
  *  - A link to the privacy policy.
- *  - The Feasy company address (required by anti-spam laws).
+ *  - The Feazy company address (required by anti-spam laws).
  *
  * Required env vars (server-only):
  *   SENDGRID_API_KEY  — SendGrid API key with "Mail Send" permission
@@ -71,7 +71,7 @@ export async function sendEmail(
             to: [{ email: payload.to }],
           },
         ],
-        from: { email: fromEmail, name: "Feasy" },
+        from: { email: fromEmail, name: "Feazy" },
         subject: payload.subject,
         content: [
           { type: "text/plain", value: payload.text },
@@ -126,7 +126,7 @@ export function buildEmailHtml(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Feasy Notification</title>
+  <title>Feazy Notification</title>
   <style>
     body { margin: 0; padding: 0; font-family: Inter, Arial, sans-serif; background: #F4F5F3; color: #0A0B0D; }
     .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; }
@@ -142,7 +142,7 @@ export function buildEmailHtml(
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>Feasy</h1>
+      <h1>Feazy</h1>
     </div>
     <div class="body">
       <p class="greeting">Hi ${escapeHtml(customerName)},</p>
@@ -151,12 +151,12 @@ export function buildEmailHtml(
     <hr class="divider" />
     <div class="footer">
       <p>
-        Feasy | Bengaluru, Karnataka, India<br />
+        Feazy | Bengaluru, Karnataka, India<br />
         <a href="${unsubscribeUrl}">Manage notification preferences</a> &nbsp;·&nbsp;
         <a href="https://feasy.in/privacy">Privacy Policy</a>
       </p>
       <p>
-        You are receiving this because you have an active Feasy account.<br />
+        You are receiving this because you have an active Feazy account.<br />
         To stop receiving these emails, update your
         <a href="${unsubscribeUrl}">notification preferences</a>.
       </p>

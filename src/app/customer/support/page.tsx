@@ -32,7 +32,7 @@ export default function CustomerSupportPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-xs font-bold uppercase tracking-[0.11em] text-teal mb-2">Help</div>
           <h1 className="text-3xl md:text-4xl font-bold text-ink mb-2">How can we help?</h1>
-          <p className="text-ink-3 max-w-2xl">Answers to common questions about booking with Feasy.</p>
+          <p className="text-ink-3 max-w-2xl">Answers to common questions about booking with Feazy.</p>
         </div>
       </div>
 

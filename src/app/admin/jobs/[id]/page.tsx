@@ -9,7 +9,7 @@ import { listAssignableProfessionals } from '@/lib/services/admin-assignment-rea
 import { AssignmentPanel } from '@/components/admin/AssignmentPanel';
 
 export const metadata = {
-  title: 'Case — Feasy Admin',
+  title: 'Case — Feazy Admin',
 };
 
 export const dynamic = 'force-dynamic';

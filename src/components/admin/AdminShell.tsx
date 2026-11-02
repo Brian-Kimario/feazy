@@ -19,7 +19,7 @@ export function AdminShell({ actions, children }: { actions: ReactNode; children
             className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg pr-1 text-[17px] font-bold tracking-[-0.035em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             <Symbol size="sm" className="h-7 w-7" />
-            <span>Feasy</span>
+            <span>Feazy</span>
             <span className="ml-1 rounded-md bg-paper-2 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-ink-3">
               Admin
             </span>

@@ -27,7 +27,7 @@ import {
 import { EmptyState, JobProgress, LinkButton, PageContainer, StatusPill } from '@/components/shell/primitives';
 
 export const metadata = {
-  title: 'Bookings — Feasy',
+  title: 'Bookings — Feazy',
 };
 
 const searchParamsSchema = z.object({

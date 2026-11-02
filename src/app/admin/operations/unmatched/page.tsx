@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getAssignmentQueueStatus, getUnmatchedBookings } from '@/lib/services/admin-reads';
 
 export const metadata = {
-  title: 'Unmatched bookings — Feasy Admin',
+  title: 'Unmatched bookings — Feazy Admin',
 };
 
 function formatDateTime(iso: string): string {

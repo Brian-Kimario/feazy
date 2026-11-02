@@ -5,7 +5,7 @@ import { isAdminFailure } from '@/lib/admin/result';
 import { formatDateTime } from '@/lib/admin/format';
 import { inr } from '@/lib/admin/finance-directory';
 
-export const metadata = { title: 'Customer account — Feasy Admin' };
+export const metadata = { title: 'Customer account — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const words = (v: string | null | undefined) => (v ? v.replace(/_/g, ' ') : '—');

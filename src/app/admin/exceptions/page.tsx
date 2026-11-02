@@ -5,7 +5,7 @@ import { formatDateTime } from '@/lib/admin/format';
 import { ResolveExceptionForm } from '@/components/admin/ResolveExceptionForm';
 
 export const metadata = {
-  title: 'Exceptions — Feasy Admin',
+  title: 'Exceptions — Feazy Admin',
 };
 
 export const dynamic = 'force-dynamic';

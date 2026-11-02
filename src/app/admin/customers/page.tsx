@@ -3,7 +3,7 @@ import { listCustomers } from '@/lib/services/admin-customers';
 import { customerDirectoryInput } from '@/lib/admin/customer-directory';
 import { isAdminFailure } from '@/lib/admin/result';
 
-export const metadata = { title: 'Customers — Feasy Admin' };
+export const metadata = { title: 'Customers — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });

@@ -12,7 +12,7 @@ export const faqs: FAQ[] = [
   {
     id: 'faq-1',
     category: 'getting-started',
-    question: 'How do I get started with Feasy?',
+    question: 'How do I get started with Feazy?',
     answer:
       'Getting started is simple. Sign up with your email or Google account, create your profile with your property information, and describe the problem you need help with. Our AI will help classify the issue and suggest available professionals.',
   },
@@ -26,7 +26,7 @@ export const faqs: FAQ[] = [
   {
     id: 'faq-3',
     category: 'getting-started',
-    question: 'Can I manage multiple properties on Feasy?',
+    question: 'Can I manage multiple properties on Feazy?',
     answer:
       'Yes. You can add multiple properties to your account and manage them all in one place. When creating a service request, simply select which property needs the work.',
   },
@@ -40,9 +40,9 @@ export const faqs: FAQ[] = [
   {
     id: 'faq-5',
     category: 'getting-started',
-    question: 'Is Feasy available in my area?',
+    question: 'Is Feazy available in my area?',
     answer:
-      'Feasy is currently available in select cities. Enter your zip code on our homepage to check availability in your area. We are expanding regularly, so check back soon.',
+      'Feazy is currently available in select cities. Enter your zip code on our homepage to check availability in your area. We are expanding regularly, so check back soon.',
   },
 
   // Bookings
@@ -88,7 +88,7 @@ export const faqs: FAQ[] = [
     category: 'payments',
     question: 'How does pricing work?',
     answer:
-      'Feasy uses a transparent pricing model. The inspection is included with your booking. For repairs, the professional provides a quote after the inspection. You review and approve before any paid work begins.',
+      'Feazy uses a transparent pricing model. The inspection is included with your booking. For repairs, the professional provides a quote after the inspection. You review and approve before any paid work begins.',
   },
   {
     id: 'faq-12',
@@ -130,9 +130,9 @@ export const faqs: FAQ[] = [
   {
     id: 'faq-17',
     category: 'professional',
-    question: 'How are professionals verified on Feasy?',
+    question: 'How are professionals verified on Feazy?',
     answer:
-      'All professionals on Feasy undergo background checks, identity verification, and skill validation. We confirm licenses and insurance where required by local regulations.',
+      'All professionals on Feazy undergo background checks, identity verification, and skill validation. We confirm licenses and insurance where required by local regulations.',
   },
   {
     id: 'faq-18',

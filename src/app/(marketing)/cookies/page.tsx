@@ -3,19 +3,19 @@ import { Metadata } from 'next';
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://fixify.vercel.app";
 
 export const metadata: Metadata = {
-  title: 'Cookie Policy | Feasy',
-  description: 'Feasy cookie policy and session tracking',
+  title: 'Cookie Policy | Feazy',
+  description: 'Feazy cookie policy and session tracking',
   openGraph: {
-    title: 'Cookie Policy | Feasy',
-    description: 'Feasy Cookie Policy',
+    title: 'Cookie Policy | Feazy',
+    description: 'Feazy Cookie Policy',
     url: `${siteUrl}/cookies`,
     type: 'website',
     images: [{ url: "/og-image-1200x630.png", width: 1200, height: 630, alt: "Cookies" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: 'Cookie Policy | Feasy',
-    description: 'Feasy Cookie Policy',
+    title: 'Cookie Policy | Feazy',
+    description: 'Feazy Cookie Policy',
     images: ["/og-image-1200x630.png"],
   },
   alternates: {
@@ -50,7 +50,7 @@ export default function CookiePage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">1. Overview</h2>
             <p className="text-ink-3">
-              Feasy uses cookies and similar tracking technologies to provide essential functionality, 
+              Feazy uses cookies and similar tracking technologies to provide essential functionality, 
               maintain secure sessions, and protect against fraud. This policy describes how we use these technologies.
             </p>
           </section>
@@ -66,9 +66,9 @@ export default function CookiePage() {
 
           {/* Section 3 */}
           <section>
-            <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">3. Cookies Used by Feasy</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">3. Cookies Used by Feazy</h2>
             <p className="text-ink-3">
-              Feasy uses the following cookies and session technologies:
+              Feazy uses the following cookies and session technologies:
             </p>
 
             <div className="space-y-4">
@@ -79,7 +79,7 @@ export default function CookiePage() {
                   <p><strong>Purpose:</strong> Supabase authentication session token</p>
                   <p><strong>Type:</strong> Essential (authentication)</p>
                   <p><strong>Duration:</strong> Session (expires when you close your browser)</p>
-                  <p><strong>Description:</strong> Maintains your authenticated session with Feasy. Required to keep you logged in.</p>
+                  <p><strong>Description:</strong> Maintains your authenticated session with Feazy. Required to keep you logged in.</p>
                 </div>
               </div>
 
@@ -90,7 +90,7 @@ export default function CookiePage() {
                   <p><strong>Purpose:</strong> Supabase authentication refresh token</p>
                   <p><strong>Type:</strong> Essential (authentication)</p>
                   <p><strong>Duration:</strong> Persistent (expires after 30 days of inactivity)</p>
-                  <p><strong>Description:</strong> Allows Feasy to refresh your session automatically without requiring re-authentication.</p>
+                  <p><strong>Description:</strong> Allows Feazy to refresh your session automatically without requiring re-authentication.</p>
                 </div>
               </div>
 
@@ -101,7 +101,7 @@ export default function CookiePage() {
                   <p><strong>Purpose:</strong> Application session identifier</p>
                   <p><strong>Type:</strong> Essential (session management)</p>
                   <p><strong>Duration:</strong> Session (expires when you close your browser)</p>
-                  <p><strong>Description:</strong> Identifies your current session within the Feasy application.</p>
+                  <p><strong>Description:</strong> Identifies your current session within the Feazy application.</p>
                 </div>
               </div>
 
@@ -123,7 +123,7 @@ export default function CookiePage() {
                   <p><strong>Purpose:</strong> CSRF (Cross-Site Request Forgery) protection</p>
                   <p><strong>Type:</strong> Essential (security)</p>
                   <p><strong>Duration:</strong> Session (expires when you close your browser)</p>
-                  <p><strong>Description:</strong> Prevents unauthorized actions by validating that requests originate from Feasy, not malicious third-party sites.</p>
+                  <p><strong>Description:</strong> Prevents unauthorized actions by validating that requests originate from Feazy, not malicious third-party sites.</p>
                 </div>
               </div>
             </div>
@@ -133,7 +133,7 @@ export default function CookiePage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">4. What We Don't Use</h2>
             <p className="text-ink-3">
-              <strong>Feasy does NOT use:</strong>
+              <strong>Feazy does NOT use:</strong>
             </p>
             <ul className="list-disc list-inside text-ink-3 space-y-2">
               <li>Advertising cookies or marketing pixels</li>
@@ -157,7 +157,7 @@ export default function CookiePage() {
               <li>Set your browser to prompt before accepting cookies</li>
             </ul>
             <p className="text-ink-3 mt-4 text-amber-900 bg-amber-50 p-3 rounded border border-amber-200 text-sm">
-              <strong>Note:</strong> Blocking essential cookies may prevent Feasy from functioning properly. 
+              <strong>Note:</strong> Blocking essential cookies may prevent Feazy from functioning properly. 
               We recommend allowing essential cookies for authentication and security.
             </p>
           </section>
@@ -180,7 +180,7 @@ export default function CookiePage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">7. Third-Party Services</h2>
             <p className="text-ink-3">
-              Feasy integrates with the following third-party services that may use cookies:
+              Feazy integrates with the following third-party services that may use cookies:
             </p>
             <ul className="list-disc list-inside text-ink-3 space-y-2">
               <li><strong>Supabase:</strong> Authentication and database service. See <a href="https://supabase.com/privacy" className="text-teal underline">Supabase Privacy Policy</a></li>
@@ -195,7 +195,7 @@ export default function CookiePage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">8. Do Not Track</h2>
             <p className="text-ink-3">
-              Some browsers include a "Do Not Track" (DNT) feature. Feasy respects DNT signals and does not use behavioral tracking or profiling cookies.
+              Some browsers include a "Do Not Track" (DNT) feature. Feazy respects DNT signals and does not use behavioral tracking or profiling cookies.
             </p>
           </section>
 
@@ -203,7 +203,7 @@ export default function CookiePage() {
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">9. Changes to This Policy</h2>
             <p className="text-ink-3">
-              Feasy may update this cookie policy from time to time. The most current version will be posted to this page.
+              Feazy may update this cookie policy from time to time. The most current version will be posted to this page.
             </p>
           </section>
 

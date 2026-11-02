@@ -135,7 +135,7 @@ export function BidForm({ jobId, jobTitle, budget }: BidFormProps) {
 
         {/* Terms */}
         <p className="text-ink-3 text-xs text-center">
-          By submitting, you agree to Feasy's terms of service
+          By submitting, you agree to Feazy's terms of service
         </p>
       </form>
     </Card>

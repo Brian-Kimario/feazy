@@ -8,7 +8,7 @@ import { PageContainer } from '@/components/shell/primitives';
 import { EditProfessionalProfileForm } from './EditProfessionalProfileForm';
 
 export const metadata = {
-  title: 'Edit profile — Feasy Professional',
+  title: 'Edit profile — Feazy Professional',
 };
 
 export default async function EditProfessionalProfilePage() {

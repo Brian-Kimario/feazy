@@ -110,7 +110,7 @@ export function UPIIntentCheckout({ jobId, displayAmountRupees }: UPIIntentCheck
       order_id:    order.order_id,
       amount:      order.amount,
       currency:    order.currency,
-      name:        'Feasy',
+      name:        'Feazy',
       description: `Service payment — Job #${jobId.slice(0, 8)}`,
       prefill: {
         name:    order.customer_name,

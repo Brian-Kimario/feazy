@@ -12,7 +12,7 @@ import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import { PageContainer } from '@/components/shell/primitives';
 
 export const metadata = {
-  title: 'Book a Service — Feasy',
+  title: 'Book a Service — Feazy',
 };
 
 interface NewBookingPageProps {

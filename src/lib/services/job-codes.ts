@@ -65,7 +65,7 @@ export async function getNoShowReportedAt(jobId: string): Promise<{ reportedAt: 
   return data ? { reportedAt: data.reported_at, status: data.status } : null;
 }
 
-/** The customer's cancellation request for a job, if any. `open` means it is under review by Fixify. */
+/** The customer's cancellation request for a job, if any. `open` means it is under review by Feazy. */
 export async function getCancellationReviewStatus(jobId: string): Promise<{ status: string } | null> {
   const supabase = await createClient();
   const { data, error } = await supabase

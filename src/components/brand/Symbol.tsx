@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 /**
- * Feasy Logo Symbol
+ * Feazy Logo Symbol
  * Enlarged, transparent puzzle piece mark that adapts seamlessly to any background.
  */
 interface SymbolProps {
@@ -23,7 +23,7 @@ export function Symbol({ size = "md", className = "", priority = true }: SymbolP
   return (
     <Image
       src="/brand/feasy-logo.svg"
-      alt="Feasy"
+      alt="Feazy"
       aria-hidden="true"
       width={dimension}
       height={dimension}

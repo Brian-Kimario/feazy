@@ -44,7 +44,7 @@ export function RoleShell({
             className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg pr-1 text-[17px] font-bold tracking-[-0.035em] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal"
           >
             <Symbol size="sm" className="h-7 w-7" />
-            <span>Feasy</span>
+            <span>Feazy</span>
           </Link>
 
           <div className="ml-2 hidden md:block">

@@ -2,7 +2,7 @@ import { getCurrentProfile, getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Profile - Feasy',
+  title: 'Profile - Feazy',
 };
 
 export default async function ProfilePage() {

@@ -7,7 +7,7 @@ import { ProfessionalStatusActions } from '@/components/admin/ProfessionalStatus
 import { RetryRecoveryButton } from '@/components/admin/RetryRecoveryButton';
 
 export const metadata = {
-  title: 'Professional account — Feasy Admin',
+  title: 'Professional account — Feazy Admin',
 };
 
 export const dynamic = 'force-dynamic';

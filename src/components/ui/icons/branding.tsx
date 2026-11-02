@@ -15,7 +15,7 @@ export function Arrow() {
 }
 
 /**
- * BrandMark - Feasy logo mark/icon
+ * BrandMark - Feazy logo mark/icon
  * House icon in teal color
  * Used in header and footer
  */

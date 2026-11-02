@@ -1,7 +1,7 @@
 import { getCommunications } from '@/lib/services/admin-communications';
 import { isAdminFailure } from '@/lib/admin/result';
 
-export const metadata = { title: 'Communications — Feasy Admin' };
+export const metadata = { title: 'Communications — Feazy Admin' };
 export const dynamic = 'force-dynamic';
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

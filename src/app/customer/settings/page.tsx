@@ -3,7 +3,7 @@ import { SettingToggleClient } from '@/components/customer/SettingToggleClient';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Account Settings - Feasy',
+  title: 'Account Settings - Feazy',
 };
 
 export default async function SettingsPage() {
@@ -131,7 +131,7 @@ export default async function SettingsPage() {
                     {profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : 'Customer'}
                   </span>
                 </div>
-                <p className="text-xs text-ink-3 mt-1">Your account role on the Feasy platform.</p>
+                <p className="text-xs text-ink-3 mt-1">Your account role on the Feazy platform.</p>
               </div>
             </div>
 
@@ -171,7 +171,7 @@ export default async function SettingsPage() {
               <SettingToggleClient
                 id="marketing-emails"
                 label="Marketing emails"
-                description="Receive tips, updates, and offers from Feasy"
+                description="Receive tips, updates, and offers from Feazy"
                 defaultChecked={(profile?.notification_preferences as any)?.marketing_emails === true}
                 settingKey="marketing_emails"
               />
@@ -218,7 +218,7 @@ export default async function SettingsPage() {
               <SettingToggleClient
                 id="data-collection"
                 label="Usage analytics"
-                description="Allow us to analyze usage patterns to improve Feasy"
+                description="Allow us to analyze usage patterns to improve Feazy"
                 defaultChecked={(profile?.notification_preferences as any)?.data_collection === true}
                 settingKey="data_collection"
               />

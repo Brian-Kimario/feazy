@@ -292,7 +292,7 @@ export function PropertyMaintenanceTimeline({ events = DEFAULT_EVENTS, className
               <div className="flex items-center justify-between pb-3 border-b border-[#D9DED8]">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#176B5B]">
                   <ShieldCheck className="w-4 h-4 text-[#176B5B]" />
-                  <span>Feasy Certified Record</span>
+                  <span>Feazy Certified Record</span>
                 </div>
                 <span className="text-xs font-mono text-[#7C8681]">{activeEvent.referenceNumber}</span>
               </div>
@@ -343,7 +343,7 @@ export function PropertyMaintenanceTimeline({ events = DEFAULT_EVENTS, className
               {activeEvent.warrantyValidUntil && (
                 <div className="p-3 rounded-xl bg-[#E2EEE9] border border-[#BCD4CC] flex items-center justify-between text-xs mb-4">
                   <div>
-                    <span className="font-bold text-[#176B5B] block">Feasy Warranty Active</span>
+                    <span className="font-bold text-[#176B5B] block">Feazy Warranty Active</span>
                     <span className="text-[11px] text-[#5A6661]">Protected through {activeEvent.warrantyValidUntil}</span>
                   </div>
                   <ShieldCheck className="w-5 h-5 text-[#176B5B]" />

@@ -17,11 +17,11 @@ export const SERVICES = [
 
 export type ServiceSlug = (typeof SERVICES)[number]['slug'];
 
-/** "Book a repair": straight into intake for customers, through sign-in for visitors. */
-export function bookingHref(role: ViewerRole, service?: string) {
-  const dest = service ? `/customer?service=${service}` : '/customer';
+/** "Book a service": straight into the booking wizard for customers, through sign-in for visitors. */
+export function bookingHref(role: ViewerRole, categoryId?: string) {
+  const dest = categoryId ? `/customer/bookings/new?category=${encodeURIComponent(categoryId)}` : '/customer/bookings/new';
   if (!role) return `/auth/login?as=customer&next=${encodeURIComponent(dest)}`;
-  if (role === 'customer') return service ? `${dest}#intake` : dest;
+  if (role === 'customer') return dest;
   return DASHBOARD_BY_ROLE[role] ?? '/';
 }
 
