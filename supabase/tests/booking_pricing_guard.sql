@@ -102,10 +102,11 @@ BEGIN
   INSERT INTO public.service_materials (service_id, material_id, is_customer_selectable, is_professional_selectable)
     VALUES (svc_fixed, m1, true, true);
 
-  -- Switches start off, the rate limit is out of the way, and no inspector exists.
+  -- Switches start off, the rate limit is out of the way, and no inspector is active.
+  -- Inspectors are deactivated, not deleted: inspection visits from other data may reference them.
   UPDATE public.matching_config SET value = 0 WHERE key IN ('free_inspection_enabled', 'inspection_gate_enabled');
   UPDATE public.matching_config SET value = 100 WHERE key = 'booking_rate_limit_per_hour';
-  DELETE FROM public.inspectors;
+  UPDATE public.inspectors SET is_active = false;
 
   -- ── 1. Changed policy: refused, nothing booked ───────────────────────────────────────────
   v_res := pg_temp.book(c_user, prop1, svc_fixed, false, 999, null);
