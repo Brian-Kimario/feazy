@@ -169,21 +169,27 @@ The nine failing suites are **pre-existing fixture or shim gaps, not regressions
 | Check | Command | Result |
 |---|---|---|
 | Type check | `pnpm tsc --noEmit` | Exit 0 |
-| Unit tests | `pnpm test` | 47 files passed, 1 skipped; 600 tests passed, 16 skipped, 15 todo; exit 0 |
-| Production build | `pnpm build` | Exit 0 |
-| Inspection journey, Chromium, 375px and 768px layout checks | `E2E_LOCAL_JOURNEY=1 pnpm exec playwright test tests/e2e/inspection-journey.spec.ts --project=chromium`, after `scripts/seed-local-e2e-users.sh` | 9 passed |
+| Unit tests | `pnpm test` | 47 files passed, 1 skipped; 606 tests passed, 16 skipped, 15 todo; exit 0 |
+| Production build | `pnpm build` | Exit 0, run after the local dev server was stopped |
+| Lint | `pnpm lint` | Exit 1: 166 problems (85 errors, 81 warnings). The same count on `main`, so this branch did not introduce them. |
+| SQL suites on the rebuilt `feazy_upgrade_disposable` (119–126 applied in order) | local runner, not committed | 18 pass, 8 fail. The eight are the same harness gaps as the `HEAD` baseline (below). They are not waived. |
+| Inspection journey, Chromium | `E2E_LOCAL_JOURNEY=1 E2E_DB_URL=<local Postgres URL> pnpm exec playwright test tests/e2e/inspection-journey.spec.ts --project=chromium --workers=1` | 11 passed |
+| Inspection journey, Firefox | same command, `--project=firefox --workers=1` | 11 passed |
+| Inspection journey, WebKit | same command, `--project=webkit --workers=1` | 11 passed |
+
+The eight failing SQL suites are `20261030_004`, `_016`, `_017`, `_018`, `_019`, `_020`, `_101` and `job_codes_and_no_show`. Their errors come from fixture and shim gaps: a missing `vault.decrypted_secrets`, an `auth.users` shim without `instance_id`, and psql runs with no signed-in user context. They are not green and are not counted as passing.
 
 Notes on the journey run:
 
-- The journey books a fresh inspection on each run, so re-seed before every run. The seed cancels the synthetic customer's open bookings and active jobs. Without this, the duplicate guard (`P0005`) blocks the run.
-- The journey covers the inspection path only. It does not cover the repair quote, assessment or customer approval.
-- A multi-browser run is not reliable as-is: the serial suite books once per browser project, so later projects hit `P0005` unless the seed runs between them.
+- The journey covers the inspection path, the materials, the admin catalogue and the fixed-price booking. It does not cover the repair quote, assessment or customer approval.
+- When `E2E_DB_URL` is set, the suite re-seeds before it runs, so each browser starts from the same state. The seed cancels the synthetic customer's open bookings and active jobs. Without it, the duplicate guard (`P0005`) blocks the run. Run each browser project with `--workers=1`: the suite is serial and shares one database.
+- Changes to the journey spec in this pass (test-only): sign-in waits for hydration and for the post-login redirect; the inspector select is found by its combobox role; the reload after registering an inspector was removed, because the form refreshes the list itself; and layout screenshots fall back to the viewport where Firefox refuses a full-page capture taller than 32767px.
 
 ## 9. Not verified
 
 - **Two-account quotation flow in a browser** (professional quotes, customer approves or declines). The SQL path is covered by `quote_accounting_and_gate.sql` and `assessing_state.sql`; no browser spec exists.
-- **Desktop width (1280px and wider)** as a separate check. The journey covers 375px and 768px.
-- **Firefox and WebKit.** Not run. WebKit's browser binary is not installed.
+- **Layout beyond overflow.** The journey asserts no horizontal overflow at 375, 768, 1280 and 1440 widths on the main customer, inspector and admin pages. It does not check visual overlap, text clipping or touch-target size.
+- **Console errors.** The journey does not capture browser console messages, so console errors were not checked in any browser in this pass.
 - **Production-shaped upgrade.** The replay ran all 71 files on a fresh database, and the local database was upgraded incrementally. Production's schema was not read in this pass, so a production-shaped comparison is still open.
 - **Shimmed Supabase schemas.** Replay results depend on shims for `auth`, `storage`, `vault`, `cron` and `extensions`. Real Supabase behaviour may differ.
 - **Service-area match ignores stray whitespace (fixed).** Migration 126 first matched `lower(psa.city) = lower(a.city)`, which refused a covered property whose address city had a trailing space (`'Mysuru '`) with `P0008`. The match now uses `lower(btrim(...))` on both sides. `service_area_gate.sql` has a padded, differently cased case that must be bookable. The fix was verified on a rebuilt `feazy_upgrade_disposable` (119–126 applied in order, gate suite passes). `addresses.city` is `NOT NULL`, so a NULL city cannot reach the gate. Coverage ignores professional availability (`is_available`); a verified professional who is unavailable still counts. This is by design and should be confirmed by the founder.
@@ -205,20 +211,23 @@ Notes on the journey run:
 
 ## 11. Release-readiness matrix
 
-Every release step is **NO** in this pass. Each row gives the exact blocker and who clears it.
+The branch is pushed and draft PR #8 is open. Every release step beyond that is **NO** until the owner acts. Each row gives the exact blocker and who clears it.
 
 | Step | Status | Exact blocker | Owner action |
 |---|---|---|---|
-| Push feature branch | NO | Not authorised. The branch exists only locally. | Authorise the push. |
-| Open PR | NO | Depends on the push. | After the push, open the PR from `feat/founder-revisions` to `main`. |
-| Merge to `main` | NO | No PR or CI run yet. Nine pre-existing suite failures (section 8) are not fixed or accepted as non-gating. | Decide whether those nine gate the release; approve the merge after CI. |
+| Push feature branch | YES | Pushed to `feat/founder-revisions`. The head commit is shown on the PR. | None. |
+| Open PR | YES | Draft PR #8: https://github.com/Brian-Kimario/fixify/pull/8 | Keep it as a draft until the owner decides. |
+| Merge to `main` | NO | Not authorised. Blockers: the leaked legacy service-role key is not yet revoked; eight SQL suites (section 8) are not fixed or waived; lint has 166 problems on `main` as well. | Revoke the key (section 12 and the runbook). Decide whether the eight SQL suites gate. Authorise the merge. |
 | Apply production migrations 119–126 | NO | No production backup recorded; no production preflight run; no authorisation. | Take the backup, run the preflight, authorise the migration run. |
 | Deploy with free inspection OFF | NO | Depends on the migrations and the merge. Deploy approval not given. | Approve the deploy after the migrations succeed. |
 | Activate free inspection | NO | Founder confirmation of the policy and public copy not given; migrations not applied; staging tests 5 and 8 not run. | Founder decision, then staging tests, then the switch. |
+| Revoke the legacy service-role key | NO | Owner action, not performed. The key still works until it is revoked. | Follow [SERVICE_ROLE_KEY_ROTATION.md](SERVICE_ROLE_KEY_ROTATION.md). |
 
 ## 12. Credential rotation checklist
 
 Owner actions. The assistant does not perform any of these. Never paste a key into a document, ticket or chat.
+
+The step-by-step runbook, with the consumer inventory, the ordering rule, the old-key rejection check and the breakage checks, is [SERVICE_ROLE_KEY_ROTATION.md](SERVICE_ROLE_KEY_ROTATION.md). Follow it in preference to this list.
 
 1. Revoke the leaked legacy service-role key in the Supabase dashboard (API settings).
 2. Verify revocation: send a request with the old key and expect an authentication error. Keep the response as evidence, with the key redacted.

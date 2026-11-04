@@ -19,14 +19,24 @@ test.describe.configure({ mode: 'serial' })
 
 async function signIn(page: Page, door: 'customer' | 'professional', email: string) {
   await page.goto(`/auth/login?as=${door}&logged_out=1`)
-  await page.getByPlaceholder('you@example.com').fill(email)
+  // Wait for the form to hydrate. A fill made before hydration can be reset by React, which left the email empty on WebKit.
+  await page.waitForLoadState('networkidle')
+  const emailField = page.getByPlaceholder('you@example.com')
+  await emailField.fill(email)
+  await expect(emailField).toHaveValue(email)
   await page.getByPlaceholder('Enter your password').fill(PASSWORD)
   await page.locator('form button[type="submit"]').click()
   await page.waitForURL((u) => !u.pathname.startsWith('/auth/login'))
+  // The post-login redirect can still be loading. A goto issued during it is interrupted on WebKit, so let it settle.
+  await page.waitForLoadState('networkidle')
 }
 
 async function shot(page: Page, name: string) {
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
+  if (!SHOTS) return
+  // Firefox refuses a full-page capture taller than 32767px. Fall back to the viewport rather than fail the journey.
+  await page
+    .screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
+    .catch(() => page.screenshot({ path: `${SHOTS}/${name}.png` }))
 }
 
 let bookingUrl = ''
@@ -95,6 +105,8 @@ test('admin registers an inspector and assigns the free visit', async ({ page })
   await page.goto('/admin/inspections')
   await expect(page.getByRole('heading', { name: 'Free inspections' })).toBeVisible()
   await expect(page.getByText(/Needs action \(1\)/)).toBeVisible()
+  // Controlled inputs filled before hydration can lose their values (seen on WebKit), which leaves the submit disabled.
+  await page.waitForLoadState('networkidle')
   // Failed action: a non-inspector account id is refused.
   await page.getByLabel(/Account id/).fill('00000000-0000-0000-0000-000000000000')
   await page.getByLabel(/^Name/).fill('Ghost')
@@ -106,14 +118,16 @@ test('admin registers an inspector and assigns the free visit', async ({ page })
   await page.getByLabel(/^Phone/).fill('9000000001')
   await page.getByRole('button', { name: 'Register inspector' }).click()
   await expect(page.getByRole('status')).toHaveText('Saved.')
-  await page.reload()
+  // The form calls router.refresh() after a save, so the list updates in place. A manual reload here aborts that
+  // in-flight refresh on Firefox (NS_BINDING_ABORTED).
   await expect(page.getByText('Ravi Inspector ·')).toBeVisible()
-  await page.getByLabel('Inspector').selectOption({ label: 'Ravi Inspector' })
+  // Role-based, because a dev-only "Open in editor" button also matches the plain label 'Inspector'.
+  await page.getByRole('combobox', { name: /^Inspector/ }).selectOption({ label: 'Ravi Inspector' })
   const d = new Date(Date.now() + 2 * 86400000)
   const pad = (n: number) => String(n).padStart(2, '0')
   await page.getByLabel('Visit time').fill(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`)
   await page.getByRole('button', { name: 'Assign' }).click()
-  await expect(page.getByRole('status')).toHaveText('Assigned.')
+  await expect(page.getByRole('status').filter({ hasText: 'Assigned.' })).toBeVisible()
   await shot(page, 'admin-inspections')
   // The visit must exist for this booking, with the inspector assigned and the booking still awaiting inspection.
   expect(latestVisit()).toBe('scheduled|')
@@ -122,7 +136,8 @@ test('admin registers an inspector and assigns the free visit', async ({ page })
 
 test('inspector confirms materials and submits findings', async ({ page }) => {
   await signIn(page, 'professional', 'inspector@feazy.test')
-  await page.goto('/inspector')
+  // Sign-in redirects to the inspector dashboard itself. A manual goto on WebKit interrupts that redirect, so wait for it.
+  await page.waitForURL(/\/inspector(\?|$)/)
   await shot(page, 'inspector-dashboard')
   await page.getByRole('link', { name: /Leak repair/ }).first().click()
   await page.waitForURL(/\/inspector\/visits\//)
@@ -225,10 +240,12 @@ test('fixed-price service books directly with no inspection visit', async ({ pag
   await shot(page, 'customer-fixed-price-booking')
 })
 
-// Phone (375px) and tablet (768px) widths. Desktop is covered by the journeys above at the default viewport.
+// Phone, tablet and desktop widths. The journeys above run at the default viewport.
 const VIEWPORTS = [
   { label: 'phone', width: 375, height: 812 },
   { label: 'tablet', width: 768, height: 1024 },
+  { label: 'desktop-1280', width: 1280, height: 800 },
+  { label: 'desktop-1440', width: 1440, height: 900 },
 ]
 
 for (const vp of VIEWPORTS) {
@@ -238,14 +255,16 @@ for (const vp of VIEWPORTS) {
     const check = async (name: string) => {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       expect(overflow, `${vp.label} ${name} overflows`).toBeLessThanOrEqual(1)
-      await shot(page, `${vp.label}-${name}`)
+      // Viewport-sized, not full page: Firefox refuses a full-page capture taller than 32767px on long admin pages.
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/${vp.label}-${name}.png` })
     }
     await signIn(page, 'customer', 'customer@feazy.test')
     await page.goto('/customer/bookings/new'); await check('customer-wizard')
     await page.goto(bookingUrl); await check('customer-booking')
     await ctx.clearCookies()
     await signIn(page, 'professional', 'inspector@feazy.test')
-    await page.goto('/inspector'); await check('inspector')
+    // Sign-in redirects to the inspector dashboard; see the inspector journey above.
+    await page.waitForURL(/\/inspector(\?|$)/); await check('inspector')
     await ctx.clearCookies()
     await signIn(page, 'customer', 'admin@feazy.test')
     await page.goto('/admin/inspections'); await check('admin-inspections')
