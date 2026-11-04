@@ -22,6 +22,7 @@ ALTER TABLE public.notification_logs
   ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz,
   ADD COLUMN IF NOT EXISTS channel_delivered text,
   ADD COLUMN IF NOT EXISTS provider_message_id text,
+  ADD COLUMN IF NOT EXISTS sent_at timestamptz,
   ADD COLUMN IF NOT EXISTS error_message text;
 
 ALTER TABLE public.notification_logs DROP CONSTRAINT IF EXISTS notification_logs_status_check;
@@ -47,15 +48,15 @@ AS $$
 #variable_conflict use_column
 BEGIN
   UPDATE notification_logs l
-     SET status = 'failed', error_message = 'abandoned: outcome unknown, not resent', updated_at = now()
+     SET status = 'failed', error_message = 'abandoned: outcome unknown, not resent'
    WHERE l.status = 'processing' AND l.claimed_at < now() - p_lease;
 
   UPDATE notification_logs l
-     SET status = 'expired', error_message = 'older than the freshness window, not sent', updated_at = now()
+     SET status = 'expired', error_message = 'older than the freshness window, not sent'
    WHERE l.status = 'pending' AND l.created_at < now() - p_max_age;
 
   UPDATE notification_logs l
-     SET status = 'failed', error_message = coalesce(l.error_message, 'retry limit reached'), updated_at = now()
+     SET status = 'failed', error_message = coalesce(l.error_message, 'retry limit reached')
    WHERE l.status = 'pending' AND l.attempts >= p_max_attempts;
 
   RETURN QUERY
@@ -70,7 +71,7 @@ BEGIN
   )
   UPDATE notification_logs l
      SET status = 'processing', claimed_by = p_worker, claimed_at = now(),
-         last_attempt_at = now(), attempts = l.attempts + 1, updated_at = now()
+         last_attempt_at = now(), attempts = l.attempts + 1
     FROM picked
    WHERE l.id = picked.id
   RETURNING l.id, l.customer_id, l.job_id, l.notification_type, l.attempts;
@@ -104,8 +105,7 @@ BEGIN
          provider_message_id = coalesce(p_provider_id, l.provider_message_id),
          error_message = CASE WHEN p_outcome = 'sent' THEN NULL ELSE left(p_error, 500) END,
          next_attempt_at = CASE WHEN p_outcome = 'retry' THEN now() + make_interval(secs => greatest(p_retry_after_seconds, 0)) END,
-         claimed_by = CASE WHEN p_outcome = 'retry' THEN NULL ELSE l.claimed_by END,
-         updated_at = now()
+         claimed_by = CASE WHEN p_outcome = 'retry' THEN NULL ELSE l.claimed_by END
    WHERE l.id = p_id
      AND l.claimed_by = p_worker
      AND (l.status = 'processing'

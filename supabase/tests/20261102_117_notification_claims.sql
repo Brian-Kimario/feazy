@@ -2,9 +2,13 @@
 -- Usage: psql -v ON_ERROR_STOP=1 testdb -f setup stub -f migration -f this file.
 DO $$
 DECLARE w1 uuid := gen_random_uuid(); w2 uuid := gen_random_uuid(); r record; n int; ok boolean; fresh uuid;
+  c_customer uuid := gen_random_uuid();
 BEGIN
   TRUNCATE notification_logs;
-  INSERT INTO notification_logs(customer_id, notification_type, channel_attempted) VALUES (gen_random_uuid(), 'arrived', 'whatsapp') RETURNING id INTO fresh;
+  -- notification_logs.customer_id references profiles(id) in the migrated schema, so the test customer must exist.
+  -- The auth.users insert creates the profiles row through the signup trigger.
+  INSERT INTO auth.users (id, email) VALUES (c_customer, 'notif-claims-test@example.invalid');
+  INSERT INTO notification_logs(customer_id, notification_type, channel_attempted) VALUES (c_customer, 'arrived', 'whatsapp') RETURNING id INTO fresh;
 
   -- claim once; a second worker gets nothing
   SELECT count(*) INTO n FROM claim_notifications(w1); IF n <> 1 THEN RAISE EXCEPTION 'claim: expected 1, got %', n; END IF;
