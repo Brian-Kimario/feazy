@@ -9,10 +9,19 @@ export const createBookingSchema = z.object({
   selectedOptions: z.record(uuid, z.string().max(200)).optional(),
   /** Shown to offered professionals before they accept, so it must not hold access codes. */
   problemSummary: z.string().trim().max(1000).optional(),
-  /** Customer-selectable materials; a preference only. The RPC checks them against the service and nothing is charged. */
-  materialIds: z.array(uuid).max(10).optional(),
+  /** Customer-selectable materials and how many; a preference only. The RPC checks them against the service and nothing is charged. */
+  materials: z
+    .array(z.object({ materialId: uuid, quantity: z.number().int().min(1).max(10) }))
+    .max(10)
+    .optional(),
+  /** Rough budget in whole rupees; a preference the professional reads. It never sets a price. */
+  budget: z.number().int().min(500).max(20000).nullable().optional(),
   /** The free-inspection setting the customer saw on the price card. A mismatch means the price changed. */
   expectedFreeInspection: z.boolean().optional(),
+  /** The amount the customer saw. Checked in the database together with expectedFreeInspection. */
+  expectedAmount: z.number().min(0).max(10000000).nullable().optional(),
+  /** Per-form key, so a retried submission returns the booking it already made instead of a second one. */
+  clientRequestId: uuid.optional(),
 });
 
 export type CreateBookingInput = z.input<typeof createBookingSchema>;

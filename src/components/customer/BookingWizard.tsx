@@ -114,6 +114,12 @@ interface BookingWizardProps {
    * that could not be read, in which case the NEXT_PUBLIC_FREE_INSPECTION rollout flag is used.
    */
   freeInspection: boolean | null;
+  /**
+   * True when the structured booking path is installed (migrations 119 and 120). Only then are materials,
+   * budget, the expected amount and the retry key sent. Otherwise the booking uses the legacy path, and
+   * materials and budget travel as text in the problem summary.
+   */
+  structuredBooking?: boolean;
 }
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
@@ -277,8 +283,11 @@ export function BookingWizard({
   preselectedPropertyId,
   initialProblemNotes,
   freeInspection,
+  structuredBooking = false,
 }: BookingWizardProps) {
   const router = useRouter();
+  // One key per form. A double tap or a retry sends the same key, so the database returns one booking.
+  const [clientRequestId] = useState<string>(() => crypto.randomUUID());
 
   const initialService = (() => {
     if (!preselectedServiceId) return null;
@@ -381,10 +390,21 @@ export function BookingWizard({
         propertyId: selectedPropertyId,
         scheduledStart: new Date(scheduledStart).toISOString(),
         selectedOptions,
+        // The text copy is always sent, so the professional can read the preferences on any database.
         problemSummary: composeSummary(problemSummary, preferences),
-        materialIds: materialIds.length > 0 ? materialIds : undefined,
         // Only sent when the price the customer saw came from the database.
         expectedFreeInspection: freeInspection ?? undefined,
+        ...(structuredBooking
+          ? {
+              clientRequestId,
+              expectedAmount: price?.amount ?? null,
+              materials: chosenMaterials.map((m) => ({
+                materialId: m.id,
+                quantity: materialQty[m.id] ?? MATERIAL_QUANTITY_MIN,
+              })),
+              budget,
+            }
+          : {}),
       });
       if (result.success === false) {
         setError(result.error);

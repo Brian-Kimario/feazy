@@ -13,7 +13,7 @@ export const TAGLINES = {
   homeHeadline: 'Where Better Living Begins.',
   homeSub:
     'Experience refined home services, trusted expertise, and effortless convenience — thoughtfully brought together.',
-  customerSignIn: 'Exceptional Care. Right at Your Doorstep.',
+  customerSignIn: 'Exceptional Care, Right at Your Doorstep.',
   customerSignInSub: 'Discover trusted professionals and experience a higher standard of home care.',
   customerPrimaryAction: 'Get Started',
   professionalSignIn: 'Where Expertise Finds Opportunity.',

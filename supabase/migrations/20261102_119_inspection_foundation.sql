@@ -25,8 +25,14 @@
 -- ---------------------------------------------------------------------------------------------
 INSERT INTO public.matching_config (key, value, description) VALUES
   ('free_inspection_enabled', 0, '1 = inspection-model services are booked without an inspection fee (quote after inspection). Founder decision; flip with the NEXT_PUBLIC_FREE_INSPECTION copy flag.'),
-  ('inspection_gate_enabled', 0, '1 = a company inspection visit must be completed (repair needed) before a repair professional is offered the job.')
+  ('inspection_gate_enabled', 0, '1 = a company inspection visit must be completed (repair needed) before a repair professional is offered the job.'),
+  ('booking_rate_limit_per_hour', 5, 'Maximum bookings one customer may create in a rolling hour. Applies to every booking, paid or free.')
 ON CONFLICT (key) DO NOTHING;
+
+-- Per-submission key from the customer's browser. Unique per customer so a retried request cannot book twice.
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS client_request_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_customer_client_request_uidx
+  ON public.bookings (customer_id, client_request_id) WHERE client_request_id IS NOT NULL;
 
 -- bookable: customers can book now. manual_assignment: bookable, an admin assigns the professional.
 -- coming_soon: listed as unavailable; create_booking refuses it. Existing categories stay bookable.
@@ -193,13 +199,24 @@ REVOKE EXECUTE ON FUNCTION public._assign_booking_internal(uuid, uuid) FROM PUBL
 -- ---------------------------------------------------------------------------------------------
 -- 5. create_booking: the 20261030_009 body plus free inspection, visit creation, availability.
 -- ---------------------------------------------------------------------------------------------
+-- The 6-argument form (production today) is replaced, not overloaded: an overload would make
+-- named-argument calls ambiguous. The new trailing parameters default to NULL, so older callers still work.
+DROP FUNCTION IF EXISTS public.create_booking(uuid, uuid, timestamptz, text, text, jsonb);
+
+-- p_expected_free_inspection / p_expected_amount: the price the customer acknowledged. When p_expected_free_inspection
+--   is NULL no acknowledgement was sent and the check is skipped (legacy callers). When it is set, the booking is
+--   refused with ERRCODE P0003 if the free-inspection switch or the charge differs, and nothing is inserted.
+-- p_client_request_id: a per-submission key. A retry with the same key returns the booking it already created.
 CREATE OR REPLACE FUNCTION public.create_booking(
-  p_service_id      uuid,
-  p_property_id     uuid,
-  p_scheduled_start timestamptz,
-  p_problem_summary text DEFAULT NULL,
-  p_urgency         text DEFAULT 'flexible',
-  p_options         jsonb DEFAULT '{}'::jsonb
+  p_service_id             uuid,
+  p_property_id            uuid,
+  p_scheduled_start        timestamptz,
+  p_problem_summary        text DEFAULT NULL,
+  p_urgency                text DEFAULT 'flexible',
+  p_options                jsonb DEFAULT '{}'::jsonb,
+  p_expected_free_inspection boolean DEFAULT NULL,
+  p_expected_amount        numeric DEFAULT NULL,
+  p_client_request_id      uuid DEFAULT NULL
 )
 RETURNS TABLE (booking_id uuid, booking_reference text)
 LANGUAGE plpgsql
@@ -218,6 +235,10 @@ DECLARE
   v_avail    text;
   v_id       uuid;
   v_ref      text;
+  v_free     boolean;
+  v_gate     boolean;
+  v_recent   int;
+  v_limit    int;
 BEGIN
   IF v_customer IS NULL THEN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
@@ -228,9 +249,31 @@ BEGIN
     RAISE EXCEPTION 'Only customers can create bookings' USING ERRCODE = '42501';
   END IF;
 
+  -- One booking request at a time per customer, taken before the retry lookup. Without it two parallel submissions
+  -- could both pass the rate limit and the open-inspection check, since neither sees the other's uncommitted row.
+  PERFORM pg_advisory_xact_lock(hashtextextended('create_booking:' || v_customer::text, 0));
+
+  -- A retried submission returns the booking it already made. Nothing new is inserted or charged.
+  IF p_client_request_id IS NOT NULL THEN
+    SELECT b.id, b.booking_reference INTO v_id, v_ref
+      FROM public.bookings b
+     WHERE b.customer_id = v_customer AND b.client_request_id = p_client_request_id;
+    IF FOUND THEN
+      RETURN QUERY SELECT v_id, v_ref;
+      RETURN;
+    END IF;
+  END IF;
+
+  -- Lock the switches for this transaction. An admin change to them waits until this booking commits,
+  -- so the decision checked below is the one the booking is saved under.
+  PERFORM 1 FROM public.matching_config
+   WHERE key IN ('free_inspection_enabled', 'inspection_gate_enabled', 'booking_rate_limit_per_hour')
+     FOR SHARE;
+
   SELECT * INTO v_service
   FROM public.services
-  WHERE id = p_service_id AND is_active IS TRUE;
+  WHERE id = p_service_id AND is_active IS TRUE
+  FOR SHARE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Service not found or no longer available' USING ERRCODE = 'P0002';
   END IF;
@@ -292,29 +335,61 @@ BEGIN
   END IF;
 
   -- Free inspection: the inspection fee is not billed; the customer pays only an approved quote.
-  IF v_model = 'inspection' AND COALESCE(public._matching_setting('free_inspection_enabled'), 0) = 1 THEN
+  v_free := COALESCE(public._matching_setting('free_inspection_enabled'), 0) = 1;
+  v_gate := COALESCE(public._matching_setting('inspection_gate_enabled'), 0) = 1;
+  IF v_model = 'inspection' AND v_free THEN
     v_model := 'quote_after_inspection';
     v_amount := NULL;
   END IF;
 
+  -- The customer's acknowledged price must still be the price. Refuse rather than charge something else.
+  IF p_expected_free_inspection IS NOT NULL
+     AND (p_expected_free_inspection IS DISTINCT FROM v_free
+          OR p_expected_amount IS DISTINCT FROM v_amount) THEN
+    RAISE EXCEPTION 'The price for this service has changed' USING ERRCODE = 'P0003';
+  END IF;
+
+  -- Abuse limits. Counted from the bookings table itself, so they hold across serverless instances.
+  v_limit := COALESCE(public._matching_setting('booking_rate_limit_per_hour'), 5);
+  SELECT count(*) INTO v_recent FROM public.bookings
+   WHERE customer_id = v_customer AND created_at > now() - interval '1 hour';
+  IF v_recent >= v_limit THEN
+    -- Not P0004: that code is PostgreSQL's assert_failure, which WHEN OTHERS handlers do not catch.
+    RAISE EXCEPTION 'Too many bookings in the last hour' USING ERRCODE = 'P0007';
+  END IF;
+
+  IF v_model IN ('inspection', 'quote_after_inspection') THEN
+    -- One open inspection per service at a property. A second request would be a second visit for the same issue.
+    IF EXISTS (SELECT 1 FROM public.bookings b
+                WHERE b.customer_id = v_customer AND b.property_id = p_property_id
+                  AND b.service_id = v_service.id
+                  AND b.pricing_model IN ('inspection', 'quote_after_inspection')
+                  AND b.booking_status NOT IN ('cancelled', 'completed')) THEN
+      RAISE EXCEPTION 'You already have an open inspection for this service at this property' USING ERRCODE = 'P0005';
+    END IF;
+    -- With the gate on, a visit must be carried out by an active inspector. No capacity or calendar is modelled.
+    IF v_gate AND NOT EXISTS (SELECT 1 FROM public.inspectors WHERE is_active) THEN
+      RAISE EXCEPTION 'No inspector is available yet' USING ERRCODE = 'P0006';
+    END IF;
+  END IF;
+
   INSERT INTO public.bookings AS b
     (customer_id, property_id, service_id, scheduled_start, pricing_model,
-     quoted_or_base_amount, booking_status, problem_summary, urgency, intake_options)
+     quoted_or_base_amount, booking_status, problem_summary, urgency, intake_options, client_request_id)
   VALUES
     (v_customer, p_property_id, v_service.id, p_scheduled_start, v_model,
-     v_amount, 'pending', v_summary, v_urgency, v_options)
+     v_amount, 'pending', v_summary, v_urgency, v_options, p_client_request_id)
   RETURNING b.id, b.booking_reference INTO v_id, v_ref;
 
-  IF COALESCE(public._matching_setting('inspection_gate_enabled'), 0) = 1
-     AND v_service.pricing_model IN ('inspection', 'quote_after_inspection') THEN
+  IF v_gate AND v_service.pricing_model IN ('inspection', 'quote_after_inspection') THEN
     INSERT INTO public.inspection_visits (booking_id, status) VALUES (v_id, 'requested');
   END IF;
 
   RETURN QUERY SELECT v_id, v_ref;
 END;
 $function$;
-REVOKE EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, text, jsonb) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, text, jsonb) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, text, jsonb, boolean, numeric, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, text, jsonb, boolean, numeric, uuid) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- 5b. The free-inspection switch as the booking wizard should display it. Read-only. The wizard
