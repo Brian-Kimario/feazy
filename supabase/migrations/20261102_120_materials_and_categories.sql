@@ -1,6 +1,6 @@
 -- 20261102_120_materials_and_categories
 --
--- Structured material preferences and the draft 12-category catalogue. DRAFT: not applied to any
+-- Structured material preferences and draft categories from the founder's services list. DRAFT: not applied to any
 -- database. Requires 119 (service_categories.availability, inspection_visits, _require_admin).
 --
 -- Material model (founder decision): a customer's choice is a PREFERENCE, the inspector CONFIRMS what
@@ -8,7 +8,7 @@
 -- anything, and indicative prices are columns the admin fills in: none are invented by this file.
 --
 -- 1. indicative prices on materials   2. customer preferences   3. inspector-confirmed materials
--- 4. four draft categories, listed "coming soon"
+-- 4. draft categories from the founder list (coming soon; Bike & Car inactive)
 -- Rollback: supabase/rollbacks/20261102_120_rollback.sql
 
 -- ---------------------------------------------------------------------------------------------
@@ -402,19 +402,21 @@ GRANT EXECUTE ON FUNCTION public.admin_set_category_availability(uuid, text),
   public.admin_set_material_services(uuid, uuid[]) TO authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- 4. Draft categories to reach the 12-category target. Listed as "coming soon" and refused by
---    create_booking until an admin sets availability to 'manual_assignment' or 'bookable' (which is
---    for the owner to do once professionals with the matching skills are verified in the area).
---    The names are a recommendation awaiting founder confirmation.
+-- 4. Categories from the founder's services list (Feazy website HTML) that have no row yet.
+--    Listed as "coming soon": create_booking refuses them until an admin sets availability to
+--    'manual_assignment' or 'bookable', which is for the owner to do once verified professionals
+--    cover the category. Bike & Car Service is a draft: inactive and hidden until approved.
+--    Descriptions are taken from the founder's list; no other categories are added.
 -- ---------------------------------------------------------------------------------------------
 INSERT INTO public.service_categories (name, slug, description, icon_key, sort_order, is_active, availability)
-SELECT v.name, v.slug, v.description, v.icon_key, v.sort_order, true, 'coming_soon'
+SELECT v.name, v.slug, v.description, v.icon_key, v.sort_order, v.is_active, 'coming_soon'
 FROM (VALUES
-  ('Pest Control',        'pest-control',   'Treatment for cockroaches, termites, rodents and other household pests.', 'bug',    80),
-  ('Waterproofing',       'waterproofing',  'Leak, seepage and damp-proofing for roofs, walls and bathrooms.',          'droplets', 90),
-  ('Tiling & Masonry',    'tiling-masonry', 'Tile fitting and repair, plaster work and small civil repairs.',           'hammer', 100),
-  ('CCTV & Security',     'cctv-security',  'CCTV, video door phones and basic home security fittings.',                'shield', 110)
-) AS v(name, slug, description, icon_key, sort_order)
+  ('Home Maintenance', 'home-maintenance', 'Scheduled upkeep for the whole property.',                        'home',     80, true),
+  ('Installation',     'installation',     'Fixtures, fittings and smart home devices.',                       'drill',    90, true),
+  ('Cleaning',         'cleaning',         'Deep cleaning for homes and workspaces.',                          'sparkles', 100, true),
+  ('General Repairs',  'general-repairs',  'Everything else your space needs fixed.',                          'wrench',   110, true),
+  ('Bike & Car Service', 'bike-car-service', 'Draft category. Not visible to customers until coverage is approved.', 'bike', 120, false)
+) AS v(name, slug, description, icon_key, sort_order, is_active)
 WHERE NOT EXISTS (SELECT 1 FROM public.service_categories c WHERE c.slug = v.slug);
 
 REVOKE ALL ON FUNCTION
