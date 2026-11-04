@@ -35,8 +35,10 @@ const COOKIE_OPTIONS = {
   // FIX 2: Secure forces HTTPS only (prevents MITM interception)
   secure: process.env.NODE_ENV === 'production',
   
-  // FIX 3: SameSite=Strict prevents CSRF attacks
-  sameSite: 'strict' as const,
+  // SameSite=Lax (not Strict): the PKCE code-verifier cookie must survive the
+  // cross-site top-level redirect back from Google, or the callback's code
+  // exchange fails with exchange_failed. Lax still blocks cross-site POSTs.
+  sameSite: 'lax' as const,
   
   // FIX 4: Reduce token lifetime from 6 months to 7 days
   maxAge: 7 * 24 * 60 * 60, // 7 days in seconds

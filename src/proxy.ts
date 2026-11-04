@@ -59,7 +59,7 @@ export async function proxy(request: NextRequest) {
                   ...options,
                   httpOnly: true,
                   secure: process.env.NODE_ENV === 'production',
-                  sameSite: 'strict' as const,
+                  sameSite: 'lax' as const, // Lax so the OAuth PKCE verifier survives the Google redirect
                   maxAge: 7 * 24 * 60 * 60, // 7 days instead of 6 months
                 }
               : {
