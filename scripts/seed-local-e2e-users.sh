@@ -8,7 +8,7 @@ set -euo pipefail
 : "${E2E_LOCAL_PASSWORD:?Set E2E_LOCAL_PASSWORD to the synthetic local password}"
 
 API_URL="http://127.0.0.1:54321"
-DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+DB_URL="${DB_URL:?Set DB_URL to the local Supabase database URL (run: supabase status)}"
 
 SERVICE_ROLE_KEY="$(supabase status -o env | sed -n 's/^SERVICE_ROLE_KEY="\(.*\)"$/\1/p')"
 if [ -z "$SERVICE_ROLE_KEY" ]; then
