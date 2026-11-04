@@ -23,7 +23,8 @@ DROP POLICY IF EXISTS payments_update_customer ON public.payments;
 -- ACTION: Add a restrictive INSERT policy that validates customer_id via the
 -- quote. Only the quote's customer can insert a payment record for it.
 
-CREATE POLICY IF NOT EXISTS payments_insert_own ON public.payments
+DROP POLICY IF EXISTS payments_insert_own ON public.payments;
+CREATE POLICY payments_insert_own ON public.payments
   FOR INSERT
   WITH CHECK (
     customer_id = auth.uid()
