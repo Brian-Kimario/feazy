@@ -262,11 +262,11 @@ Checked after PR #8 (`b84ddd7`) and PR #9 (`ae8539b`) were merged to `main`. No 
 | Item | Evidence | Status |
 |---|---|---|
 | GitGuardian incident #37860317 | Resolved in the dashboard with the reason "Secret revoked". | DONE |
-| Legacy service-role JWT disabled in Supabase | Project API settings show the legacy keys disabled ("Re-enable JWT-based API keys" is offered). | LARGELY VERIFIED |
-| Revocation timestamp | Not recorded. Not invented. Record it from the Supabase audit or the owner's notes. | GAP |
-| Old-key rejection test (runbook step 6) | Not performed. No request with the old key was sent. | NOT VERIFIED |
+| Legacy JWT keys disabled | Supabase's own 401 hint states the legacy `anon` and `service_role` keys were disabled on 2026-11-04T13:19:15Z. The project key list shows `anon` (legacy) disabled and a `default` publishable key enabled. | VERIFIED (from Supabase) |
+| Revocation timestamp | 2026-11-04T13:19:15Z, taken from Supabase's 401 response hint. | RECORDED |
+| Old-key rejection (runbook step 6) | Not run as a deliberate test. Supabase logs show real requests carrying the legacy `service_role` key were rejected with 401 `UNAUTHORIZED_DISABLED_LEGACY_KEY` at 13:20:13Z and 13:32:36Z. This is log evidence, not a controlled test. | PARTLY VERIFIED |
 | New key works in production | Production deployment of `ae8539b` reports success. Admin and booking flows were not exercised against production. | PARTLY VERIFIED |
-| Consumers still using the old key | Unexplained HTTP 401s, listed in 15.4. | OPEN |
+| App still sends the legacy anon key | `node` requests from `supabase-ssr/0.12.7` (AWS us-east-1) with the legacy `anon` key return 401 since 13:19:15Z. | **BROKEN, see 15.4** |
 
 ### 15.2 Deployment
 
@@ -284,11 +284,9 @@ Checked after PR #8 (`b84ddd7`) and PR #9 (`ae8539b`) were merged to `main`. No 
 ### 15.4 Coverage, availability and errors
 
 - Active service-area coverage: only `bangalore` has verified, active professionals (2 verified, 1 available). No other city has coverage.
-- Unexplained 401s on the Supabase API:
-  - `node` client on `/rest/v1/service_categories` at 13:30:55Z (2 requests). This is the most important one: it may be a consumer still on the revoked key. Identify the client.
-  - `python-requests/2.33.0` on `/auth/v1/health` at 13:32:36Z.
-  - Earlier: `python-requests/2.33.1` on `/auth/v1/health` at about 13:20Z; `curl/8.7.1` on `/rest/v1/` at 12:28Z and `/auth/v1/settings` at 06:30Z.
-  - The edge log query could not be run this pass, so client identification is **not complete**.
+- **Application outage risk (highest priority).** The `node` client on `/rest/v1/service_categories` (`supabase-ssr/0.12.7 createServerClient`, from AWS us-east-1, the same region Vercel runs in) sent the legacy `anon` key four times since 13:19Z (two at 13:30:55Z). Each was rejected with `UNAUTHORIZED_DISABLED_LEGACY_KEY`. The likely cause is that the production `NEXT_PUBLIC_SUPABASE_ANON_KEY` on Vercel still holds the legacy anon key, which was disabled at 13:19:15Z, and the 13:15Z deploy did not change it. This is an inference: the Vercel value itself was not read. Fix: set the production anon variable to the enabled publishable key and redeploy. This is an owner action because Vercel production env vars are not to be changed in this pass.
+- **External callers still on the legacy service-role key.** `python-requests` clients on `/auth/v1/health` were rejected at 13:20:13Z (2.33.1, OVH Canada) and 13:32:36Z (2.33.0, AWS Oregon). Their source is unidentified. Each is still a consumer to inventory under the runbook.
+- The 7 edge 401s logged after 13:19Z are all shown above. Earlier 401s (`curl/8.7.1` on `/rest/v1/` at 12:28Z and `/auth/v1/settings` at 06:30Z) predate the disable and are not current evidence.
 - PostgREST "Thread killed by timeout manager" entries between 12:52Z and 13:19Z (12 entries). Not correlated with the deploy window yet.
 
 ### 15.5 Security advisors (production)
@@ -306,8 +304,9 @@ Checked after PR #8 (`b84ddd7`) and PR #9 (`ae8539b`) were merged to `main`. No 
 
 ### 15.7 Still open before About Us or performance work
 
-1. Identify the `node` client behind the 401s on `service_categories`, and confirm it is not using the revoked key.
-2. Run the old-key rejection test (runbook step 6) with the key from the secure store, and record the status code and time.
-3. Decide whether the 37 authenticated SECURITY DEFINER functions and the `anon` rate-limit function are accepted risks.
-4. Decide whether the eight SQL suites gate the release.
-5. Review the 11 suspected synthetic bookings (section 14) with the owner. Nothing has been deleted or changed.
+1. Fix the production `NEXT_PUBLIC_SUPABASE_ANON_KEY` on Vercel (set it to the enabled publishable key) and redeploy. Confirm `service_categories` returns 200 afterwards. Owner action.
+2. Identify the two `python-requests` callers still using the legacy service-role key.
+3. Optionally run runbook step 6 as a controlled test with the old key from the secure store. Log evidence already shows rejection; a controlled test adds a status code and time.
+4. Decide whether the 37 authenticated SECURITY DEFINER functions and the `anon` rate-limit function are accepted risks.
+5. Decide whether the eight SQL suites gate the release.
+6. Review the 11 suspected synthetic bookings (section 14) with the owner. Nothing has been deleted or changed.
