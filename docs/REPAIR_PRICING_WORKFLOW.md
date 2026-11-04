@@ -108,7 +108,7 @@ All enforced in `create_booking` (119) after the price check and before the inse
 
 **Note:** `P0004` is not used. It is PostgreSQL's `assert_failure` code, which `WHEN OTHERS` handlers do not catch, so the rate limit uses `P0007`.
 
-Admin override: `admin_assign_professional` (`20261101074513_a4_113_admin_assignment.sql`) assigns a professional by hand and is not gated by the inspection gate. It requires an admin (`_require_admin`), a reason of at least 10 characters, and an idempotency key (`p_request_id`). It writes a `matching_decisions` row (`manual: true`, admin id, reason) and a `job_events` row (`admin_assign`, with reason and request id). It does **not** write to `audit_logs`. `supabase/tests/admin_override_assignment.sql` covers `admin_assign_professional` and `admin_withdraw_offer`. **Open:** `admin_reassign_job` has no override test.
+Admin override: `admin_assign_professional` (`20261101074513_a4_113_admin_assignment.sql`) assigns a professional by hand and is not gated by the inspection gate. It requires an admin (`_require_admin`), a reason of at least 10 characters, and an idempotency key (`p_request_id`). It writes a `matching_decisions` row (`manual: true`, admin id, reason) and a `job_events` row (`admin_assign`, with reason and request id). It does **not** write to `audit_logs`. `supabase/tests/admin_override_assignment.sql` covers `admin_assign_professional` and `admin_withdraw_offer`. `supabase/tests/admin_reassign_job.sql` covers `admin_reassign_job`: refusals, stale state, customer consent, schedule and eligibility guards, the successful reassignment and its audit rows, and idempotent replay.
 
 **Missing dependencies (not built):**
 - Customer service-area coverage. The app does not check that a property is inside a served area. Matching uses `professional_service_areas` (city, and area when set), so an uncovered property gets no professional rather than a refusal. See the owner decision in [RELEASE_CANDIDATE_PACKAGE.md](RELEASE_CANDIDATE_PACKAGE.md) section 5.
@@ -124,6 +124,7 @@ Admin override: `admin_assign_professional` (`20261101074513_a4_113_admin_assign
 | Booking pricing guard | `supabase/tests/booking_pricing_guard.sql` | `all checks passed` |
 | Migration 119 compatibility | `supabase/tests/migration_119_compatibility.sql` | `all checks passed` |
 | Admin overrides | `supabase/tests/admin_override_assignment.sql` | `all checks passed` |
+| Admin reassignment | `supabase/tests/admin_reassign_job.sql` | `all checks passed` |
 | Profiles read policy | `supabase/tests/profiles_read_policy.sql` | `all checks passed` |
 | Type check | `pnpm tsc --noEmit` | Exit 0 |
 | Unit tests | `pnpm test` | 47 files passed, 1 skipped; 600 tests passed, 16 skipped, 15 todo; exit 0 |
