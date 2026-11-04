@@ -252,3 +252,62 @@ Eleven bookings were identified as probable test data in an earlier pass. This p
 - Collect owners, timestamps, references and relationships (jobs, quotes, payments, messages) for each, read-only.
 - Decide, booking by booking, whether each is test data.
 - Any deletion or alteration needs a separate, reviewed plan. Nothing is deleted or changed by this release.
+
+## 15. Post-merge production verification (read-only, 4 Nov 2026)
+
+Checked after PR #8 (`b84ddd7`) and PR #9 (`ae8539b`) were merged to `main`. No migration, configuration change, deploy, record change or synthetic booking was made.
+
+### 15.1 GitGuardian and credential rotation
+
+| Item | Evidence | Status |
+|---|---|---|
+| GitGuardian incident #37860317 | Resolved in the dashboard with the reason "Secret revoked". | DONE |
+| Legacy service-role JWT disabled in Supabase | Project API settings show the legacy keys disabled ("Re-enable JWT-based API keys" is offered). | LARGELY VERIFIED |
+| Revocation timestamp | Not recorded. Not invented. Record it from the Supabase audit or the owner's notes. | GAP |
+| Old-key rejection test (runbook step 6) | Not performed. No request with the old key was sent. | NOT VERIFIED |
+| New key works in production | Production deployment of `ae8539b` reports success. Admin and booking flows were not exercised against production. | PARTLY VERIFIED |
+| Consumers still using the old key | Unexplained HTTP 401s, listed in 15.4. | OPEN |
+
+### 15.2 Deployment
+
+- Production deployment for `ae8539b` (created 2026-11-04 13:15:54Z) reports `success` on the GitHub commit status, with the Vercel check linked.
+- Previous production deployment: `b84ddd7` (12:51:10Z).
+
+### 15.3 Schema and booking path
+
+- Production migration history ends at `r1a_118_cancellation_policy`. Migrations 119–126 are **not** applied.
+- Production has one `create_booking` overload (6 arguments: service, property, scheduled start, problem summary, urgency, options). It has no service-area gate.
+- `get_booking_free_inspection` is absent. `create_booking_with_materials` is absent.
+- The wizard uses the structured path only when `getFreeInspectionStatus()` returns a value and the materials query succeeds (`src/app/customer/bookings/new/page.tsx`). In production the free-inspection read returns `null`, so `structuredBooking` is `false`. The wizard then omits `clientRequestId` and the action calls the legacy 6-argument `create_booking`. **This fallback is verified by code reading.** It is the reason booking works without migrations 119–126.
+- Impact: a booking in a city with no covered professional is not refused in production. Free inspection cannot be turned on in production until migrations are applied.
+
+### 15.4 Coverage, availability and errors
+
+- Active service-area coverage: only `bangalore` has verified, active professionals (2 verified, 1 available). No other city has coverage.
+- Unexplained 401s on the Supabase API:
+  - `node` client on `/rest/v1/service_categories` at 13:30:55Z (2 requests). This is the most important one: it may be a consumer still on the revoked key. Identify the client.
+  - `python-requests/2.33.0` on `/auth/v1/health` at 13:32:36Z.
+  - Earlier: `python-requests/2.33.1` on `/auth/v1/health` at about 13:20Z; `curl/8.7.1` on `/rest/v1/` at 12:28Z and `/auth/v1/settings` at 06:30Z.
+  - The edge log query could not be run this pass, so client identification is **not complete**.
+- PostgREST "Thread killed by timeout manager" entries between 12:52Z and 13:19Z (12 entries). Not correlated with the deploy window yet.
+
+### 15.5 Security advisors (production)
+
+- RLS is enabled on five tables with no policies.
+- `contact_messages_rate_limit()` is a SECURITY DEFINER function executable by `anon`.
+- 37 SECURITY DEFINER functions are executable by `authenticated`, including `create_booking` and `transition_job_state`. Each needs a review of its caller checks.
+- Leaked-password protection is disabled in Supabase Auth.
+
+### 15.6 Test and lint status
+
+- SQL suites: eight failing (016, 017, 004, 018, 019, 020, 101, `job_codes_and_no_show`). Failures are fixture or shim errors (`Payment not found`, `null job_id`, `Not signed in`, missing `instance_id`, `Job not found`). They were classified from the messages only, not re-run on a disposable database. Suites 016 and 017 were not re-checked.
+- Lint: 85 errors, all style or type rules (`no-explicit-any` 40, `no-unescaped-entities` 34, `ban-ts-comment` 5, `no-require-imports` 2, others 4). No `react-hooks` or runtime-rule errors. Warnings are mostly `no-unused-vars`.
+- Staging booking and quote flows were not run in this pass.
+
+### 15.7 Still open before About Us or performance work
+
+1. Identify the `node` client behind the 401s on `service_categories`, and confirm it is not using the revoked key.
+2. Run the old-key rejection test (runbook step 6) with the key from the secure store, and record the status code and time.
+3. Decide whether the 37 authenticated SECURITY DEFINER functions and the `anon` rate-limit function are accepted risks.
+4. Decide whether the eight SQL suites gate the release.
+5. Review the 11 suspected synthetic bookings (section 14) with the owner. Nothing has been deleted or changed.
