@@ -282,7 +282,7 @@ export function classifyBooking(b: OpsBookingRow, now: Date, t: OperationsThresh
     return null;
   }
 
-  if (job.state === 'in_progress' || job.state === 'quote_pending') {
+  if (job.state === 'assessing' || job.state === 'in_progress' || job.state === 'quote_pending') {
     const activity = Math.max(
       ms(job.lastEventAt) ?? 0,
       ms(job.lastMessageAt) ?? 0,

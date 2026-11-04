@@ -186,7 +186,8 @@ Notes on the journey run:
 - **Firefox and WebKit.** Not run. WebKit's browser binary is not installed.
 - **Production-shaped upgrade.** The replay ran all 71 files on a fresh database, and the local database was upgraded incrementally. Production's schema was not read in this pass, so a production-shaped comparison is still open.
 - **Shimmed Supabase schemas.** Replay results depend on shims for `auth`, `storage`, `vault`, `cron` and `extensions`. Real Supabase behaviour may differ.
-- **Unit test for the `P0008` and `P0009` mapping.** The mapping is a private function in a `'use server'` file and has no test.
+- **Service-area match ignores stray whitespace (fixed).** Migration 126 first matched `lower(psa.city) = lower(a.city)`, which refused a covered property whose address city had a trailing space (`'Mysuru '`) with `P0008`. The match now uses `lower(btrim(...))` on both sides. `service_area_gate.sql` has a padded, differently cased case that must be bookable. The fix was verified on a rebuilt `feazy_upgrade_disposable` (119–126 applied in order, gate suite passes). `addresses.city` is `NOT NULL`, so a NULL city cannot reach the gate. Coverage ignores professional availability (`is_available`); a verified professional who is unavailable still counts. This is by design and should be confirmed by the founder.
+- **Unit test for the `P0008` and `P0009` mapping.** The mapping is a private function in a `'use server'` file and has no test. (The copy is tested through `createBookingAction` in `actions.test.ts`, which covers `P0008` and `P0009`.)
 - **Founder-approved copy and catalogue** (section 5, item 7).
 - **Admin overrides** are not written to `audit_logs`.
 - **Production:** nothing applied, nothing deployed, no flags or env vars changed, no credentials rotated or revoked, no production queries run in this pass.

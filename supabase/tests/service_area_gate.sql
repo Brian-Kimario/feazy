@@ -24,7 +24,7 @@ DECLARE
   c_user uuid := 'b0000000-0000-4000-8000-0000000000c1';
   pro uuid := 'b0000000-0000-4000-8000-0000000000e1';
   pro_pending uuid := 'b0000000-0000-4000-8000-0000000000e2';
-  v_cat uuid; v_svc uuid; v_addr_in uuid; v_addr_out uuid; v_addr_pune uuid;
+  v_cat uuid; v_svc uuid; v_addr_in uuid; v_addr_out uuid; v_addr_pune uuid; v_addr_pad uuid; v_prop_pad uuid;
   v_prop_in uuid; v_prop_out uuid; v_prop_pune uuid;
   v_res text;
 BEGIN
@@ -76,6 +76,17 @@ BEGIN
     'SELECT booking_id::text FROM public.create_booking(%L, %L, %L, %L, %L, %L::jsonb, NULL, NULL, %L)',
     v_svc, v_prop_in, now() + interval '3 days', 'Leak', 'flexible', '{}', gen_random_uuid()));
   ASSERT left(v_res, 3) = 'ok:', 'a property in a covered city should be bookable, got ' || v_res;
+
+  -- B2. Stray whitespace in the address city must not refuse a covered property (case and spaces are ignored).
+  INSERT INTO public.addresses (customer_id, label, address_line_1, city)
+    VALUES (c_user, 'Padded', '4 Padded Road', '  mysuru ') RETURNING id INTO v_addr_pad;
+  INSERT INTO public.properties (owner_customer_id, name, property_type, address_id)
+    VALUES (c_user, 'Padded flat', 'apartment', v_addr_pad) RETURNING id INTO v_prop_pad;
+  UPDATE public.bookings SET booking_status = 'cancelled' WHERE customer_id = c_user;
+  v_res := pg_temp.as_user(c_user, format(
+    'SELECT booking_id::text FROM public.create_booking(%L, %L, %L, %L, %L, %L::jsonb, NULL, NULL, %L)',
+    v_svc, v_prop_pad, now() + interval '3 days', 'Leak', 'flexible', '{}', gen_random_uuid()));
+  ASSERT left(v_res, 3) = 'ok:', 'padded or differently cased city of a covered area should be bookable, got ' || v_res;
 
   -- C. An inactive area does not count as coverage.
   UPDATE public.professional_service_areas SET is_active = false WHERE professional_id = pro;

@@ -154,6 +154,9 @@ describe('classifyBooking', () => {
     expect(classify(idle('in_progress', 10))).toBeNull();
     expect(classify(idle('in_progress', 30))?.type).toBe('stuck_in_progress');
     expect(classify(idle('quote_pending', 30))?.type).toBe('stale_quote');
+    // An on-site assessment is still a working job: idle time counts the same as in-progress.
+    expect(classify(idle('assessing', 10))).toBeNull();
+    expect(classify(idle('assessing', 30))?.type).toBe('stuck_in_progress');
   });
 
   it('counts a recent message or event as activity, and a future scheduled end as not idle', () => {

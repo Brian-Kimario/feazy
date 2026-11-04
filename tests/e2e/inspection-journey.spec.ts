@@ -1,12 +1,15 @@
+import { execFileSync } from 'node:child_process'
 import { test, expect, type Page } from '@playwright/test'
 
 /**
  * Authenticated inspection + materials journey. Runs only against a disposable LOCAL Supabase stack
  * seeded with supabase/seeds/local_synthetic_catalogue.sql and the synthetic *@feazy.test accounts.
  * Opt in with E2E_LOCAL_JOURNEY=1 and PLAYWRIGHT_TEST_BASE_URL. Never point this at a shared project.
+ * E2E_DB_URL (the local Postgres URL, `supabase status`) lets the journey check database state after each step.
  */
 const ENABLED = process.env.E2E_LOCAL_JOURNEY === '1'
 const PASSWORD = process.env.E2E_LOCAL_PASSWORD ?? ''
+const DB_URL = process.env.E2E_DB_URL ?? ''
 const SHOTS = process.env.E2E_SHOTS_DIR
 // Extra browser contexts do not inherit the config's baseURL, so they take the same origin explicitly.
 const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000'
@@ -28,6 +31,33 @@ async function shot(page: Page, name: string) {
 
 let bookingUrl = ''
 const inspectorUserId = process.env.E2E_INSPECTOR_ID ?? ''
+
+/** Runs one scalar query against the local database. The id comes from our own test state and is checked as a UUID. */
+function dbScalar(sql: string): string {
+  if (!DB_URL) throw new Error('set E2E_DB_URL to the local database URL to check database state')
+  return execFileSync('psql', [DB_URL, '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+    encoding: 'utf8',
+  }).trim()
+}
+
+// Each run starts from the seeded state. Otherwise an open booking from the last run trips the duplicate-inspection guard (P0005).
+test.beforeAll(() => {
+  if (!DB_URL) return
+  execFileSync('bash', ['scripts/seed-local-e2e-users.sh'], { env: { ...process.env, DB_URL }, stdio: 'pipe' })
+})
+
+function bookingId(): string {
+  const id = bookingUrl.split('/').pop() ?? ''
+  if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error(`no booking id captured from ${bookingUrl}`)
+  return id
+}
+
+/** Latest visit for the journey's booking, as `status|outcome`. */
+function latestVisit(): string {
+  return dbScalar(
+    `select status || '|' || coalesce(outcome, '') from inspection_visits where booking_id = '${bookingId()}' order by created_at desc limit 1`,
+  )
+}
 
 test('customer books a free inspection and picks materials', async ({ page }) => {
   await signIn(page, 'customer', 'customer@feazy.test')
@@ -85,6 +115,9 @@ test('admin registers an inspector and assigns the free visit', async ({ page })
   await page.getByRole('button', { name: 'Assign' }).click()
   await expect(page.getByRole('status')).toHaveText('Assigned.')
   await shot(page, 'admin-inspections')
+  // The visit must exist for this booking, with the inspector assigned and the booking still awaiting inspection.
+  expect(latestVisit()).toBe('scheduled|')
+  expect(dbScalar(`select count(*) from jobs where booking_id = '${bookingId()}'`)).toBe('0')
 })
 
 test('inspector confirms materials and submits findings', async ({ page }) => {
@@ -112,6 +145,13 @@ test('inspector confirms materials and submits findings', async ({ page }) => {
   await page.getByRole('button', { name: 'Submit report' }).click()
   await page.waitForLoadState('networkidle')
   await shot(page, 'inspector-after-report')
+  // A repair finding completes the visit and hands the booking to matching in the same transaction.
+  expect(latestVisit()).toBe('completed|repair_needed')
+  expect(
+    dbScalar(
+      `select count(*) from jobs where booking_id = '${bookingId()}' and professional_id is not null and current_state = 'assigned'`,
+    ),
+  ).toBe('1')
 })
 
 test('customer sees findings and confirmed materials; unauthorized roles are blocked', async ({ page, browser }) => {

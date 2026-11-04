@@ -79,6 +79,7 @@ export async function getProfessionalJobs(options?: {
       "accepted",
       "on_the_way",
       "arrived",
+      "assessing",
       "in_progress",
       "quote_pending",
       "completed",

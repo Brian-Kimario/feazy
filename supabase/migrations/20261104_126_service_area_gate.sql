@@ -96,7 +96,7 @@ BEGIN
     FROM public.properties pr
     JOIN public.addresses a ON a.id = pr.address_id
     JOIN public.professional_service_areas psa
-      ON lower(psa.city) = lower(a.city) AND psa.is_active IS TRUE
+      ON lower(btrim(psa.city)) = lower(btrim(a.city)) AND psa.is_active IS TRUE
     JOIN public.professional_profiles pp
       ON pp.user_id = psa.professional_id AND pp.verification_status = 'verified'
     WHERE pr.id = p_property_id

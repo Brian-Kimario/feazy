@@ -227,7 +227,7 @@ export async function getOperationsQueue(now: Date = new Date()): Promise<AdminR
   const jobsWithBooking = jobs.data.filter((j) => first(j.booking) !== null);
   const proIds = [...new Set(jobsWithBooking.flatMap((j) => (j.professional_id ? [j.professional_id] : [])))];
   const activityIds = jobsWithBooking
-    .filter((j) => j.current_state === 'in_progress' || j.current_state === 'quote_pending')
+    .filter((j) => j.current_state === 'assessing' || j.current_state === 'in_progress' || j.current_state === 'quote_pending')
     .map((j) => j.id);
 
   const [names, activity] = await Promise.all([professionalNames(admin, proIds), latestActivity(admin, activityIds)]);
@@ -501,7 +501,7 @@ export async function getOperationsCaseDetail(input: unknown): Promise<AdminResu
   const jobState = job?.current_state ?? null;
   let lastEventAt: string | null = null;
   let lastMessageAt: string | null = null;
-  if (job && (jobState === 'in_progress' || jobState === 'quote_pending')) {
+  if (job && (jobState === 'assessing' || jobState === 'in_progress' || jobState === 'quote_pending')) {
     const act = await latestActivity(admin, [job.id]);
     if (typeof act === 'string') return fail('activity', act);
     lastEventAt = act.events.get(job.id) ?? null;
