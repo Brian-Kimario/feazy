@@ -5,11 +5,13 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
+  Bike,
   ArrowRight,
   CalendarClock,
   Check,
   CircleAlert,
   Clock,
+  Drill,
   FileCheck2,
   Hammer,
   Home,
@@ -196,6 +198,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   paintbrush: Paintbrush,
   hammer: Hammer,
   sparkles: Sparkles,
+  home: Home,
+  drill: Drill,
+  bike: Bike,
 };
 
 const STEPS = ['Service', 'Details', 'When & where', 'Review'] as const;

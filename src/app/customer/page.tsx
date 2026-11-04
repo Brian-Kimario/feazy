@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
   ArrowRight,
+  Bike,
   CalendarClock,
   CircleAlert,
   ClipboardCheck,
   Cpu,
+  Drill,
   Hammer,
   Home,
   Lightbulb,
@@ -61,6 +63,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   paintbrush: Paintbrush,
   hammer: Hammer,
   sparkles: Sparkles,
+  home: Home,
+  drill: Drill,
+  bike: Bike,
 };
 
 const money = (amount: number) => formatCurrency(amount, { minimumFractionDigits: 0 });
