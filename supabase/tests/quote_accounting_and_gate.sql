@@ -198,7 +198,10 @@ BEGIN
   v_q := substring(v_res from 4)::uuid;
   v_res := pg_temp.as_user(c_user, format('SELECT public.respond_to_quote(%L, %L)::text', v_q, 'declined'));
   ASSERT v_res = 'ok:true', 'the only repair quote should be declinable, got ' || v_res;
-  ASSERT pg_temp.as_owner(format('SELECT public.transition_job_state(%L, %L, ''00000000-0000-4000-8000-0000000000f2'', ''{}''::jsonb)', v_job_gate, 'completed')) = 'err:22023',
+  -- Migration 125: declining the only repair returns the job to assessment, so completion is refused by the state rules.
+  ASSERT (SELECT current_state FROM public.jobs WHERE id = v_job_gate) = 'assessing',
+    'a declined-only repair should return the job to assessment';
+  ASSERT pg_temp.as_owner(format('SELECT public.transition_job_state(%L, %L, ''00000000-0000-4000-8000-0000000000f2'', ''{}''::jsonb)', v_job_gate, 'completed')) LIKE 'err:%',
     'a declined-only repair must not complete';
   v_res := pg_temp.as_user(c_user, format('SELECT public.job_payment_amount(%L)::text', v_job_gate));
   ASSERT v_res = 'err:22023', 'a declined-only repair has nothing payable, got ' || v_res;

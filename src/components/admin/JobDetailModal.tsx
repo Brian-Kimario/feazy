@@ -33,6 +33,7 @@ const STATE_ORDER = [
   'accepted',
   'on_the_way',
   'arrived',
+  'assessing',
   'in_progress',
   'completed',
 ];
@@ -42,6 +43,7 @@ const STATE_LABELS: Record<string, string> = {
   accepted: 'Accepted',
   on_the_way: 'On the Way',
   arrived: 'Arrived',
+  assessing: 'Assessing',
   in_progress: 'In Progress',
   quote_pending: 'Quote Pending',
   completed: 'Completed',

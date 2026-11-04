@@ -18,6 +18,7 @@ describe('job states', () => {
       'accepted',
       'on_the_way',
       'arrived',
+      'assessing',
       'in_progress',
       'quote_pending',
       'completed',
@@ -45,6 +46,11 @@ describe('job states', () => {
     expect(canTransition('in_progress', 'quote_pending')).toBe(true);
     expect(canTransition('quote_pending', 'in_progress')).toBe(true);
     expect(canTransition('completed', 'closed')).toBe(true);
+    expect(canTransition('arrived', 'assessing')).toBe(true);
+    expect(canTransition('assessing', 'quote_pending')).toBe(true);
+    expect(canTransition('quote_pending', 'assessing')).toBe(true);
+    expect(canTransition('assessing', 'completed')).toBe(false);
+    expect(canTransition('assessing', 'in_progress')).toBe(false);
     expect(canTransition('completed', 'in_progress')).toBe(false);
     expect(canTransition('IN_PROGRESS', 'completed')).toBe(false);
   });

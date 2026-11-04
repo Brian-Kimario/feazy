@@ -205,7 +205,7 @@ export async function getOperationsQueue(now: Date = new Date()): Promise<AdminR
         .from('jobs')
         .select('id, booking_id, current_state, professional_id, updated_at')
         .in('professional_id', suspendedIds)
-        .in('current_state', ['accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'])
+        .in('current_state', ['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'])
         .limit(JOB_LIMIT)
     : { data: [], error: null };
   if (suspendedJobsRes.error) return fail('suspended professionals jobs', suspendedJobsRes.error.message);

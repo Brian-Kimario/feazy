@@ -377,7 +377,7 @@ export interface ProShellData {
   error: boolean;
 }
 
-const OPEN_JOB_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'];
+const OPEN_JOB_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'];
 
 const PRO_JOB_SELECT = `id, current_state, offer_expires_at, completed_at, updated_at,
   booking:bookings!jobs_booking_id_fkey (

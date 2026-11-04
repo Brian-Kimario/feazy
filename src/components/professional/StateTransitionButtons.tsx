@@ -13,7 +13,9 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   assigned:      [],
   accepted:      ['on_the_way'],
   on_the_way:    ['arrived'],
+  // A repair job is assessed and quoted before any work starts. See nextStatesFor().
   arrived:       ['in_progress'],
+  assessing:     [],
   in_progress:   ['completed'],
   quote_pending: [],
   completed:     [],
@@ -25,6 +27,7 @@ const TRANSITION_LABELS: Record<string, string> = {
   accepted:   'Accept Job',
   on_the_way: "I'm On the Way",
   arrived:    "I've Arrived",
+  assessing:  'Start Assessment',
   in_progress:'Start Work',
   completed:  'Mark Complete',
   cancelled:  'Cancel Job',
@@ -35,6 +38,7 @@ const TRANSITION_STYLES: Record<string, string> = {
   accepted:    'bg-[#176B5B] text-white hover:bg-[#0D5144] focus-visible:ring-[#176B5B]',
   on_the_way:  'bg-[#176B5B] text-white hover:bg-[#0D5144] focus-visible:ring-[#176B5B]',
   arrived:     'bg-[#176B5B] text-white hover:bg-[#0D5144] focus-visible:ring-[#176B5B]',
+  assessing:   'bg-[#176B5B] text-white hover:bg-[#0D5144] focus-visible:ring-[#176B5B]',
   in_progress: 'bg-[#176B5B] text-white hover:bg-[#0D5144] focus-visible:ring-[#176B5B]',
   completed:   'bg-[#2F7D5B] text-white hover:bg-[#226048] focus-visible:ring-[#2F7D5B]',
   cancelled:   'border border-[#DFC0C0] text-[#9B3535] hover:bg-[#F5E6E6] focus-visible:ring-[#DFC0C0]',
@@ -50,6 +54,14 @@ const CONFIRMATION_MESSAGES: Record<string, string> = {
   completed: 'Mark this job as complete? Please confirm all work has been finished.',
 };
 
+/** The buttons for a job. On arrival, a repair job starts with an assessment; the database enforces the same rule. */
+function nextStatesFor(currentState: string, pricingModel?: string): string[] {
+  if (currentState === 'arrived' && pricingModel === 'quote_after_inspection') {
+    return ['assessing'];
+  }
+  return ALLOWED_TRANSITIONS[currentState] ?? [];
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Toast {
@@ -60,6 +72,8 @@ interface Toast {
 interface StateTransitionButtonsProps {
   jobId: string;
   currentState: string;
+  /** Repair jobs (`quote_after_inspection`) go to assessment first; other jobs go straight to work. */
+  pricingModel?: string;
   /** Targets that stay disabled until the matching code is verified, with the reason shown under the button. */
   lockedTargets?: Partial<Record<string, string>>;
 }
@@ -78,6 +92,7 @@ interface StateTransitionButtonsProps {
 export function StateTransitionButtons({
   jobId,
   currentState,
+  pricingModel,
   lockedTargets = {},
 }: StateTransitionButtonsProps) {
   const router = useRouter();
@@ -88,7 +103,7 @@ export function StateTransitionButtons({
   const [showSuccessState, setShowSuccessState] = useState(false);
   const [successState, setSuccessState] = useState<string | null>(null);
 
-  const nextStates = ALLOWED_TRANSITIONS[currentState] ?? [];
+  const nextStates = nextStatesFor(currentState, pricingModel);
 
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message });

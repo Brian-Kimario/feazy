@@ -743,7 +743,7 @@ export async function reportEtaAction(payload: ReportEtaInput): Promise<ActionRe
 }
 
 /** States in which the job-media upload policy and add_job_media accept files. */
-const MEDIA_OPEN_STATES: ReadonlySet<string> = new Set(['arrived', 'in_progress', 'quote_pending', 'completed']);
+const MEDIA_OPEN_STATES: ReadonlySet<string> = new Set(['arrived', 'assessing', 'in_progress', 'quote_pending', 'completed']);
 
 /**
  * Sign an upload into job-media for this job's professional. Auth cookies are httpOnly, so the

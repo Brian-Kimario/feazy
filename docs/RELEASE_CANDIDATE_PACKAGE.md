@@ -1,26 +1,29 @@
-# Release candidate package: booking pricing, quotes and free inspection
+# Release candidate package: booking pricing, quotes, assessment and service areas
 
 Branch: `feat/founder-revisions` (local only; not pushed, not merged, not deployed).
-Companion docs: [REPAIR_PRICING_WORKFLOW.md](REPAIR_PRICING_WORKFLOW.md) (pricing and quote rules, with what is verified), [FOUNDER_FEEDBACK_IMPLEMENTATION.md](FOUNDER_FEEDBACK_IMPLEMENTATION.md) (what changed and what is verified).
+Companion doc: [REPAIR_PRICING_WORKFLOW.md](REPAIR_PRICING_WORKFLOW.md) (pricing, quote, assessment and service-area rules, with what is verified).
 
-**Status: local release candidate, not released.** Local SQL suites, unit tests, type-check, production build and the Chromium inspection journey pass (see section 8). Production has none of migrations 119–124, the leaked legacy service-role key has not been revoked, and no release decision has been made.
+**Status: local release candidate, not released.** Migrations 119–126 replay on a fresh disposable database. The changed SQL suites pass on that replay and on the main local database, and the type check, unit tests, production build and Chromium inspection journey pass (section 8). Production has none of migrations 119–126, the leaked legacy service-role key has not been revoked, and no release decision has been made. Section 11 is the readiness matrix: every release step is NO until its blocker is cleared.
 
 ## 1. Scope of this release
 
 - Transactional price check in `create_booking` (`P0003`, no row created on mismatch).
-- Structured booking path: `create_booking_with_materials` (materials, quantities, budget, idempotent retry).
-- Free-inspection safeguards: per-customer lock, rate limit (`P0007`), duplicate open inspection (`P0005`), inspector check (`P0006`), inspection visit created with the gate on.
-- Quote accounting by kind (migration 122 and 123): repair quotes and additional-work quotes are separate. Revisions supersede earlier repair quotes. Payable amount follows the owner's rules (see [REPAIR_PRICING_WORKFLOW.md](REPAIR_PRICING_WORKFLOW.md) section 4).
-- Completion gate in Postgres (migration 123): a repair job cannot move from `in_progress` to `completed` without an approved repair quote.
-- Sign-in fix (migration 124): the admin read policy on `profiles` no longer recurses. Before this, every non-owner profile read failed with `42P17`, which blocked sign-in.
+- Structured booking path: `create_booking_with_materials` (materials, quantities, budget, idempotent retry by client request id).
+- Free-inspection safeguards: per-customer lock, rate limit (`P0007`), duplicate open inspection (`P0005`), inspector check (`P0006`), inspection visit created when the gate is on.
+- Quote accounting by kind (migrations 122 and 123): repair quotes and additional-work quotes are separate; newer repair revisions supersede earlier ones.
+- Completion gate in Postgres (migration 123): a repair job cannot complete without an approved repair quote.
+- Sign-in fix (migration 124): the admin read policy on `profiles` no longer recurses. Check production first (section 2).
 - Profile e-mail column for fresh databases (migration 121).
-- Regenerated database types; founder sign-in copy in `src/lib/brand.ts`.
+- **Assessment state (migration 125).** A repair job (`quote_after_inspection`) moves `arrived` → `assessing`, not straight to `in_progress`. The professional sends the repair quote from `assessing`. Additional-work quotes are refused while assessing. Verified by `assessing_state.sql`.
+- **Service-area gate (migration 126).** `create_booking` refuses a property whose city has no verified professional with an active service area (`P0008`). Nothing is written, and the customer sees "We do not serve this area yet." Verified by `service_area_gate.sql`.
+- **Legacy path switch (migration 126).** `matching_config.legacy_booking_path_enabled` (default `1`). With `0`, a booking call without a client request id is refused (`P0009`), and the customer is asked to refresh.
+- App state lists include `assessing` (messaging, cancellation review, admin operations, the progress rail and the transition buttons). Live database functions were audited against the app list: the four that lack `assessing` are intentionally excluded or notification-only.
 
-Not in this release: customer or inspector service-area coverage, inspector capacity and calendar, inspection no-show flow, admin override written to `audit_logs`, any universal minimum charge (none exists, by design).
+Not in this release: inspector capacity and calendar (an inspector is checked only for `is_active`), inspection no-show flow, admin overrides written to `audit_logs`, an in-app notification for `assessing` (the customer sees the state in the app only), and any universal minimum charge (none exists, by design).
 
-## 2. Migration order and backup
+## 2. Migration sequence, preflight and backup
 
-Apply forward only, in this order. Do not skip or reorder.
+Apply forward only, in this order. Do not skip or reorder. Stop on the first error, and run each file in its own transaction.
 
 1. `supabase/migrations/20261102_119_inspection_foundation.sql`
 2. `supabase/migrations/20261102_120_materials_and_categories.sql`
@@ -28,125 +31,214 @@ Apply forward only, in this order. Do not skip or reorder.
 4. `supabase/migrations/20261104_122_payment_sums_approved_quotes.sql`
 5. `supabase/migrations/20261104_123_quote_accounting_and_completion_gate.sql`
 6. `supabase/migrations/20261104_124_profiles_admin_read_policy.sql`
+7. `supabase/migrations/20261104_125_assessing_state.sql` (needs 123: wraps the core transition)
+8. `supabase/migrations/20261104_126_service_area_gate.sql` (needs 119 and 120: redefines the booking RPC)
 
-Before applying any of them to production:
+**Preflight (read-only; only after the owner authorises production access):**
 
-- Take a fresh backup or point-in-time snapshot and record its identifier. **Owner action.**
 - Confirm the production project ref is `azmajqztvcuwajaaldqm` before running anything.
-- Run each file in its own transaction and stop on the first error.
+- Confirm migration history: 119–124 expected present, 125 and 126 absent.
+- Confirm `jobs.current_state` holds only the known states.
+- Check whether production's `profiles` admin read policy is recursive. This decides whether 124 is needed there.
+- Count repair jobs (`services.pricing_model = 'quote_after_inspection'`) in `arrived` or `in_progress` with no approved repair quote. Jobs in `arrived` will take the assessment step after 125.
+- Coverage check: bookings in the last 30 days whose property city has no verified, active service area. Migration 126 will refuse new bookings in those cities.
+- Record row counts for `bookings`, `jobs`, `quotes`, `matching_config` before and after.
 
-Expected production effect (not checked against production in this pass):
+**Backup.** Take a fresh backup or point-in-time snapshot and record its identifier before the first production write. **Owner action.**
+
+**Expected production effect (not checked against production in this pass):**
 
 | Migration | Effect |
 |---|---|
-| 119 | Adds switches, inspectors, inspection visits, `get_booking_free_inspection`, and a nine-argument `create_booking` with defaults. It drops the six-argument `create_booking` (`DROP FUNCTION IF EXISTS`). The legacy app call uses named arguments with five parameters, so it resolves to the nine-argument function. Switch stays `0`. |
-| 120 | Adds `service_materials`, `create_booking_with_materials`, `set_booking_material_preferences`, `budget_preference`, `quantity`. Drops the earlier `set_booking_material_preferences(uuid, uuid[])` and `create_booking_with_materials(... uuid[])`. |
-| 121 | `ADD COLUMN IF NOT EXISTS profiles.email`. Production already has the column, so this is a no-op there. |
-| 122 | Replaces `_job_payment_amount` so the payable amount sums approved quotes, not only one. Signature unchanged. |
-| 123 | Adds `quotes.quote_kind` (`repair` or `additional_work`, backfilled: fixed-price repair quotes become `additional_work`), `revision`, and the `create_quote(..., p_quote_kind)` argument. Splits accounting by kind. Wraps `transition_job_state` with the completion gate; the original becomes `_transition_job_state_core`. |
-| 124 | Replaces the admin read policy on `profiles` with a `SECURITY DEFINER` helper (`_is_admin_user`). Without this, sign-in fails for every non-owner profile read on a database that has the original policy. **Check production for the recursive policy first (read-only), and only then decide whether 124 is needed there.** |
+| 119 | Adds the switches, inspectors, inspection visits and `get_booking_free_inspection`. Drops the six-argument `create_booking` (`DROP FUNCTION IF EXISTS`, line 204) and creates the nine-argument version with defaults. The legacy app call uses named arguments, so it resolves to the new function. Switch stays `0`. |
+| 120 | Adds `service_materials`, `create_booking_with_materials`, `set_booking_material_preferences`, `budget_preference` and `quantity`. Drops the earlier `set_booking_material_preferences(uuid, uuid[])` (line 68) and `create_booking_with_materials(..., uuid[])` (line 210). |
+| 121 | `ADD COLUMN IF NOT EXISTS profiles.email`. A no-op where the column already exists. |
+| 122 | Replaces `_job_payment_amount` so the payable amount sums approved quotes. Signature unchanged. |
+| 123 | Adds `quotes.quote_kind` (`repair` or `additional_work`; fixed-price repair quotes are backfilled to `additional_work`), `revision`, and the `create_quote(..., p_quote_kind)` argument. Wraps `transition_job_state` with the completion gate; the original becomes `_transition_job_state_core`. |
+| 124 | Replaces the admin read policy on `profiles` with a `SECURITY DEFINER` helper. Without it, a non-owner profile read on a database with the recursive policy fails with `42P17`, which blocks sign-in. |
+| 125 | Adds `assessing` to the state machine and redefines the functions that check job state (the core transition, `create_quote`, `respond_to_quote`, cancellation, messaging, media, inspection submission, no-show and withdrawal, and admin recovery). Existing rows are not changed. Jobs already in `arrived` take the new rules at their next move. |
+| 126 | Adds `matching_config.legacy_booking_path_enabled` = `1`. Redefines `create_booking` to refuse unserved cities (`P0008`) and unguarded calls when the switch is `0` (`P0009`). Existing bookings are not changed. |
+
+**Forward only.** There is no production rollback by dropping objects. See section 7.
 
 ## 3. Compatibility by code path
 
 The app chooses a path from what the form sends. Both paths can run against the same database.
 
-| Path | Trigger | Needs | Price guard | Materials and budget stored |
-|---|---|---|---|---|
-| Structured | Form sends `clientRequestId` (`structuredBooking` true in `src/app/customer/bookings/new/page.tsx`) | Migrations 119 and 120 | Inside the RPC, transactional (`P0003`) | Yes |
-| Legacy | No `clientRequestId` | Six-argument `create_booking` (production today) | Read before insert in `createBookingAction`; a switch flipped between read and insert is not caught | No |
+| Path | Trigger | Needs | Price guard | Materials and budget stored | Service-area gate |
+|---|---|---|---|---|---|
+| Structured | Form sends `clientRequestId` | Migrations 119 and 120 | Inside the RPC, in the transaction (`P0003`) | Yes | Yes (`P0008`) |
+| Legacy | No `clientRequestId` | Six-argument call (production today) | Read before insert in `createBookingAction`; a switch flipped between read and insert is not caught | No | Yes (`P0008`); refused entirely (`P0009`) when `legacy_booking_path_enabled` = 0 |
 
-- Until 119 and 120 are applied, the wizard shows the legacy path. This is what production runs now.
-- Before 119 is applied, `get_booking_free_inspection` is missing, so the page reads `null`, the wizard sends no expected decision (`freeInspection ?? undefined`), and the legacy guard is skipped. Verified by reading `src/app/customer/bookings/new/page.tsx`, `src/components/customer/BookingWizard.tsx` and `src/lib/services/booking-pricing.ts`. **Not run against a database without 119.** Check this in staging before production.
-- After 119 and 120 are applied, the wizard uses the structured path only if `get_booking_free_inspection` and `service_materials` are both readable. The page checks this and falls back to legacy on error.
+- Until 119 and 120 are applied, the wizard uses the legacy path. This is what production runs now.
+- Before 119 is applied, `get_booking_free_inspection` is missing, so the page reads `null` and the legacy guard is skipped. Verified by reading `src/app/customer/bookings/new/page.tsx`, `src/components/customer/BookingWizard.tsx` and `src/lib/services/booking-pricing.ts`. **Not run against a database without 119.** Check in staging before production.
+- After 119 and 120 are applied, the wizard uses the structured path only if `get_booking_free_inspection` and `service_materials` are readable, and falls back to legacy on error.
+- **Legacy switch.** Leave `legacy_booking_path_enabled` = `1` at deploy. Flip it to `0` only after the structured path is confirmed live in production. A stale form with no client request id is then refused (`P0009`) and the customer is asked to refresh. This is a post-deploy owner step.
 - Known gap: the legacy path has a read-before-insert window. It closes only when the structured path is live.
-- Migration 119 compatibility is covered by `supabase/tests/migration_119_compatibility.sql` (legacy five-argument call, six-positional call, free inspection off and on, signed-out refusal).
+- `supabase/tests/migration_119_compatibility.sql` covers the legacy five-argument call, the six-positional call, free inspection off and on, and a signed-out refusal.
 
 ## 4. Environment variables and flags
 
 | Name | Value for this release | Note |
 |---|---|---|
-| `NEXT_PUBLIC_FREE_INSPECTION` | Keep off (unset or false) in production | Controls the public promise in `src/lib/brand.ts`. Separate from the database switch. |
+| `NEXT_PUBLIC_FREE_INSPECTION` | Off (unset or false) in production | Controls the public promise in `src/lib/brand.ts`. Separate from the database switch. |
 | `matching_config.free_inspection_enabled` | `0` in production | Set to `1` only with founder approval, after migrations and smoke tests. |
 | `matching_config.inspection_gate_enabled` | `0` in production unless approved | With it on, an active inspector must exist (`P0006`). |
+| `matching_config.legacy_booking_path_enabled` | `1` at deploy; `0` only as a post-deploy owner step | `0` refuses unguarded booking calls (`P0009`). See section 3. |
 | `booking_rate_limit_per_hour` | `5` (default) | Change only with founder approval. |
+
+**Coverage is data, not a flag.** A city is bookable only when a verified professional has an active `professional_service_areas` row for it. Other cities are refused (`P0008`). The owner must confirm the coverage rows before deploy.
 
 Do not commit real values. `.env.example` lists variable names only.
 
-The local seed script (`scripts/seed-local-e2e-users.sh`) sets `free_inspection_enabled`, `inspection_gate_enabled` and the rate limit on the **local** stack only. It is hard-coded to `127.0.0.1` and never reads or writes production configuration.
+`scripts/seed-local-e2e-users.sh` sets the free-inspection, inspection-gate and rate-limit values on the **local** stack only. It is hard-coded to `127.0.0.1`, refuses other endpoints, and never reads or writes production configuration.
 
 ## 5. Owner decisions and actions (not performed in this pass)
 
 These need a person with access or a decision. None were run here.
 
-1. **Revoke the leaked legacy service-role key.** Revoke it in the Supabase dashboard (API settings). Then confirm revocation with a real request. A request with the old key must return an authentication error. Keep the proof.
-2. **Rotate the new key in Vercel.** Changing the Vercel environment variable does **not** revoke the leaked key. Revocation is step 1 only.
+1. **Revoke the leaked legacy service-role key** in the Supabase dashboard (API settings). Then confirm revocation with a real request: the old key must return an authentication error. Keep the evidence with the key redacted. See section 12.
+2. **Rotate the new key in Vercel.** Changing the Vercel variable does **not** revoke the leaked key. Revocation is step 1.
 3. Confirm the mailboxes used for founder and support sign-ins.
-4. Delete `/tmp_tsc.log` (local file from an earlier run; not in the repo).
-5. Review the 11 suspect test bookings in production. **Identify their owners, timestamps, references and relationships first.** Do not delete any of them without a separate reviewed plan.
-6. Founder decisions:
-   - Whether free inspection applies to fixed-price services (today the switch only changes `inspection` services).
-   - Whether budget or quantity should ever affect the quotation (current design: no).
-   - Whether a global switch change should make open fixed-price forms ask for confirmation again (current behaviour, accepted for now).
-   - Whether repair jobs need an "assessing" state, so an assessment cannot begin before a quote is approved. Today this is an open gap (see [REPAIR_PRICING_WORKFLOW.md](REPAIR_PRICING_WORKFLOW.md) section 4).
-   - Whether the legacy booking path is retired. It has no `clientRequestId`, its six-argument call skips the in-transaction price guard, and its pre-read free-inspection check is racy.
-7. **Service-area safeguards (decision needed).** Matching finds only professionals whose `professional_service_areas` match the property's city, and the area when one is set. Booking does not check that the property is inside a served area. A customer outside any covered city gets no professional rather than a clear refusal. Options: (a) refuse bookings outside covered cities with a clear message; (b) accept them and show "no professional available" (current). Inspector coverage has the same gap: an inspector is checked only for `is_active`, not for city or capacity.
-8. Onboard professionals for categories with zero coverage before any inspection is offered there.
+4. Review the 11 suspect test bookings in production (identified in an earlier pass; not re-queried here). Identify their owners, timestamps, references and relationships first. Do not delete or alter any of them without a separate reviewed plan. See section 14.
+5. Founder decisions:
+   - **Assessing state.** Implemented in migration 125: a repair job is assessed before a quote is sent. Confirm the customer copy "Professional is assessing the repair".
+   - **Service areas.** Implemented in migration 126 as option (a): refuse bookings outside covered cities, with a clear message. Confirm the coverage data before deploy.
+   - Whether free inspection applies to fixed-price services. Today the switch only changes `inspection` services. **Open.**
+   - Whether budget or quantity should ever affect the quotation. Current design: no.
+   - Whether a global switch change should make open fixed-price forms ask for confirmation again. Current behaviour, accepted for now.
+   - Whether the legacy booking path is retired, and when. The switch exists; retiring the path is the owner's call. **Open.**
+6. Onboard verified professionals for each city and category to be served. A city with no verified coverage refuses bookings by design.
+7. Confirm the founder-approved public copy and catalogue in `src/lib/brand.ts` and the catalogue. **Not re-checked in this pass.**
 
-## 6. Smoke tests after approval (to run in staging, then production)
+## 6. Smoke tests after approval (staging first, then production)
 
 Run these only after the owner approves each step. Record the result for each.
 
 | # | Test | Expected |
 |---|---|---|
-| 1 | Sign up and sign in with a new account (fresh staging database) | Profile row created; sign-in succeeds; no `email` column error |
-| 2 | Book a fixed-price service (legacy path, switch `0`) | Booking created, amount equals `services.base_price` |
-| 3 | Book with the structured path, switch `0`, materials and budget set | One booking; materials with quantities and budget stored |
+| 1 | Sign up and sign in with a new account (fresh staging database) | Profile row created; sign-in succeeds |
+| 2 | Book a fixed-price service on the legacy path, switch `0` | Booking created; amount equals `services.base_price` |
+| 3 | Book on the structured path with materials and a budget | One booking; materials with quantities and budget stored |
 | 4 | Submit the same structured request twice with one `clientRequestId` | Same booking returned; one row |
-| 5 | Change the switch between opening the form and submitting | `price_changed` message; no row created (structured path) |
+| 5 | Change `free_inspection_enabled` between opening the form and submitting (staging only) | `price_changed`; no row created |
 | 6 | Budget `100` on the structured path | Rejected (`22023`); no row created |
-| 7 | More than the hourly limit of bookings | Rejected (`P0007`) |
-| 8 | Open an inspection for a property, then open another for the same property and service | Second rejected (`P0005`) |
-| 9 | Quotation: professional creates a quote, customer approves or declines | Job resumes (`in_progress`) after answer |
-| 10 | Repair job (`quote_after_inspection`): try to complete with no approved repair quote | Rejected (`22023`); completes after an approved repair quote |
+| 7 | Exceed the hourly booking limit | Rejected (`P0007`) |
+| 8 | Two open inspections for the same property and service (staging only) | Second rejected (`P0005`) |
+| 9 | Repair job: professional sends a repair quote from `assessing`; customer approves | Quote accepted; job resumes in `in_progress` |
+| 10 | Repair job: try to complete with no approved repair quote | Rejected (`22023`); completes after an approved repair quote |
 | 11 | Fixed-price job: approved additional-work quote, then payment | Payable amount is base price plus the approved quote only |
+| 12 | Repair job: start the assessment from `arrived`; try to move straight to `in_progress` | Moves to `assessing`; direct move rejected (`22023`) |
+| 13 | Repair job in `assessing`: send an additional-work quote | Rejected; a repair quote is accepted |
+| 14 | Book a property in a city with no verified coverage | Refused with "We do not serve this area yet"; no row (`P0008`) |
+| 15 | After switching `legacy_booking_path_enabled` to `0`: submit a form with no client request id | Refused with "Please refresh the page and book again" (`P0009`); the structured form still books |
 
-Switch `free_inspection_enabled` is set to `1` **only** in a staging database, and only for tests 5 and 8. It is set back to `0` afterwards.
+Tests 5 and 8 need `free_inspection_enabled` = `1`. Run them only in staging, and set the switch back to `0` afterwards.
 
 ## 7. Rollback and forward fix
 
 - Migrations are forward only. Do not drop columns or functions in production to roll back.
-- If a migration fails: stop, keep the backup, fix forward with a new migration named `YYYYMMDD_NNN_description.sql`.
-- If the app misbehaves after deploy: revert the deploy (the app falls back to legacy only if migrations are not applied), and keep the switches at `0`.
-- Switches can be turned off at any time: `matching_config.free_inspection_enabled = 0`, `inspection_gate_enabled = 0`.
+- If a migration fails: stop, keep the backup, and fix forward with a new migration named `YYYYMMDD_NNN_description.sql`.
+- **Do not revert the app to a build that lacks `assessing` while jobs are in `assessing`.** That build would not recognise those jobs. Check open assessing jobs first (read-only), and revert only after they are handled.
+- If the app misbehaves after deploy, revert the deploy to a build that knows `assessing`, and keep the switches at their safe values.
+- Switches can be changed at any time:
+  - `matching_config.free_inspection_enabled = 0` (off)
+  - `matching_config.inspection_gate_enabled = 0` (off)
+  - `matching_config.legacy_booking_path_enabled = 1` (re-enables legacy booking calls, if a regression needs them)
 
-## 8. Verification (local stack, this pass)
+## 8. Verification (this pass)
+
+**Replay.** `replay.sh` built a fresh disposable database (`feazy_replay_disposable`) on `127.0.0.1` only and applied all 71 migration files in filename order. It uses shims for the Supabase-managed schemas (`auth`, `storage`, `extensions`, `cron`) and filters out the `pg_cron` line, which only runs in the `postgres` database. The shims are not production behaviour (section 9). A baseline replay of `HEAD` (without 125 and 126) ran alongside it to separate pre-existing failures from new ones.
+
+**SQL suites on the replay (26 files):**
+
+| Result | Suites |
+|---|---|
+| Pass (17) | `20261030_003_professional_profile_guard`, `_005_create_booking_rpc`, `_006_create_pending_payment`, `_008_matching_v2_ranking`, `_012_case_file_integrity`, `_013_job_paid_at`, `_014_job_media_and_eta`, `_015_job_media_cleanup`, `admin_override_assignment`, `admin_reassign_job`, `assessing_state`, `booking_pricing_guard`, `migration_119_compatibility`, `profiles_read_policy`, `quote_accounting_and_gate`, `quote_payment_invariants`, `service_area_gate` |
+| Fail on the replay and fail the same way on the `HEAD` baseline (9) | `20261030_004`, `_016`, `_017`, `_018`, `_019`, `_020`, `_101`, `20261102_117`, `job_codes_and_no_show` |
+
+The nine failing suites are **pre-existing fixture or shim gaps, not regressions from 125 or 126**, and they are not diagnosed beyond that. They are not green, so they must not be counted as passing. `20261030_016` needs `vault.create_secret` and `_101` needs more `auth.users` columns than the shim provides. Fixing them is follow-up work.
+
+**Fixed in this pass.**
+- `booking_pricing_guard` and `migration_119_compatibility` booked in Bengaluru with no covering professional. They passed on the local stack only because its seed covers Bengaluru. Both now create a verified Bengaluru professional with an active service area, so they pass on a clean replay.
+- Inspectors in `booking_pricing_guard` are deactivated, not deleted.
+- `service_area_gate.sql` (new): outside the covered city refused with `P0008` and no row; covered city accepted; inactive area refused; an unverified professional's area not counted; `legacy_booking_path_enabled` = 0 refuses `P0009`, and a guarded booking still works.
+
+**Main local database.** The six suites changed or added in this pass pass there: `booking_pricing_guard`, `migration_119_compatibility`, `service_area_gate`, `assessing_state`, `quote_accounting_and_gate`, `admin_reassign_job`. The full suite was not re-run on the main database.
 
 | Check | Command | Result |
 |---|---|---|
-| Quote accounting and completion gate | `psql -v ON_ERROR_STOP=1 -f supabase/tests/quote_accounting_and_gate.sql` | `all checks passed` |
-| Quote payment invariants | `supabase/tests/quote_payment_invariants.sql` | `all checks passed` |
-| Booking pricing guard | `supabase/tests/booking_pricing_guard.sql` | `all checks passed` (fixed this pass: inspectors are deactivated, not deleted) |
-| Migration 119 compatibility | `supabase/tests/migration_119_compatibility.sql` | `all checks passed` |
-| Admin assignment and offer withdrawal overrides | `supabase/tests/admin_override_assignment.sql` | `all checks passed` |
-| Profiles read policy (migration 124) | `supabase/tests/profiles_read_policy.sql` | `all checks passed` |
 | Type check | `pnpm tsc --noEmit` | Exit 0 |
 | Unit tests | `pnpm test` | 47 files passed, 1 skipped; 600 tests passed, 16 skipped, 15 todo; exit 0 |
 | Production build | `pnpm build` | Exit 0 |
-| Inspection journey, Chromium, with phone (375px) and tablet (768px) layout checks | `E2E_LOCAL_JOURNEY=1 pnpm exec playwright test tests/e2e/inspection-journey.spec.ts --project=chromium` after `scripts/seed-local-e2e-users.sh` | 9 passed; screenshots for phone and tablet written to the scratchpad `shots/` folder |
+| Inspection journey, Chromium, 375px and 768px layout checks | `E2E_LOCAL_JOURNEY=1 pnpm exec playwright test tests/e2e/inspection-journey.spec.ts --project=chromium`, after `scripts/seed-local-e2e-users.sh` | 9 passed |
 
 Notes on the journey run:
 
-- The journey books a fresh inspection on each run, so re-seed before every run (`scripts/seed-local-e2e-users.sh`). The seed cancels the synthetic customer's open bookings and their active jobs. Without this, the duplicate guard (`P0005`) and the professional conflict rule block the run.
-- A multi-browser run (`pnpm exec playwright test ...` without `--project`) is not reliable as-is. The serial suite books once per browser project, so the second and third projects hit `P0005` unless the seed runs between them.
-- **Not run:** Firefox and WebKit. WebKit's browser binary is not installed here (`pnpm exec playwright install webkit` downloads it; not done without approval). Desktop-width screenshots are covered by the journey's default viewport, not by a separate desktop-only check.
+- The journey books a fresh inspection on each run, so re-seed before every run. The seed cancels the synthetic customer's open bookings and active jobs. Without this, the duplicate guard (`P0005`) blocks the run.
+- The journey covers the inspection path only. It does not cover the repair quote, assessment or customer approval.
+- A multi-browser run is not reliable as-is: the serial suite books once per browser project, so later projects hit `P0005` unless the seed runs between them.
 
 ## 9. Not verified
 
-- Desktop-width (1280px and wider) layout checks as a separate test. The journey runs at the default viewport only.
-- Firefox and WebKit runs of the journey.
-- Admin reassignment (`admin_reassign_job`): no override test yet. `admin_assign_professional` and `admin_withdraw_offer` are covered by `admin_override_assignment.sql`.
-- Migrations 122–124 replayed from scratch on a fresh database. `supabase db reset --local` was denied in this session, so 122–124 were applied to the existing local database only.
-- The end-to-end quote flow with two real accounts in a browser.
-- Admin overrides are not written to `audit_logs`.
-- `assign_booking` retry: verified by reading code only.
-- Production: nothing applied, nothing deployed, no flags changed, no credentials rotated or revoked.
+- **Two-account quotation flow in a browser** (professional quotes, customer approves or declines). The SQL path is covered by `quote_accounting_and_gate.sql` and `assessing_state.sql`; no browser spec exists.
+- **Desktop width (1280px and wider)** as a separate check. The journey covers 375px and 768px.
+- **Firefox and WebKit.** Not run. WebKit's browser binary is not installed.
+- **Production-shaped upgrade.** The replay ran all 71 files on a fresh database, and the local database was upgraded incrementally. Production's schema was not read in this pass, so a production-shaped comparison is still open.
+- **Shimmed Supabase schemas.** Replay results depend on shims for `auth`, `storage`, `vault`, `cron` and `extensions`. Real Supabase behaviour may differ.
+- **Unit test for the `P0008` and `P0009` mapping.** The mapping is a private function in a `'use server'` file and has no test.
+- **Founder-approved copy and catalogue** (section 5, item 7).
+- **Admin overrides** are not written to `audit_logs`.
+- **Production:** nothing applied, nothing deployed, no flags or env vars changed, no credentials rotated or revoked, no production queries run in this pass.
+
+## 10. Deployment order (after authorisation)
+
+1. Owner authorises the push and the merge; CI is green on the PR.
+2. Take the backup (section 2) and record its identifier.
+3. Run the read-only preflight (section 2) and record the results.
+4. Apply migrations 119 to 126 in order, each in its own transaction, with flags at their deploy values: `free_inspection_enabled` = `0`, `inspection_gate_enabled` = `0`, `legacy_booking_path_enabled` = `1`.
+5. Deploy the app build. The migrations must be applied first: the structured path and the `assessing` transitions need them.
+6. Run smoke tests 1–4 and 9–14 with free inspection off.
+7. Owner decides the legacy switch: set `legacy_booking_path_enabled` = `0` only after the structured path is confirmed live. Run test 15.
+8. Free inspection is a separate founder decision. Run tests 5 and 8 in staging, then decide on production. Do not enable it without that approval.
+
+## 11. Release-readiness matrix
+
+Every release step is **NO** in this pass. Each row gives the exact blocker and who clears it.
+
+| Step | Status | Exact blocker | Owner action |
+|---|---|---|---|
+| Push feature branch | NO | Not authorised. The branch exists only locally. | Authorise the push. |
+| Open PR | NO | Depends on the push. | After the push, open the PR from `feat/founder-revisions` to `main`. |
+| Merge to `main` | NO | No PR or CI run yet. Nine pre-existing suite failures (section 8) are not fixed or accepted as non-gating. | Decide whether those nine gate the release; approve the merge after CI. |
+| Apply production migrations 119–126 | NO | No production backup recorded; no production preflight run; no authorisation. | Take the backup, run the preflight, authorise the migration run. |
+| Deploy with free inspection OFF | NO | Depends on the migrations and the merge. Deploy approval not given. | Approve the deploy after the migrations succeed. |
+| Activate free inspection | NO | Founder confirmation of the policy and public copy not given; migrations not applied; staging tests 5 and 8 not run. | Founder decision, then staging tests, then the switch. |
+
+## 12. Credential rotation checklist
+
+Owner actions. The assistant does not perform any of these. Never paste a key into a document, ticket or chat.
+
+1. Revoke the leaked legacy service-role key in the Supabase dashboard (API settings).
+2. Verify revocation: send a request with the old key and expect an authentication error. Keep the response as evidence, with the key redacted.
+3. Generate the new key and store it in Vercel (production environment only).
+4. Changing the Vercel variable does **not** revoke the old key. Step 1 is the revocation.
+5. Search for other copies of the old key: CI secrets, local `.env` files and scratch files. Remove or replace them. Do not print them.
+6. Decide with the owner whether any other credential exposed alongside the key also needs rotation.
+7. Confirm the app works with the new key in staging before production.
+
+## 13. Operational prerequisites
+
+- Verified professionals with active service areas in every city to be served (section 4). Other cities refuse bookings by design.
+- At least one active inspector if `inspection_gate_enabled` is turned on.
+- A recorded backup or point-in-time recovery point before the production migration run.
+- A decision on whether free inspection applies to fixed-price services, and approved public copy (section 5).
+- After deploy, watch the counts of refused bookings (`P0008`, `P0009`) and of jobs in `assessing`, so a coverage gap or a stale form is visible quickly.
+
+## 14. Suspected synthetic production bookings (identify only)
+
+Eleven bookings were identified as probable test data in an earlier pass. This pass did not re-query production and did not change any record. For owner review:
+
+- Collect owners, timestamps, references and relationships (jobs, quotes, payments, messages) for each, read-only.
+- Decide, booking by booking, whether each is test data.
+- Any deletion or alteration needs a separate, reviewed plan. Nothing is deleted or changed by this release.

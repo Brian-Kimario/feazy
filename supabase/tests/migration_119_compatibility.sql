@@ -55,6 +55,14 @@ BEGIN
   -- ── Fixtures (as the owner of the tables) ──────────────────────────────────────────────
   INSERT INTO auth.users (id, email) VALUES (c_user, 'compat-119@example.invalid') ON CONFLICT (id) DO NOTHING;
   INSERT INTO public.profiles (id, role) VALUES (c_user, 'customer') ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
+  -- A verified professional covers Bengaluru, so the bookings below reach the service-area gate's accept path.
+  INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-8000-0000000000d2', 'compat-119-coverage@example.invalid') ON CONFLICT (id) DO NOTHING;
+  INSERT INTO public.profiles (id, role) VALUES ('00000000-0000-4000-8000-0000000000d2', 'professional') ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
+  INSERT INTO public.professional_profiles (user_id, display_name, verification_status, is_available)
+    VALUES ('00000000-0000-4000-8000-0000000000d2', 'Coverage pro', 'verified', false);
+  INSERT INTO public.professional_service_areas (professional_id, city, area, is_active)
+    VALUES ('00000000-0000-4000-8000-0000000000d2', 'Bengaluru', NULL, true);
+
   INSERT INTO public.addresses (customer_id, label, address_line_1, city)
     VALUES (c_user, 'Compat home', '9 Compat Road', 'Bengaluru') RETURNING id INTO v_addr;
   INSERT INTO public.properties (owner_customer_id, name, property_type, address_id)

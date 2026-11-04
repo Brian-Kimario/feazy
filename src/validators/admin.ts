@@ -62,7 +62,7 @@ export const CANCEL_CUSTOMER_REASONS = [
 export const cancelJobInput = z.object({
   jobId: uuid,
   /** The state the admin was looking at; a changed job is refused rather than cancelled blindly. */
-  expectedState: z.enum(['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending']),
+  expectedState: z.enum(['assigned', 'accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending']),
   /** Internal and private: stored for admins only, never shown to the customer or professional. */
   reason: adminReason,
   customerReasonCategory: z.enum([

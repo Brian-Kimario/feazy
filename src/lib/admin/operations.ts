@@ -42,13 +42,14 @@ const JOB_STATES = [
   'accepted',
   'on_the_way',
   'arrived',
+  'assessing',
   'in_progress',
   'quote_pending',
   'completed',
   'cancelled',
   'closed',
 ] as const;
-const LIVE_JOB_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'];
+const LIVE_JOB_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'];
 
 /** Job states the Operations loader fetches; anything else is history, not an exception candidate. */
 export const OPS_LIVE_JOB_STATES = LIVE_JOB_STATES;

@@ -29,7 +29,8 @@ export function ActiveJobProgressRail({ currentState, className = '' }: ActiveJo
 
   // Normalize current stage index
   const stageKeys = STAGES.map((s) => s.key);
-  const currentNormalized = currentState === 'quote_pending' ? 'arrived' : currentState;
+  // Assessment and quoting happen on site, so they sit on the "Arrived" stage.
+  const currentNormalized = currentState === 'quote_pending' || currentState === 'assessing' ? 'arrived' : currentState;
   const activeIndex = Math.max(0, stageKeys.indexOf(currentNormalized));
   const progressPercent = (activeIndex / (STAGES.length - 1)) * 100;
 

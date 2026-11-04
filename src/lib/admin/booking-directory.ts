@@ -17,7 +17,7 @@ export const LIFECYCLE_LABELS: Record<Lifecycle, string> = {
 export const LIFECYCLE_JOB_STATES: Record<Exclude<Lifecycle, 'all' | 'unmatched'>, string[]> = {
   offered: ['assigned'],
   accepted: ['accepted'],
-  active: ['on_the_way', 'arrived', 'in_progress', 'quote_pending'],
+  active: ['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'],
   completed: ['completed', 'closed'],
   cancelled: ['cancelled'],
 };

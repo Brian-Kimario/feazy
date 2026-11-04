@@ -7,7 +7,7 @@ import { createTypedAdminClient } from '@/lib/admin/client';
 import { requireAdmin } from '@/lib/admin/guard';
 import { adminFailure, type AdminResult } from '@/lib/admin/result';
 
-const ACTIVE_STATES = ['accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'];
+const ACTIVE_STATES = ['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'];
 
 export interface ProfessionalJobRow {
   jobId: string;

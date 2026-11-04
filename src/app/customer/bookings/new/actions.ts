@@ -131,6 +131,12 @@ function createBookingFailure(error: { code?: string; message: string } | null):
       );
     case 'P0006':
       return fail('rejected', 'No inspector is free for a visit right now. Please try again later.');
+    case 'P0008':
+      // The property's city has no verified professional with an active service area. Nothing was booked.
+      return fail('rejected', 'We do not serve this area yet. Please check the address for this property.');
+    case 'P0009':
+      // The unguarded booking path has been switched off. The current form sends the structured request.
+      return fail('rejected', 'Please refresh the page and book again.');
     case '22023':
       // A past start time (already checked above, so clock skew), a service with no price,
       // an option that is no longer offered, or an urgency that is switched off.

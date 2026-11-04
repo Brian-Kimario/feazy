@@ -8,7 +8,7 @@ import { requireAdmin } from '@/lib/admin/guard';
 import { adminFailure, type AdminResult } from '@/lib/admin/result';
 import { PRO_PAGE_SIZE, professionalDirectoryInput } from '@/lib/admin/professional-directory';
 
-const ACTIVE_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'];
+const ACTIVE_STATES = ['assigned', 'accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'];
 const ID_CAP = 2000;
 
 export interface ProfessionalRow {
