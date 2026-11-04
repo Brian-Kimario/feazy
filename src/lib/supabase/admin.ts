@@ -2,16 +2,25 @@ import { createClient } from '@supabase/supabase-js'
 
 let adminClient: ReturnType<typeof createClient> | null = null
 
+/**
+ * The server-only key that bypasses RLS. Prefers SUPABASE_SECRET_KEY (the newer
+ * key type); falls back to the legacy SUPABASE_SERVICE_ROLE_KEY until that
+ * variable is removed from every environment. Never expose this to the browser.
+ */
+export function getServerSecretKey(): string | undefined {
+  return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || undefined
+}
+
 export async function createAdminClient() {
   if (adminClient) {
     return adminClient
   }
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  
+  const serviceRoleKey = getServerSecretKey()
+
   if (!serviceRoleKey) {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY environment variable is not set.'
+      'SUPABASE_SECRET_KEY environment variable is not set.'
     )
   }
 

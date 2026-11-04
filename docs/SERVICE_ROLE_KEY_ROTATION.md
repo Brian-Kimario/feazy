@@ -35,9 +35,10 @@ The browser client (`src/lib/supabase/client.ts`) must not hold this key. Its on
 
 ## 3. Issue the new key
 
-1. Create the replacement service-role or secret key in the same dashboard section.
-2. Store it only in Vercel, as the production value of `SUPABASE_SERVICE_ROLE_KEY`, and in your password manager.
+1. Create the new secret key in the same dashboard section. The legacy service-role key cannot be reissued. It can only be disabled, so the replacement is a new secret key (`sb_secret_…`), stored under `SUPABASE_SECRET_KEY`.
+2. Store it only in Vercel, as the production value of `SUPABASE_SECRET_KEY`, and in your password manager.
 3. Do not put the new key in the repo, in a `.env` file that is committed, or in chat.
+4. The app reads `SUPABASE_SECRET_KEY` first and `SUPABASE_SERVICE_ROLE_KEY` only as a fallback (`getServerSecretKey()` in `src/lib/supabase/admin.ts`). Deploy a build that includes that change before step 5. Until it is deployed, the app still uses the legacy key and disabling it breaks the app.
 
 ## 4. Update consumers and redeploy
 

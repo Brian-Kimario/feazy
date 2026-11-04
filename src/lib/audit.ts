@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { getServerSecretKey } from "./supabase/admin";
 
 export enum AuditAction {
   // Authentication events
@@ -91,7 +92,7 @@ export interface AuditLogEntry {
 function createAuditClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    getServerSecretKey()!
   );
 }
 
