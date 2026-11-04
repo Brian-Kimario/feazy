@@ -4,7 +4,14 @@ import type { z } from 'zod';
  * Result of a server action. Expected failures (bad input, not signed in, not allowed,
  * a rejected RPC) come back as `success: false`; actions do not throw for them.
  */
-export type ActionErrorCode = 'invalid_input' | 'unauthenticated' | 'not_found' | 'rejected' | 'failed';
+export type ActionErrorCode =
+  | 'invalid_input'
+  | 'unauthenticated'
+  | 'not_found'
+  | 'rejected'
+  | 'failed'
+  /** The price shown to the customer no longer matches the database. The customer must review it again. */
+  | 'price_changed';
 
 export interface ActionFailure {
   success: false;

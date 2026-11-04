@@ -2984,6 +2984,10 @@ export type Database = {
         Args: { p_reason: string; p_visit_id: string }
         Returns: Json
       }
+      get_booking_free_inspection: {
+        Args: never
+        Returns: boolean
+      }
       get_inspection_visit_site: {
         Args: { p_visit_id: string }
         Returns: {

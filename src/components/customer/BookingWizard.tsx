@@ -99,6 +99,11 @@ interface BookingWizardProps {
   preselectedCategoryId?: string;
   preselectedPropertyId?: string;
   initialProblemNotes?: string;
+  /**
+   * Whether the database is charging inspections as free (get_booking_free_inspection). Null when
+   * that could not be read, in which case the NEXT_PUBLIC_FREE_INSPECTION rollout flag is used.
+   */
+  freeInspection: boolean | null;
 }
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
@@ -269,6 +274,7 @@ export function BookingWizard({
   preselectedCategoryId,
   preselectedPropertyId,
   initialProblemNotes,
+  freeInspection,
 }: BookingWizardProps) {
   const router = useRouter();
 
@@ -310,7 +316,8 @@ export function BookingWizard({
     ? categories.find((c) => (servicesByCategory[c.id] ?? []).some((s) => s.id === selectedService.id))
     : undefined;
   const missingOptions = (selectedService?.options ?? []).filter((o) => o.is_required && !selectedOptions[o.id]);
-  const price = selectedService ? priceInfo(selectedService) : null;
+  const freeInspectionOn = freeInspection ?? FREE_INSPECTION_PROMISED;
+  const price = selectedService ? priceInfo(selectedService, freeInspectionOn) : null;
   const materialChoices = selectedService?.materials ?? [];
   const chosenMaterials = materialChoices.filter((m) => materialIds.includes(m.id));
 
@@ -365,9 +372,13 @@ export function BookingWizard({
         selectedOptions,
         problemSummary: composeSummary(problemSummary, materialsNote),
         materialIds: materialIds.length > 0 ? materialIds : undefined,
+        // Only sent when the price the customer saw came from the database.
+        expectedFreeInspection: freeInspection ?? undefined,
       });
       if (result.success === false) {
         setError(result.error);
+        // The price card reads the database again, so the customer reviews the new price before retrying.
+        if (result.code === 'price_changed') router.refresh();
         return;
       }
       setSuccess({ bookingId: result.data.bookingId, matched: result.data.matched });
@@ -426,7 +437,7 @@ export function BookingWizard({
         <ul className="mt-5 grid gap-3 sm:grid-cols-2">
           {servicesForCategory.map((svc) => {
             const on = selectedService?.id === svc.id;
-            const info = priceInfo(svc);
+            const info = priceInfo(svc, freeInspectionOn);
             const duration = formatDuration(svc.estimated_duration_minutes);
             return (
               <li key={svc.id}>
@@ -780,7 +791,7 @@ export function BookingWizard({
         </ReviewRow>
       </dl>
 
-      <PriceCard service={selectedService} />
+      <PriceCard service={selectedService} freeInspection={freeInspectionOn} />
 
       {error && <InlineError message={error} />}
 
@@ -897,8 +908,8 @@ function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon; label: st
 }
 
 /** How the price is set and can change. Every step maps to create_booking, create_quote and payment. */
-function PriceCard({ service }: { service: WizardService }) {
-  const info = priceInfo(service);
+function PriceCard({ service, freeInspection }: { service: WizardService; freeInspection: boolean }) {
+  const info = priceInfo(service, freeInspection);
   const steps: { icon: LucideIcon; title: string; body: string }[] = [
     info.amount != null
       ? {

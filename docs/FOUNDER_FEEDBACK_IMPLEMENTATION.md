@@ -86,3 +86,10 @@ Founder defaults accepted: 12-category catalogue (4 new stay Coming Soon until c
 
 ## Open decisions
 City limits for free inspection; whether fixed-price services skip inspection.
+
+## Price source of truth (verified locally)
+- The price card no longer reads `NEXT_PUBLIC_FREE_INSPECTION` when the database answers. `get_booking_free_inspection()` (migration 119, section 5b) returns the same `free_inspection_enabled` switch that `create_booking` charges by. The wizard shows that value.
+- `NEXT_PUBLIC_FREE_INSPECTION` is now only the fallback when the database cannot answer (migration 119 not applied). Before 119 is applied, the page shows the visit fee, which matches `create_booking` in that state.
+- A booking submit sends the value the customer saw. `createBookingAction` refuses with `price_changed` if the database now differs, and the wizard reloads the price. Nothing is charged at a price the customer did not see.
+- Local evidence: replay of all migrations with the existing free-inspection booking check (flag off: 700 stored as `inspection`; flag on: `quote_after_inspection` with no amount, no visit row). RPC check: returns `f` and `t` as the switch changes, and `anon` is refused.
+- Not verified: browser/Playwright run of the wizard, and production. Migration 119 is still not applied there.

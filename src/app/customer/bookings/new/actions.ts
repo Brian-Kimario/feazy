@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { fail, ok, parseInput, type ActionFailure, type ActionResult } from '@/lib/actions/result';
 import { createBookingSchema, type CreateBookingInput } from '@/validators';
+import { getFreeInspectionStatus } from '@/lib/services/booking-pricing';
 
 export type { CreateBookingInput };
 
@@ -46,6 +47,21 @@ export async function createBookingAction(
 
   if (authError || !user) {
     return fail('unauthenticated', 'Not authenticated. Please sign in.');
+  }
+
+  // The customer saw a price with a given free-inspection setting. If the database now says
+  // otherwise, the charge would differ from what they agreed to, so ask them to review it again.
+  if (input.expectedFreeInspection !== undefined) {
+    const current = await getFreeInspectionStatus(supabase);
+    if (current === null) {
+      return fail('failed', 'We could not confirm the price. Please try again.');
+    }
+    if (current !== input.expectedFreeInspection) {
+      return fail(
+        'price_changed',
+        'The price for this service has changed since you opened this page. Please check the new price and confirm again.'
+      );
+    }
   }
 
   // With material preferences the booking and preferences are saved in one transaction, so a

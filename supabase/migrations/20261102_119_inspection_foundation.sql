@@ -317,6 +317,24 @@ REVOKE EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, 
 GRANT EXECUTE ON FUNCTION public.create_booking(uuid, uuid, timestamptz, text, text, jsonb) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------------------------
+-- 5b. The free-inspection switch as the booking wizard should display it. Read-only. The wizard
+--     shows this value rather than NEXT_PUBLIC_FREE_INSPECTION, and create_booking charges by the
+--     same switch. A booking submit sends the value that was shown, and createBookingAction refuses
+--     if this has changed, so the customer is never charged a price they did not see.
+-- ---------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_booking_free_inspection()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT COALESCE(public._matching_setting('free_inspection_enabled'), 0) = 1;
+$$;
+REVOKE EXECUTE ON FUNCTION public.get_booking_free_inspection() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_booking_free_inspection() TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------------------------
 -- 6. RPCs. Every one re-derives the caller from auth.uid(); nothing trusts a role argument.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._require_admin()

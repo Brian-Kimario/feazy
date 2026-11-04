@@ -11,6 +11,7 @@ import type {
 import Link from 'next/link';
 import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import { PageContainer } from '@/components/shell/primitives';
+import { getFreeInspectionStatus } from '@/lib/services/booking-pricing';
 
 export const metadata = {
   title: 'Book a Service — Feazy',
@@ -98,6 +99,9 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
       priceUnit: m.price_unit ?? null,
     });
   }
+
+  // The price the customer sees comes from the database, the same switch create_booking charges by.
+  const freeInspection = await getFreeInspectionStatus(supabase);
 
   // Categories still marked coming soon are not bookable; `availability` is absent before migration 119.
   const categories: WizardCategory[] = (rawCategories ?? [])
@@ -228,6 +232,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
           preselectedCategoryId={resolvedCategoryId}
           preselectedPropertyId={preselectedPropertyId}
           initialProblemNotes={preselectedProblem}
+          freeInspection={freeInspection}
         />
       </div>
     </PageContainer>

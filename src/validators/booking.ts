@@ -11,6 +11,8 @@ export const createBookingSchema = z.object({
   problemSummary: z.string().trim().max(1000).optional(),
   /** Customer-selectable materials; a preference only. The RPC checks them against the service and nothing is charged. */
   materialIds: z.array(uuid).max(10).optional(),
+  /** The free-inspection setting the customer saw on the price card. A mismatch means the price changed. */
+  expectedFreeInspection: z.boolean().optional(),
 });
 
 export type CreateBookingInput = z.input<typeof createBookingSchema>;
