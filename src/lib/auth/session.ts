@@ -5,22 +5,24 @@
  * across Server Components, Route Handlers, and Server Actions.
  */
 
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { type User } from '@supabase/supabase-js';
 import { createTypedAdminClient } from '@/lib/admin/client';
 import { type Profile } from '@/types/auth';
 
 /**
- * Get current authenticated user
+ * Get current authenticated user. Memoised per request, so layouts, pages and getCurrentProfile
+ * share one auth.getUser() round trip instead of each making their own.
  */
-export async function getCurrentUser(): Promise<User | null> {
+export const getCurrentUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   return user;
-}
+});
 
 async function createMissingCustomerProfile(user: User): Promise<Profile | null> {
   const adminClient = await createTypedAdminClient();
@@ -48,7 +50,7 @@ async function createMissingCustomerProfile(user: User): Promise<Profile | null>
   return data as Profile;
 }
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -114,7 +116,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   }
 
   return data as Profile;
-}
+});
 
 /**
  * Check if user has a specific role

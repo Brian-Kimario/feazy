@@ -4,7 +4,7 @@ import { SiteHeader } from '@/components/marketing/site-header';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { Hero } from '@/components/home/hero';
 import { FactsStrip, HowItWorks, ServicesIndex, PropertyRecord, ProfessionalSection, Faq, ClosingCta } from '@/components/home/sections';
-import { getComingSoonCategories, getServiceCategories } from '@/lib/services/catalogue';
+import { getComingSoonCategories, getServiceCategories, type ServiceCategory } from '@/lib/services/catalogue';
 import type { ViewerRole } from '@/lib/marketing-links';
 import type { HomeCategory } from '@/components/home/sections';
 
@@ -32,15 +32,17 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [user, profile] = await Promise.all([getCurrentUser(), getCurrentProfile()]);
+  // One round of independent reads. The two catalogue lists share one memoised query.
+  const [user, profile, categoryRows, comingSoonRows] = await Promise.all([
+    getCurrentUser(),
+    getCurrentProfile(),
+    // Database-driven: only categories that are active in the catalogue are shown.
+    getServiceCategories().catch((): ServiceCategory[] => []),
+    getComingSoonCategories().catch((): ServiceCategory[] => []),
+  ]);
   const role = (user ? (profile?.role ?? 'customer') : null) as ViewerRole;
-  // Database-driven: only categories that are active in the catalogue are shown.
-  const categories: HomeCategory[] = await getServiceCategories()
-    .then((rows) => rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, description: c.description })))
-    .catch(() => []);
-  const comingSoon: string[] = await getComingSoonCategories()
-    .then((rows) => rows.map((c) => c.name))
-    .catch(() => []);
+  const categories: HomeCategory[] = categoryRows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, description: c.description }));
+  const comingSoon: string[] = comingSoonRows.map((c) => c.name);
   return (
     <div className="flex min-h-screen flex-col bg-porcelain font-sans text-ink">
       <SiteHeader role={role} />

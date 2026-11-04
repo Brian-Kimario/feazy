@@ -7,6 +7,7 @@
  * RLS allows public read access to these tables (USING (true))
  */
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 export interface ServiceCategory {
@@ -104,7 +105,8 @@ export async function getComingSoonCategories(): Promise<ServiceCategory[]> {
   return (await loadActiveCategories()).filter((c) => c.availability === 'coming_soon')
 }
 
-async function loadActiveCategories(): Promise<ServiceCategory[]> {
+/** Memoised per request, so the bookable and coming-soon lists share one query. */
+const loadActiveCategories = cache(async (): Promise<ServiceCategory[]> => {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -119,7 +121,7 @@ async function loadActiveCategories(): Promise<ServiceCategory[]> {
   }
 
   return (data || []) as ServiceCategory[]
-}
+})
 
 /**
  * Fetch a single category with all its services and options
