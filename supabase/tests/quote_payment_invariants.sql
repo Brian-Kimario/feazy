@@ -114,19 +114,18 @@ BEGIN
   -- Force the job to completed as the owner, the way the finish code would.
   UPDATE public.jobs SET current_state = 'completed', completed_at = now() WHERE id = v_job;
 
-  -- Quote 1 (900) + quote 2 (500) = 1400, i.e. 140000 paise. Quote 3 (declined) is excluded.
-  -- Open decision: the fixed base (1500) is not added here; see migration 20261104_122.
+  -- Fixed base 1500 + approved additional work 900 + 500 = 2900, i.e. 290000 paise. Quote 3 (declined) is excluded.
   v_res := pg_temp.as_user(c_user, format('SELECT public.job_payment_amount(%L)::text', v_job));
-  ASSERT v_res = 'ok:140000', 'amount due must be the sum of approved quotes (140000 paise), got ' || v_res;
+  ASSERT v_res = 'ok:290000', 'amount due must be base plus approved additional work (290000 paise), got ' || v_res;
 
   -- The payment request must use the same amount: a wrong amount is refused.
   v_res := pg_temp.as_user(c_user, format('SELECT public.create_pending_payment(%L, %L, %s)::text', v_job, 'rzp-test-wrong', 100));
   ASSERT v_res = 'err:22023', 'a payment below the amount due must be refused, got ' || v_res;
 
   -- The amount that matches is accepted once; a second checkout for the same job is refused.
-  v_res := pg_temp.as_user(c_user, format('SELECT public.create_pending_payment(%L, %L, %s)::text', v_job, 'rzp-test-ok', 140000));
+  v_res := pg_temp.as_user(c_user, format('SELECT public.create_pending_payment(%L, %L, %s)::text', v_job, 'rzp-test-ok', 290000));
   ASSERT left(v_res, 3) = 'ok:', 'the matching amount should create a pending payment, got ' || v_res;
-  v_res := pg_temp.as_user(c_user, format('SELECT public.create_pending_payment(%L, %L, %s)::text', v_job, 'rzp-test-dup', 140000));
+  v_res := pg_temp.as_user(c_user, format('SELECT public.create_pending_payment(%L, %L, %s)::text', v_job, 'rzp-test-dup', 290000));
   ASSERT v_res = 'err:23505', 'a second checkout while one is pending must be refused, got ' || v_res;
 
   -- ── Fixed-price job with no quotes: base only ────────────────────────────────────────

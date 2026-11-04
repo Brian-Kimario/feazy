@@ -2628,7 +2628,9 @@ export type Database = {
           id: string
           job_id: string
           professional_id: string
+          quote_kind: string
           reason: string
+          revision: number
           status: string
           subtotal: number
           taxes_or_fees: number | null
@@ -2642,7 +2644,9 @@ export type Database = {
           id?: string
           job_id: string
           professional_id: string
+          quote_kind?: string
           reason: string
+          revision?: number
           status?: string
           subtotal: number
           taxes_or_fees?: number | null
@@ -2656,7 +2660,9 @@ export type Database = {
           id?: string
           job_id?: string
           professional_id?: string
+          quote_kind?: string
           reason?: string
+          revision?: number
           status?: string
           subtotal?: number
           taxes_or_fees?: number | null
@@ -3180,6 +3186,15 @@ export type Database = {
         Args: { p_committed_only: boolean }
         Returns: string[]
       }
+      _transition_job_state_core: {
+        Args: {
+          p_actor_user_id: string
+          p_job_id: string
+          p_metadata?: Json
+          p_new_state: string
+        }
+        Returns: boolean
+      }
       _verification_missing_documents: {
         Args: { p_professional_id: string; p_since?: string }
         Returns: string[]
@@ -3383,7 +3398,12 @@ export type Database = {
         Returns: string
       }
       create_quote: {
-        Args: { p_items: Json; p_job_id: string; p_reason: string }
+        Args: {
+          p_items: Json
+          p_job_id: string
+          p_quote_kind?: string
+          p_reason: string
+        }
         Returns: string
       }
       customer_cancel_booking: {
