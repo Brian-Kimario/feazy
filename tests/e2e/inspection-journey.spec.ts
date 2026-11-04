@@ -8,6 +8,8 @@ import { test, expect, type Page } from '@playwright/test'
 const ENABLED = process.env.E2E_LOCAL_JOURNEY === '1'
 const PASSWORD = process.env.E2E_LOCAL_PASSWORD ?? ''
 const SHOTS = process.env.E2E_SHOTS_DIR
+// Extra browser contexts do not inherit the config's baseURL, so they take the same origin explicitly.
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000'
 
 test.skip(!ENABLED, 'set E2E_LOCAL_JOURNEY=1 against a local stack')
 test.describe.configure({ mode: 'serial' })
@@ -52,7 +54,8 @@ test('customer books a free inspection and picks materials', async ({ page }) =>
   await page.getByRole('button', { name: /View booking/ }).click()
   await page.waitForURL(/\/customer\/bookings\/[0-9a-f-]{36}/)
   bookingUrl = new URL(page.url()).pathname
-  await expect(page.getByText(/free inspection/i).first()).toBeVisible()
+  // With free inspection on, no visit fee is charged: the booking is priced after inspection.
+  await expect(page.getByText('Quote after inspection').first()).toBeVisible()
   await expect(page.getByText('Jaquar Basin tap').first()).toBeVisible()
   await shot(page, 'customer-booking-detail')
 })
@@ -122,7 +125,7 @@ test('customer sees findings and confirmed materials; unauthorized roles are blo
     await expect(page).not.toHaveURL(new RegExp(`${path}$`))
   }
   // A different customer cannot open someone else's booking.
-  const ctx = await browser.newContext({ baseURL: 'http://localhost:3100' })
+  const ctx = await browser.newContext({ baseURL: BASE_URL })
   const other = await ctx.newPage()
   await signIn(other, 'customer', 'stranger@feazy.test')
   const res = await other.goto(bookingUrl)
@@ -137,7 +140,7 @@ test('admin catalogue: availability controls the booking flow and material prici
   await shot(page, 'admin-catalogue')
   const painting = page.locator('li', { hasText: 'Painting' }).filter({ has: page.getByLabel('Availability') }).first()
   await expect(painting.getByRole('status').filter({ hasText: 'No verified professionals' })).toBeVisible()
-  const customerCtx = await browser.newContext({ baseURL: 'http://localhost:3100' })
+  const customerCtx = await browser.newContext({ baseURL: BASE_URL })
   const cust = await customerCtx.newPage()
   await signIn(cust, 'customer', 'customer@feazy.test')
   await cust.goto('/customer/bookings/new')
@@ -182,26 +185,34 @@ test('fixed-price service books directly with no inspection visit', async ({ pag
   await shot(page, 'customer-fixed-price-booking')
 })
 
-test('mobile layouts render without horizontal overflow', async ({ browser }) => {
-  const ctx = await browser.newContext({ baseURL: 'http://localhost:3100', viewport: { width: 375, height: 812 } })
-  const page = await ctx.newPage()
-  const check = async (name: string) => {
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-    expect(overflow, `${name} overflows`).toBeLessThanOrEqual(1)
-    await shot(page, `mobile-${name}`)
-  }
-  await signIn(page, 'customer', 'customer@feazy.test')
-  await page.goto('/customer/bookings/new'); await check('customer-wizard')
-  await page.goto(bookingUrl); await check('customer-booking')
-  await ctx.clearCookies()
-  await signIn(page, 'professional', 'inspector@feazy.test')
-  await page.goto('/inspector'); await check('inspector')
-  await ctx.clearCookies()
-  await signIn(page, 'customer', 'admin@feazy.test')
-  await page.goto('/admin/inspections'); await check('admin-inspections')
-  await page.goto('/admin/catalogue'); await check('admin-catalogue')
-  await ctx.close()
-})
+// Phone (375px) and tablet (768px) widths. Desktop is covered by the journeys above at the default viewport.
+const VIEWPORTS = [
+  { label: 'phone', width: 375, height: 812 },
+  { label: 'tablet', width: 768, height: 1024 },
+]
+
+for (const vp of VIEWPORTS) {
+  test(`${vp.label} layouts render without horizontal overflow`, async ({ browser }) => {
+    const ctx = await browser.newContext({ baseURL: BASE_URL, viewport: { width: vp.width, height: vp.height } })
+    const page = await ctx.newPage()
+    const check = async (name: string) => {
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      expect(overflow, `${vp.label} ${name} overflows`).toBeLessThanOrEqual(1)
+      await shot(page, `${vp.label}-${name}`)
+    }
+    await signIn(page, 'customer', 'customer@feazy.test')
+    await page.goto('/customer/bookings/new'); await check('customer-wizard')
+    await page.goto(bookingUrl); await check('customer-booking')
+    await ctx.clearCookies()
+    await signIn(page, 'professional', 'inspector@feazy.test')
+    await page.goto('/inspector'); await check('inspector')
+    await ctx.clearCookies()
+    await signIn(page, 'customer', 'admin@feazy.test')
+    await page.goto('/admin/inspections'); await check('admin-inspections')
+    await page.goto('/admin/catalogue'); await check('admin-catalogue')
+    await ctx.close()
+  })
+}
 
 test('professional sees the inspected job with confirmed materials and can accept it', async ({ page }) => {
   await signIn(page, 'professional', 'pro@feazy.test')
