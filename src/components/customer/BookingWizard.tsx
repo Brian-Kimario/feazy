@@ -27,6 +27,7 @@ import {
 import { createBookingAction } from '@/app/customer/bookings/new/actions';
 import { SuccessState } from '@/components/ui/SuccessState';
 import { formatCurrency } from '@/lib/currency';
+import { FREE_INSPECTION_PROMISED } from '@/lib/brand';
 import { propertyTypeLabel } from '@/lib/shell/rules';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -124,8 +125,14 @@ interface PriceInfo {
   explainer: string;
 }
 
-function priceInfo(service: WizardService): PriceInfo {
-  if (service.pricing_model === 'fixed') {
+export function priceInfo(
+  service: WizardService,
+  freeInspection: boolean = FREE_INSPECTION_PROMISED,
+): PriceInfo {
+  // With free inspection on, create_booking stores inspection-model services as quote_after_inspection.
+  const model =
+    service.pricing_model === 'inspection' && freeInspection ? 'quote_after_inspection' : service.pricing_model;
+  if (model === 'fixed') {
     return {
       amount: service.base_price,
       label: 'Booked price',
@@ -133,7 +140,7 @@ function priceInfo(service: WizardService): PriceInfo {
         'This is the price for the job as described. If the professional finds more work than booked, they send a revised price with a reason, and it only applies if you approve it.',
     };
   }
-  if (service.pricing_model === 'inspection') {
+  if (model === 'inspection') {
     return {
       amount: service.inspection_fee,
       label: 'Visit & diagnosis',

@@ -106,10 +106,10 @@ export function SiteHeader({ role }: SiteHeaderProps) {
                 <Link href="/auth/login?as=professional" className={`${btnGhost} max-xl:hidden`}>
                   Professional sign in
                 </Link>
-                <Link href="/auth/login?as=customer" className={`${btnGhost} max-sm:hidden`}>
+                <Link href="/auth/login" className={`${btnGhost} whitespace-nowrap`}>
                   Sign in
                 </Link>
-                <Link href="/auth/register?as=customer" className={`${btnPrimary} whitespace-nowrap`}>
+                <Link href="/auth/register?as=customer" className={`${btnPrimary} whitespace-nowrap max-sm:hidden`}>
                   Get started <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
               </>

@@ -199,8 +199,8 @@ export default function PrivacyPage() {
             </ul>
             <p className="text-ink-3 mt-4">
               To exercise these rights, contact us at{' '}
-              <a href="mailto:privacy@feasy.com" className="text-teal underline">
-                privacy@feasy.com
+              <a href="mailto:privacy@feazy.com" className="text-teal underline">
+                privacy@feazy.com
               </a>
             </p>
           </section>
@@ -236,8 +236,8 @@ export default function PrivacyPage() {
             <p className="text-ink-3 font-semibold">
               Privacy Team<br />
               Email:{' '}
-              <a href="mailto:privacy@feasy.com" className="text-teal underline">
-                privacy@feasy.com
+              <a href="mailto:privacy@feazy.com" className="text-teal underline">
+                privacy@feazy.com
               </a>
             </p>
           </section>
@@ -252,8 +252,8 @@ export default function PrivacyPage() {
             <p className="text-ink-3 font-semibold mt-3">
               Legal Review Team<br />
               Email:{' '}
-              <a href="mailto:legal@feasy.com" className="text-teal underline">
-                legal@feasy.com
+              <a href="mailto:legal@feazy.com" className="text-teal underline">
+                legal@feazy.com
               </a>
             </p>
             <p className="text-ink-3 mt-3 text-sm text-ink-3/80">

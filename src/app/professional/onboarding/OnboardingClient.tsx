@@ -221,7 +221,7 @@ export function OnboardingClient({
               Please contact our support team for more information or to reapply.
             </p>
             <a
-              href="mailto:support@feasy.com"
+              href="mailto:support@feazy.com"
               className="inline-flex items-center justify-center min-h-[54px] rounded-2xl bg-[var(--color-teal)] px-5 text-base font-bold text-white shadow-[0_12px_26px_rgba(23,107,91,0.18)] transition hover:-translate-y-0.5 hover:bg-[var(--color-teal-deep)]"
             >
               Contact Support →
@@ -238,7 +238,7 @@ export function OnboardingClient({
               Your account has been suspended. Please contact our support team immediately.
             </p>
             <a
-              href="mailto:support@feasy.com"
+              href="mailto:support@feazy.com"
               className="inline-flex items-center justify-center min-h-[54px] rounded-2xl bg-red-600 px-5 text-base font-bold text-white shadow-[0_12px_26px_rgba(220,38,38,0.18)] transition hover:-translate-y-0.5 hover:bg-red-700"
             >
               Contact Support →

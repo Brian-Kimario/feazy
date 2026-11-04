@@ -219,8 +219,8 @@ export default function ProfessionalSupportPage() {
           <h2 className="mt-4 font-semibold text-ink">Still need help?</h2>
           <p className="mt-1 text-sm text-ink-2">
             Email{' '}
-            <a href="mailto:support@feasy.com" className="font-semibold text-teal hover:text-teal-deep">
-              support@feasy.com
+            <a href="mailto:support@feazy.com" className="font-semibold text-teal hover:text-teal-deep">
+              support@feazy.com
             </a>{' '}
             from the address you sign in with. For a job, include its ID: the last part of the job page’s web address.
           </p>

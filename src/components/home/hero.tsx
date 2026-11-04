@@ -27,7 +27,7 @@ export function Hero({ role, categories }: { role: ViewerRole; categories: HomeC
             Home repairs across India
           </p>
           <h1 className="mt-4 font-editorial text-[clamp(40px,7.4vw,76px)] font-normal leading-[1.02] tracking-[-0.025em] text-ink">
-            {TAGLINES.homeHeadline} <em className="italic text-teal-deep">{TAGLINES.homeHeadlineEmphasis}</em>
+            {TAGLINES.homeHeadline}
           </h1>
           <p className="mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
             {TAGLINES.homeSub}

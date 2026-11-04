@@ -67,8 +67,8 @@ export default function CustomerSupportPage() {
             <h2 className="font-bold text-ink mb-1">Still need help?</h2>
             <p className="text-sm text-ink-3">
               Email{' '}
-              <a href="mailto:support@feasy.com" className="text-teal underline">
-                support@feasy.com
+              <a href="mailto:support@feazy.com" className="text-teal underline">
+                support@feazy.com
               </a>{' '}
               and include your booking reference. You can find it on the{' '}
               <Link href="/customer/bookings" className="text-teal underline">

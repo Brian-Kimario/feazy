@@ -207,8 +207,8 @@ export default function RefundPolicyPage() {
             </p>
             <p className="text-ink-3">
               Email:{' '}
-              <a href="mailto:support@feasy.com" className="text-teal underline">
-                support@feasy.com
+              <a href="mailto:support@feazy.com" className="text-teal underline">
+                support@feazy.com
               </a>
             </p>
             <p className="text-ink-3 mt-4">
@@ -226,8 +226,8 @@ export default function RefundPolicyPage() {
             <p className="text-ink-3 font-semibold mt-3">
               Legal Review Team<br />
               Email:{' '}
-              <a href="mailto:legal@feasy.com" className="text-teal underline">
-                legal@feasy.com
+              <a href="mailto:legal@feazy.com" className="text-teal underline">
+                legal@feazy.com
               </a>
             </p>
             <p className="text-ink-3 mt-3 text-sm text-ink-3/80">

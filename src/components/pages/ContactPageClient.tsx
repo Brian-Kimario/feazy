@@ -42,7 +42,7 @@ export function ContactPageClient(props: ContactPageClientProps) {
             </span>
           </Link>
           <p className="px-1 text-[13px] text-ink-3">
-            Prefer email? Write to <span className="font-semibold text-ink">support@feasy.com</span>.
+            Prefer email? Write to <span className="font-semibold text-ink">support@feazy.com</span>.
           </p>
         </aside>
       </div>

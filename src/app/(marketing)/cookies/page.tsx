@@ -212,8 +212,8 @@ export default function CookiePage() {
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">10. Contact Us</h2>
             <p className="text-ink-3">
               If you have questions about this cookie policy, contact us at{' '}
-              <a href="mailto:privacy@feasy.com" className="text-teal underline">
-                privacy@feasy.com
+              <a href="mailto:privacy@feazy.com" className="text-teal underline">
+                privacy@feazy.com
               </a>
             </p>
           </section>
@@ -228,8 +228,8 @@ export default function CookiePage() {
             <p className="text-ink-3 font-semibold mt-3">
               Legal Review Team<br />
               Email:{' '}
-              <a href="mailto:legal@feasy.com" className="text-teal underline">
-                legal@feasy.com
+              <a href="mailto:legal@feazy.com" className="text-teal underline">
+                legal@feazy.com
               </a>
             </p>
             <p className="text-ink-3 mt-3 text-sm text-ink-3/80">

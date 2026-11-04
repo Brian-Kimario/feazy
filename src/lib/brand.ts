@@ -10,15 +10,16 @@ export const BRAND = {
 
 /** Final wording chosen after review of the founder's tagline options; see docs/FOUNDER_FEEDBACK_IMPLEMENTATION.md. */
 export const TAGLINES = {
-  homeHeadline: 'Your home.',
-  homeHeadlineEmphasis: 'Expert hands.',
-  tagline: 'Home care, made effortless.',
+  homeHeadline: 'Where Better Living Begins.',
   homeSub:
-    'Home care, made effortless: skilled professionals, itemised quotes in rupees, and no extra work without your approval.',
-  customerSignIn: 'Welcome to FEAZY.',
-  customerSignInSub: 'Pick up your bookings, quotes and property record.',
-  professionalSignIn: 'Where expertise meets opportunity.',
-  professionalSignInSub: 'Open your job requests, quotes and earnings.',
+    'Experience refined home services, trusted expertise, and effortless convenience — thoughtfully brought together.',
+  customerSignIn: 'Exceptional Care. Right at Your Doorstep.',
+  customerSignInSub: 'Discover trusted professionals and experience a higher standard of home care.',
+  customerPrimaryAction: 'Get Started',
+  professionalSignIn: 'Where Expertise Finds Opportunity.',
+  professionalSignInSub:
+    'Bring your skills to the forefront, build your reputation, and grow with a platform that values professional excellence.',
+  professionalPrimaryAction: 'Join as a Professional',
   professionalOnboarding: 'Connect with customers who need your expertise.',
 } as const;
 

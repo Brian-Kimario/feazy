@@ -56,10 +56,10 @@ export function SiteFooter() {
               Verified home repair professionals, itemised quotes, UPI payment and a record of every job.
             </p>
             <a
-              href="mailto:support@feasy.com"
+              href="mailto:support@feazy.com"
               className="mt-5 inline-block text-[14px] text-[#7FC4B1] underline decoration-[#7FC4B1]/30 underline-offset-4 hover:decoration-[#7FC4B1]"
             >
-              support@feasy.com
+              support@feazy.com
             </a>
           </div>
 

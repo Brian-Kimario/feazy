@@ -36,9 +36,9 @@ export async function submitContactMessageAction(input: unknown): Promise<Action
 
   if (error) {
     if (error.message.includes('contact_rate_limited')) {
-      return fail('rejected', 'You have sent several messages recently. Please wait an hour or email support@feasy.com.');
+      return fail('rejected', 'You have sent several messages recently. Please wait an hour or email support@feazy.com.');
     }
-    return fail('failed', 'We could not send your message. Please try again, or email support@feasy.com.');
+    return fail('failed', 'We could not send your message. Please try again, or email support@feazy.com.');
   }
   return ok({ reference: referenceFor(id) });
 }
