@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { canTransition } from '@/lib/jobs/states';
 
 /** Targets a professional may request here; `quote_pending` goes through the quote flow. */
-const PRO_TARGETS: ReadonlySet<string> = new Set(['accepted', 'on_the_way', 'arrived', 'in_progress', 'completed', 'cancelled']);
+const PRO_TARGETS: ReadonlySet<string> = new Set(['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'completed', 'cancelled']);
 
 export type TransitionResult =
   | { success: true; jobId: string; newState: string }

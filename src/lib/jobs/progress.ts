@@ -89,6 +89,8 @@ export function describeEvent(
       return { title: customer ? 'Professional is on the way' : 'You set off', tone: 'teal' };
     case 'arrived':
       return { title: customer ? 'Professional arrived' : 'You arrived', tone: 'teal' };
+    case 'assessing':
+      return { title: customer ? 'Professional is assessing the repair' : 'You started the assessment', tone: 'ochre' };
     case 'in_progress':
       return event.fromState === 'quote_pending'
         ? { title: 'Work resumed', tone: 'ochre' }

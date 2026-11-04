@@ -31,7 +31,7 @@ const COPY: Record<
     sub: TAGLINES.customerSignInSub,
     registerHref: '/auth/register',
     registerText: 'New to Feazy?',
-    registerCta: 'Create a customer account',
+    registerCta: TAGLINES.customerPrimaryAction,
   },
   professional: {
     label: 'I’m a professional',
@@ -39,7 +39,7 @@ const COPY: Record<
     sub: TAGLINES.professionalSignInSub,
     registerHref: '/auth/register/professional',
     registerText: 'Not on Feazy yet?',
-    registerCta: 'Apply as a professional',
+    registerCta: TAGLINES.professionalPrimaryAction,
   },
 };
 

@@ -19,7 +19,7 @@ export function JobsFilterClient({ initialJobs }: JobsFilterClientProps) {
     return {
       all: initialJobs.length,
       pending: initialJobs.filter((j) => ['assigned', 'quote_pending'].includes(j.current_state)).length,
-      active: initialJobs.filter((j) => ['accepted', 'on_the_way', 'arrived', 'in_progress'].includes(j.current_state)).length,
+      active: initialJobs.filter((j) => ['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress'].includes(j.current_state)).length,
       completed: initialJobs.filter((j) => j.current_state === 'completed').length,
     };
   }, [initialJobs]);
@@ -31,7 +31,7 @@ export function JobsFilterClient({ initialJobs }: JobsFilterClientProps) {
       if (activeTab === 'pending' && !['assigned', 'quote_pending'].includes(job.current_state)) {
         return false;
       }
-      if (activeTab === 'active' && !['accepted', 'on_the_way', 'arrived', 'in_progress'].includes(job.current_state)) {
+      if (activeTab === 'active' && !['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress'].includes(job.current_state)) {
         return false;
       }
       if (activeTab === 'completed' && job.current_state !== 'completed') {

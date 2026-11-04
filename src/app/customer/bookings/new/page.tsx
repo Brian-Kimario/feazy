@@ -11,6 +11,7 @@ import type {
 import Link from 'next/link';
 import { ArrowLeft, TriangleAlert } from 'lucide-react';
 import { PageContainer } from '@/components/shell/primitives';
+import { getFreeInspectionStatus } from '@/lib/services/booking-pricing';
 
 export const metadata = {
   title: 'Book a Service — Feazy',
@@ -79,7 +80,7 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
     .order('name', { ascending: true });
 
   // Materials a customer may ask for, per service. Empty (not an error) before migration 120 / when none are seeded.
-  const { data: rawServiceMaterials } = await supabase
+  const { data: rawServiceMaterials, error: materialsError } = await supabase
     .from('service_materials')
     .select('service_id, materials(id, name, specification, unit, is_active, indicative_price, price_unit, brands(name))')
     .eq('is_customer_selectable', true);
@@ -98,6 +99,12 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
       priceUnit: m.price_unit ?? null,
     });
   }
+
+  // The price the customer sees comes from the database, the same switch create_booking charges by.
+  const freeInspection = await getFreeInspectionStatus(supabase);
+  // The structured path needs both the pricing switch (119) and the material tables (120). Until both exist the
+  // wizard keeps the legacy booking call, so a missing table can never fail a booking.
+  const structuredBooking = freeInspection !== null && !materialsError;
 
   // Categories still marked coming soon are not bookable; `availability` is absent before migration 119.
   const categories: WizardCategory[] = (rawCategories ?? [])
@@ -228,6 +235,8 @@ export default async function NewBookingPage({ searchParams }: NewBookingPagePro
           preselectedCategoryId={resolvedCategoryId}
           preselectedPropertyId={preselectedPropertyId}
           initialProblemNotes={preselectedProblem}
+          freeInspection={freeInspection}
+          structuredBooking={structuredBooking}
         />
       </div>
     </PageContainer>

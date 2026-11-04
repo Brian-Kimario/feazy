@@ -131,7 +131,7 @@ export function isBookingTab(value: unknown): value is BookingTab {
 }
 
 /** Job states where the professional is travelling or on site. */
-const LIVE_STATES: ReadonlySet<string> = new Set(['on_the_way', 'arrived', 'in_progress', 'quote_pending']);
+const LIVE_STATES: ReadonlySet<string> = new Set(['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending']);
 
 export function isLiveState(state: string | null | undefined): boolean {
   return state != null && LIVE_STATES.has(state);

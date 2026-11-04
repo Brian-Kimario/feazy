@@ -14,7 +14,7 @@
 ALTER TABLE public.payments
   ADD CONSTRAINT payments_status_check CHECK (status IN ('pending', 'paid', 'failed'));
 
-CREATE TABLE public.payment_events (
+CREATE TABLE IF NOT EXISTS public.payment_events (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   payment_id          uuid NOT NULL REFERENCES public.payments(id) ON DELETE CASCADE,
   from_status         text NOT NULL,
@@ -31,6 +31,7 @@ ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 
 -- Read-only for the paying customer and for admin/support. Rows are written only by
 -- transition_payment_status().
+DROP POLICY IF EXISTS payment_events_select_own ON public.payment_events;
 CREATE POLICY payment_events_select_own ON public.payment_events
   FOR SELECT TO authenticated
   USING (

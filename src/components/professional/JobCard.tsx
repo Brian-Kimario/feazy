@@ -29,7 +29,7 @@ const STATE_STYLES: Record<string, string> = {
   closed: 'bg-[#F1EEE5] text-[#7C8681] border-[#D9DED8]',
 };
 
-const LIVE_STATES = new Set(['on_the_way', 'arrived', 'in_progress', 'quote_pending']);
+const LIVE_STATES = new Set(['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending']);
 
 function formatScheduledDate(iso: string): string {
   const date = new Date(iso);

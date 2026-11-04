@@ -177,8 +177,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold tracking-tight text-ink mb-3 pt-6 border-t border-line">Questions?</h2>
             <p className="text-ink-3">
               If you have questions about these terms, please contact us at{' '}
-              <a href="mailto:support@feasy.com" className="text-teal underline">
-                support@feasy.com
+              <a href="mailto:support@feazy.com" className="text-teal underline">
+                support@feazy.com
               </a>
             </p>
           </section>
@@ -193,8 +193,8 @@ export default function TermsPage() {
             <p className="text-ink-3 font-semibold mt-3">
               Legal Review Team<br />
               Email:{' '}
-              <a href="mailto:legal@feasy.com" className="text-teal underline">
-                legal@feasy.com
+              <a href="mailto:legal@feazy.com" className="text-teal underline">
+                legal@feazy.com
               </a>
             </p>
             <p className="text-ink-3 mt-3 text-sm text-ink-3/80">

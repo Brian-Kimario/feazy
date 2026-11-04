@@ -7,7 +7,7 @@ import { createTypedAdminClient } from '@/lib/admin/client';
 import { requireAdmin } from '@/lib/admin/guard';
 import { adminFailure, type AdminResult } from '@/lib/admin/result';
 
-const ACTIVE_JOB_STATES = ['accepted', 'on_the_way', 'arrived', 'in_progress', 'quote_pending'];
+const ACTIVE_JOB_STATES = ['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'];
 
 export interface OverviewCounts {
   jobsInProgress: number | null;
@@ -56,7 +56,7 @@ export async function getOverviewCounts(): Promise<AdminResult<OverviewCounts>> 
     available,
     suspended,
   ] = await Promise.all([
-    n('in progress', a.from('jobs').select('id', head).in('current_state', ['on_the_way', 'arrived', 'in_progress', 'quote_pending'])),
+    n('in progress', a.from('jobs').select('id', head).in('current_state', ['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'])),
     n('pending offers', a.from('jobs').select('id', head).eq('current_state', 'assigned').not('professional_id', 'is', null)),
     n('exceptions', a.from('job_exceptions').select('id', head).eq('status', 'open')),
     n('pending verifications', profiles().in('verification_status', ['documents_submitted', 'under_review'])),

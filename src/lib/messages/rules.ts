@@ -6,6 +6,7 @@ export const MESSAGING_OPEN_STATES: ReadonlySet<string> = new Set([
   'accepted',
   'on_the_way',
   'arrived',
+  'assessing',
   'in_progress',
   'quote_pending',
 ]);

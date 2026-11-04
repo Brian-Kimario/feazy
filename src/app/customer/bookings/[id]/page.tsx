@@ -63,7 +63,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
   const { booking, service, property, job, professional } = kase;
   const jobState = job?.state ?? null;
   const codeState =
-    job && ['on_the_way', 'arrived', 'in_progress'].includes(job.state) ? await getJobCodeState(job.id) : null;
+    job && ['on_the_way', 'arrived', 'assessing', 'in_progress'].includes(job.state) ? await getJobCodeState(job.id) : null;
   const noShowReport = job && ['accepted', 'on_the_way'].includes(job.state) ? await getNoShowReportedAt(job.id) : null;
   const noShow = job
     ? noShowEligibility({
@@ -74,7 +74,7 @@ export default async function BookingDetailPage({ params, searchParams }: Bookin
         reported: noShowReport != null,
       })
     : null;
-  const cancelReview = job && ['arrived', 'quote_pending', 'in_progress'].includes(job.state)
+  const cancelReview = job && ['arrived', 'assessing', 'quote_pending', 'in_progress'].includes(job.state)
     ? await getCancellationReviewStatus(job.id)
     : null;
   const bookingInspection = await getBookingInspection(booking.id);

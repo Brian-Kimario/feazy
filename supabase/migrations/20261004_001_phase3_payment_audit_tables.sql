@@ -62,7 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_payments_razorpay_payment_id ON public.payments(r
 -- ============================================================================
 
 -- Restrict UPDATE to customer only (enforce via RLS, not just app layer)
-CREATE POLICY IF NOT EXISTS payments_update_customer ON public.payments
+DROP POLICY IF EXISTS payments_update_customer ON public.payments;
+CREATE POLICY payments_update_customer ON public.payments
   FOR UPDATE
   USING (customer_id = auth.uid())
   WITH CHECK (customer_id = auth.uid());
@@ -74,7 +75,8 @@ CREATE POLICY IF NOT EXISTS payments_update_customer ON public.payments
 -- By default, no one can update/delete payment_events (INSERT only)
 ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS payment_events_insert ON public.payment_events
+DROP POLICY IF EXISTS payment_events_insert ON public.payment_events;
+CREATE POLICY payment_events_insert ON public.payment_events
   FOR INSERT
   WITH CHECK (true);
 
@@ -93,13 +95,14 @@ CREATE OR REPLACE FUNCTION public.transition_payment_status(
   p_reason text DEFAULT NULL,
   p_metadata jsonb DEFAULT '{}'
 )
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
 -- NOTE: SECURITY DEFINER enforces that this function runs with the privileges of the 
 -- function owner (postgres role), regardless of the calling user. This allows controlled
 -- state transitions even from authenticated users. Authorization checks inline ensure
 -- only authorized actors can change payment status.
 SECURITY DEFINER
 SET search_path = public
+AS $$
 DECLARE
   v_current_status text;
   v_valid boolean := false;

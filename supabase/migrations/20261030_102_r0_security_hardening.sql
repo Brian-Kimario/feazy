@@ -38,5 +38,11 @@ CREATE TRIGGER audit_logs_no_truncate
   FOR EACH STATEMENT EXECUTE FUNCTION public.audit_logs_block_mutation();
 
 REVOKE ALL ON FUNCTION public.on_job_state_transition() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.sync_profile_email() FROM PUBLIC, anon, authenticated;
-ALTER FUNCTION public.sync_profile_email() SET search_path TO 'public';
+-- sync_profile_email exists in production but no migration in this repo creates it, so guard the
+-- grant and search_path changes for databases (such as a fresh local replay) where it is absent.
+DO $$ BEGIN
+  IF to_regprocedure('public.sync_profile_email()') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.sync_profile_email() FROM PUBLIC, anon, authenticated;
+    ALTER FUNCTION public.sync_profile_email() SET search_path TO 'public';
+  END IF;
+END $$;

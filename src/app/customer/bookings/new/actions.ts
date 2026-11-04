@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { fail, ok, parseInput, type ActionFailure, type ActionResult } from '@/lib/actions/result';
 import { createBookingSchema, type CreateBookingInput } from '@/validators';
+import { getFreeInspectionStatus } from '@/lib/services/booking-pricing';
 
 export type { CreateBookingInput };
 
@@ -48,20 +49,35 @@ export async function createBookingAction(
     return fail('unauthenticated', 'Not authenticated. Please sign in.');
   }
 
-  // With material preferences the booking and preferences are saved in one transaction, so a
-  // preference can never be lost while the booking succeeds.
-  const materialIds = input.materialIds ?? [];
-  const { data: rows, error: bookingError } =
-    materialIds.length > 0
-      ? await supabase.rpc('create_booking_with_materials', {
-          p_service_id: input.serviceId,
-          p_property_id: input.propertyId,
-          p_scheduled_start: scheduledDate.toISOString(),
-          p_problem_summary: input.problemSummary || '',
-          p_options: input.selectedOptions ?? {},
-          p_material_ids: materialIds,
-        })
-      : await supabase.rpc('create_booking', {
+  // A clientRequestId means the form was built against the structured booking path (migrations 119 and 120).
+  // That path checks the price, stores materials and budget, and de-duplicates a retry inside one transaction.
+  // Without it, the legacy six-argument create_booking runs, and the price is checked against a read taken first.
+  const structured = input.clientRequestId !== undefined;
+
+  if (!structured && input.expectedFreeInspection !== undefined) {
+    const current = await getFreeInspectionStatus(supabase);
+    if (current === null) {
+      return fail('failed', 'We could not confirm the price. Please try again.');
+    }
+    if (current !== input.expectedFreeInspection) {
+      return fail('price_changed', PRICE_CHANGED_MESSAGE);
+    }
+  }
+
+  const { data: rows, error: bookingError } = structured
+    ? await supabase.rpc('create_booking_with_materials', {
+        p_service_id: input.serviceId,
+        p_property_id: input.propertyId,
+        p_scheduled_start: scheduledDate.toISOString(),
+        p_problem_summary: input.problemSummary || '',
+        p_options: input.selectedOptions ?? {},
+        p_materials: (input.materials ?? []).map((m) => ({ material_id: m.materialId, quantity: m.quantity })),
+        p_budget: input.budget ?? null,
+        p_expected_free_inspection: input.expectedFreeInspection ?? null,
+        p_expected_amount: input.expectedAmount ?? null,
+        p_client_request_id: input.clientRequestId ?? null,
+      })
+    : await supabase.rpc('create_booking', {
           p_service_id: input.serviceId,
           p_property_id: input.propertyId,
           p_scheduled_start: scheduledDate.toISOString(),
@@ -95,14 +111,38 @@ export async function createBookingAction(
   });
 }
 
+const PRICE_CHANGED_MESSAGE =
+  'The price for this service has changed since you opened this page. Please check the new price and confirm again.';
+
 function createBookingFailure(error: { code?: string; message: string } | null): ActionFailure {
   switch (error?.code) {
     case 'P0002':
       // The RPC uses this for both an unavailable service and a property the caller doesn't own.
       return fail('not_found', 'That service or property is no longer available. Please check and try again.');
+    case 'P0003':
+      // The database's price differs from the one the customer confirmed. Nothing was booked.
+      return fail('price_changed', PRICE_CHANGED_MESSAGE);
+    case 'P0007':
+      return fail('rejected', 'You have made several booking requests in the last hour. Please wait a little and try again.');
+    case 'P0005':
+      return fail(
+        'rejected',
+        'You already have an inspection booked for this property and service that is still open. Check your bookings first.'
+      );
+    case 'P0006':
+      return fail('rejected', 'No inspector is free for a visit right now. Please try again later.');
+    case 'P0008':
+      // The property's city has no verified professional with an active service area. Nothing was booked.
+      return fail('rejected', 'We do not serve this area yet. Please check the address for this property.');
+    case 'P0009':
+      // The unguarded booking path has been switched off. The current form sends the structured request.
+      return fail('rejected', 'Please refresh the page and book again.');
     case '22023':
       // A past start time (already checked above, so clock skew), a service with no price,
       // an option that is no longer offered, or an urgency that is switched off.
+      if (error.message.includes('budget')) {
+        return fail('rejected', 'The budget you entered is outside the allowed range. Please adjust it and try again.');
+      }
       if (error.message.includes('material')) {
         return fail('rejected', 'One of the materials you chose is no longer available. Please go back and choose again.');
       }

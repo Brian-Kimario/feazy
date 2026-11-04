@@ -201,7 +201,7 @@ function ResetPasswordContent() {
 
         <section className="form-side">
           <div className="form-wrap">
-            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
+            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>Feazy</span></Link>
             <div className="error-state">
               <div className="error-icon" aria-hidden="true">⚠</div>
               <p className="form-eyebrow">SESSION EXPIRED</p>
@@ -256,7 +256,7 @@ function ResetPasswordContent() {
 
         <section className="form-side">
           <div className="form-wrap">
-            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
+            <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>Feazy</span></Link>
             <div className="success-state">
               <div className="success-icon" aria-hidden="true"><CheckCircle2 /></div>
               <p className="form-eyebrow">PASSWORD RESET</p>
@@ -314,7 +314,7 @@ function ResetPasswordContent() {
 
       <section className="form-side">
         <div className="form-wrap">
-          <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>FEAZY</span></Link>
+          <Link className="brand auth-brand" href="/"><Symbol size="lg" className="brand-mark" /><span>Feazy</span></Link>
           <p className="form-eyebrow">ACCOUNT SECURITY</p>
           <h2>Reset your password.</h2>
           <p className="sub">Enter a new password for your Feazy account. Make it strong and unique.</p>

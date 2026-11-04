@@ -36,13 +36,13 @@ export const metadata: Metadata = {
 };
 
 /** States where the professional can move the job forward with StateTransitionButtons. */
-const ACTIONABLE: ReadonlySet<string> = new Set(['accepted', 'on_the_way', 'arrived', 'in_progress']);
+const ACTIONABLE: ReadonlySet<string> = new Set(['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress']);
 /** Inspection notes and quotes are written on site, before the work is finished. */
-const ON_SITE: ReadonlySet<string> = new Set(['arrived', 'in_progress']);
+const ON_SITE: ReadonlySet<string> = new Set(['arrived', 'assessing', 'in_progress']);
 /** Before arrival: an arrival window or a late notice can be sent (report_job_eta). */
 const TRAVELLING: ReadonlySet<string> = new Set(['accepted', 'on_the_way']);
 /** States in which add_job_media and the job-media upload policy accept files. */
-const MEDIA_OPEN: ReadonlySet<string> = new Set(['arrived', 'in_progress', 'quote_pending', 'completed']);
+const MEDIA_OPEN: ReadonlySet<string> = new Set(['arrived', 'assessing', 'in_progress', 'quote_pending', 'completed']);
 
 const IDLE_COPY: Record<string, string> = {
   quote_pending: 'Waiting for the customer to approve your quote.',
@@ -96,7 +96,10 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
   const lockedTargets: Partial<Record<string, string>> = codeVerified
     ? {}
     : job.state === 'arrived'
-      ? { in_progress: 'Enter the start code from the customer first.' }
+      ? {
+          in_progress: 'Enter the start code from the customer first.',
+          assessing: 'Enter the start code from the customer first.',
+        }
       : job.state === 'in_progress'
         ? { completed: 'Enter the finish code from the customer first.' }
         : {};
@@ -162,7 +165,12 @@ export default async function JobDetailsPage({ params }: JobDetailsPageProps) {
               ) : ACTIONABLE.has(job.state) ? (
                 <div className="space-y-4">
                   {codeState && <JobCodeEntry jobId={job.id} state={codeState} />}
-                  <StateTransitionButtons jobId={job.id} currentState={job.state} lockedTargets={lockedTargets} />
+                  <StateTransitionButtons
+                    jobId={job.id}
+                    currentState={job.state}
+                    pricingModel={booking.pricingModel}
+                    lockedTargets={lockedTargets}
+                  />
                   <WithdrawFromJob jobId={job.id} />
                 </div>
               ) : (

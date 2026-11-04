@@ -1,5 +1,5 @@
 -- Rollback for 20261102_120_materials_and_categories. Drops customer preferences and inspector
--- confirmations. The four draft categories are removed only if no service uses them.
+-- confirmations. The draft categories from section 4 are removed only if no service uses them.
 DROP FUNCTION IF EXISTS public.admin_set_material_services(uuid, uuid[]);
 DROP FUNCTION IF EXISTS public.admin_upsert_material(uuid, text, text, text, text, boolean);
 DROP FUNCTION IF EXISTS public.admin_set_category_availability(uuid, text);
@@ -14,6 +14,6 @@ DROP TABLE IF EXISTS public.inspection_visit_materials;
 DROP TABLE IF EXISTS public.booking_material_preferences;
 ALTER TABLE public.materials DROP COLUMN IF EXISTS price_unit, DROP COLUMN IF EXISTS indicative_price;
 DELETE FROM public.service_categories c
- WHERE c.slug IN ('pest-control', 'waterproofing', 'tiling-masonry', 'cctv-security')
+ WHERE c.slug IN ('home-maintenance', 'installation', 'cleaning', 'general-repairs', 'bike-car-service')
    AND c.availability = 'coming_soon'
    AND NOT EXISTS (SELECT 1 FROM public.services s WHERE s.category_id = c.id);

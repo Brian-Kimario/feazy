@@ -4,18 +4,17 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
   ArrowRight,
+  Bike,
   CalendarClock,
   CircleAlert,
   ClipboardCheck,
   Cpu,
-  FileText,
+  Drill,
   Hammer,
   Home,
-  IndianRupee,
   Lightbulb,
   MapPin,
   Paintbrush,
-  SearchX,
   ShieldCheck,
   Sparkles,
   Wind,
@@ -28,7 +27,6 @@ import {
   getCustomerShell,
   getQuoteForReview,
   type CustomerBooking,
-  type CustomerInboxItem,
   type DashboardCategory,
   type DashboardProperty,
 } from '@/lib/services/shell';
@@ -65,6 +63,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   paintbrush: Paintbrush,
   hammer: Hammer,
   sparkles: Sparkles,
+  home: Home,
+  drill: Drill,
+  bike: Bike,
 };
 
 const money = (amount: number) => formatCurrency(amount, { minimumFractionDigits: 0 });
@@ -143,22 +144,6 @@ export default async function CustomerHomePage({
           </Section>
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10">
           <div className="min-w-0 space-y-10">
-            {shell.inbox.length > 0 && (
-              <Section
-                title="Pending actions"
-                description="Quotes and payments waiting on you."
-                count={shell.inbox.length}
-              >
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {shell.inbox.map((item) => (
-                    <li key={item.id}>
-                      <InboxCard item={item} />
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            )}
-
             <Section
               title="Active"
               description={otherActive.length > 0 ? 'Work under way, and bookings whose time has passed.' : undefined}
@@ -257,42 +242,6 @@ function Notice({ tone, children }: { tone: 'danger' | 'ochre'; children: ReactN
       <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       <p>{children}</p>
     </div>
-  );
-}
-
-function InboxCard({ item }: { item: CustomerInboxItem }) {
-  const isQuote = item.kind === 'quote';
-  const isUnmatched = item.kind === 'unmatched';
-  const Icon = isQuote ? FileText : isUnmatched ? SearchX : IndianRupee;
-  return (
-    <Link
-      href={item.href}
-      scroll={false}
-      className={`group flex h-full flex-col rounded-2xl border bg-paper p-4 transition-colors hover:bg-paper-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal ${
-        isQuote ? 'border-clay/30' : isUnmatched ? 'border-blue/30' : 'border-ochre/30'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            isQuote ? 'bg-clay-soft text-clay' : isUnmatched ? 'bg-blue-soft text-blue' : 'bg-ochre-soft text-ochre'
-          }`}
-        >
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-ink">{item.title}</p>
-          <p className="mt-0.5 truncate text-sm text-ink-3">{item.detail}</p>
-        </div>
-        {item.amount != null && (
-          <p className="shrink-0 text-base font-semibold tabular-nums text-ink">{money(item.amount)}</p>
-        )}
-      </div>
-      <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-teal group-hover:text-teal-deep">
-        {isQuote ? 'Review quote' : isUnmatched ? 'Open booking' : 'Open booking to pay'}
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </span>
-    </Link>
   );
 }
 

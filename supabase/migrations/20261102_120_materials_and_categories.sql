@@ -1,6 +1,6 @@
 -- 20261102_120_materials_and_categories
 --
--- Structured material preferences and the draft 12-category catalogue. DRAFT: not applied to any
+-- Structured material preferences and draft categories from the founder's services list. DRAFT: not applied to any
 -- database. Requires 119 (service_categories.availability, inspection_visits, _require_admin).
 --
 -- Material model (founder decision): a customer's choice is a PREFERENCE, the inspector CONFIRMS what
@@ -8,7 +8,7 @@
 -- anything, and indicative prices are columns the admin fills in: none are invented by this file.
 --
 -- 1. indicative prices on materials   2. customer preferences   3. inspector-confirmed materials
--- 4. four draft categories, listed "coming soon"
+-- 4. draft categories from the founder list (coming soon; Bike & Car inactive)
 -- Rollback: supabase/rollbacks/20261102_120_rollback.sql
 
 -- ---------------------------------------------------------------------------------------------
@@ -43,9 +43,16 @@ $function$;
 CREATE TABLE IF NOT EXISTS public.booking_material_preferences (
   booking_id  uuid NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
   material_id uuid NOT NULL REFERENCES public.materials(id) ON DELETE RESTRICT,
+  -- How many the customer would like. A preference: the inspector confirms the real quantity.
+  quantity    integer NOT NULL DEFAULT 1 CHECK (quantity BETWEEN 1 AND 10),
   created_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (booking_id, material_id)
 );
+
+-- Rough budget the customer gave, in rupees. A preference the professional reads; it never sets a price.
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS budget_preference numeric(10, 2)
+  CHECK (budget_preference IS NULL OR budget_preference BETWEEN 500 AND 20000);
 ALTER TABLE public.booking_material_preferences ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY booking_material_preferences_select ON public.booking_material_preferences
@@ -57,7 +64,9 @@ CREATE POLICY booking_material_preferences_select ON public.booking_material_pre
     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'::public.user_role)
   );
 
-CREATE OR REPLACE FUNCTION public.set_booking_material_preferences(p_booking_id uuid, p_material_ids uuid[])
+-- p_items: [{"material_id": uuid, "quantity": 1..10}]. Replaces the booking's earlier preferences.
+DROP FUNCTION IF EXISTS public.set_booking_material_preferences(uuid, uuid[]);
+CREATE OR REPLACE FUNCTION public.set_booking_material_preferences(p_booking_id uuid, p_items jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -66,10 +75,14 @@ AS $function$
 DECLARE
   v_user uuid := auth.uid();
   v_booking public.bookings%ROWTYPE;
-  v_ids uuid[] := COALESCE(ARRAY(SELECT DISTINCT unnest(p_material_ids)), '{}');
+  v_count int;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501'; END IF;
-  IF cardinality(v_ids) > 10 THEN
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' THEN
+    RAISE EXCEPTION 'Materials must be a list' USING ERRCODE = '22023';
+  END IF;
+  v_count := jsonb_array_length(p_items);
+  IF v_count > 10 THEN
     RAISE EXCEPTION 'Choose at most 10 materials' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO v_booking FROM public.bookings WHERE id = p_booking_id AND customer_id = v_user FOR UPDATE;
@@ -77,19 +90,29 @@ BEGIN
   IF v_booking.booking_status <> 'pending' THEN
     RETURN jsonb_build_object('ok', false, 'code', 'booking_closed', 'message', 'Materials can only be changed while the booking is open.');
   END IF;
+
+  CREATE TEMP TABLE _prefs ON COMMIT DROP AS
+    SELECT (i->>'material_id')::uuid AS material_id,
+           COALESCE((i->>'quantity')::int, 1) AS quantity
+      FROM jsonb_array_elements(p_items) AS i;
+  IF (SELECT count(DISTINCT material_id) FROM _prefs) <> v_count
+     OR EXISTS (SELECT 1 FROM _prefs WHERE quantity NOT BETWEEN 1 AND 10) THEN
+    RAISE EXCEPTION 'Invalid material list' USING ERRCODE = '22023';
+  END IF;
   IF EXISTS (
-    SELECT 1 FROM unnest(v_ids) AS m(id)
+    SELECT 1 FROM _prefs p
     WHERE NOT EXISTS (
       SELECT 1 FROM public.service_materials sm JOIN public.materials mt ON mt.id = sm.material_id
-      WHERE sm.service_id = v_booking.service_id AND sm.material_id = m.id
+      WHERE sm.service_id = v_booking.service_id AND sm.material_id = p.material_id
         AND sm.is_customer_selectable AND mt.is_active)) THEN
     RAISE EXCEPTION 'One of the chosen materials is not available for this service' USING ERRCODE = '22023';
   END IF;
 
   DELETE FROM public.booking_material_preferences WHERE booking_id = p_booking_id;
-  INSERT INTO public.booking_material_preferences (booking_id, material_id)
-    SELECT p_booking_id, unnest(v_ids);
-  RETURN jsonb_build_object('ok', true, 'count', cardinality(v_ids));
+  INSERT INTO public.booking_material_preferences (booking_id, material_id, quantity)
+    SELECT p_booking_id, material_id, quantity FROM _prefs;
+  DROP TABLE _prefs;
+  RETURN jsonb_build_object('ok', true, 'count', v_count);
 END;
 $function$;
 
@@ -181,13 +204,21 @@ $function$;
 -- 3b. Booking and material preferences in ONE transaction: if the preferences are rejected the
 --     booking is not created either, so a preference can never be silently lost.
 -- ---------------------------------------------------------------------------------------------
+-- p_materials: [{"material_id": uuid, "quantity": 1..10}]. p_budget: rupees, 500..20000, or NULL.
+-- The price guard (p_expected_free_inspection / p_expected_amount) and the replay key
+-- (p_client_request_id) are passed straight to create_booking, so the whole request commits or fails together.
+DROP FUNCTION IF EXISTS public.create_booking_with_materials(uuid, uuid, timestamptz, text, jsonb, uuid[]);
 CREATE OR REPLACE FUNCTION public.create_booking_with_materials(
-  p_service_id      uuid,
-  p_property_id     uuid,
-  p_scheduled_start timestamptz,
-  p_problem_summary text,
-  p_options         jsonb,
-  p_material_ids    uuid[]
+  p_service_id               uuid,
+  p_property_id              uuid,
+  p_scheduled_start          timestamptz,
+  p_problem_summary          text,
+  p_options                  jsonb,
+  p_materials                jsonb,
+  p_budget                   numeric,
+  p_expected_free_inspection boolean,
+  p_expected_amount          numeric,
+  p_client_request_id        uuid
 )
 RETURNS TABLE (booking_id uuid, booking_reference text)
 LANGUAGE plpgsql
@@ -195,24 +226,50 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 DECLARE
+  v_user uuid := auth.uid();
   v_id uuid;
   v_ref text;
   v_result jsonb;
 BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501'; END IF;
+  IF p_budget IS NOT NULL AND (p_budget < 500 OR p_budget > 20000) THEN
+    RAISE EXCEPTION 'The budget must be between 500 and 20000' USING ERRCODE = '22023';
+  END IF;
+
+  -- A retried submission returns the booking it already made, with no second set of preferences.
+  IF p_client_request_id IS NOT NULL THEN
+    SELECT b.id, b.booking_reference INTO v_id, v_ref
+      FROM public.bookings b
+     WHERE b.customer_id = v_user AND b.client_request_id = p_client_request_id;
+    IF FOUND THEN
+      booking_id := v_id;
+      booking_reference := v_ref;
+      RETURN NEXT;
+      RETURN;
+    END IF;
+  END IF;
+
   SELECT b.booking_id, b.booking_reference INTO v_id, v_ref
-    FROM public.create_booking(p_service_id, p_property_id, p_scheduled_start, NULLIF(p_problem_summary, ''), 'flexible', COALESCE(p_options, '{}'::jsonb)) b;
-  v_result := public.set_booking_material_preferences(v_id, COALESCE(p_material_ids, '{}'));
+    FROM public.create_booking(
+      p_service_id, p_property_id, p_scheduled_start, NULLIF(p_problem_summary, ''), 'flexible',
+      COALESCE(p_options, '{}'::jsonb), p_expected_free_inspection, p_expected_amount, p_client_request_id) b;
+
+  v_result := public.set_booking_material_preferences(v_id, COALESCE(p_materials, '[]'::jsonb));
   IF NOT COALESCE((v_result->>'ok')::boolean, false) THEN
     RAISE EXCEPTION 'Could not save material preferences' USING ERRCODE = '22023';
   END IF;
+  UPDATE public.bookings SET budget_preference = p_budget WHERE id = v_id;
+
   booking_id := v_id;
   booking_reference := v_ref;
   RETURN NEXT;
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.create_booking_with_materials(uuid, uuid, timestamptz, text, jsonb, uuid[]) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.create_booking_with_materials(uuid, uuid, timestamptz, text, jsonb, uuid[]) TO authenticated;
+REVOKE ALL ON FUNCTION public.create_booking_with_materials(uuid, uuid, timestamptz, text, jsonb, jsonb, numeric, boolean, numeric, uuid)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_booking_with_materials(uuid, uuid, timestamptz, text, jsonb, jsonb, numeric, boolean, numeric, uuid)
+  TO authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 3c. Read models. One place decides who sees preferences versus confirmed requirements.
@@ -226,9 +283,11 @@ STABLE SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
   SELECT jsonb_build_object(
+    'budget', (SELECT b.budget_preference FROM public.bookings b WHERE b.id = p_booking_id),
     'preferences', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
                'material_id', m.id, 'name', m.name, 'brand', br.name, 'unit', m.unit,
+               'quantity', p.quantity,
                'indicative_price', m.indicative_price, 'price_unit', m.price_unit) ORDER BY m.name)
         FROM public.booking_material_preferences p
         JOIN public.materials m ON m.id = p.material_id
@@ -402,28 +461,30 @@ GRANT EXECUTE ON FUNCTION public.admin_set_category_availability(uuid, text),
   public.admin_set_material_services(uuid, uuid[]) TO authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- 4. Draft categories to reach the 12-category target. Listed as "coming soon" and refused by
---    create_booking until an admin sets availability to 'manual_assignment' or 'bookable' (which is
---    for the owner to do once professionals with the matching skills are verified in the area).
---    The names are a recommendation awaiting founder confirmation.
+-- 4. Categories from the founder's services list (Feazy website HTML) that have no row yet.
+--    Listed as "coming soon": create_booking refuses them until an admin sets availability to
+--    'manual_assignment' or 'bookable', which is for the owner to do once verified professionals
+--    cover the category. Bike & Car Service is a draft: inactive and hidden until approved.
+--    Descriptions are taken from the founder's list; no other categories are added.
 -- ---------------------------------------------------------------------------------------------
 INSERT INTO public.service_categories (name, slug, description, icon_key, sort_order, is_active, availability)
-SELECT v.name, v.slug, v.description, v.icon_key, v.sort_order, true, 'coming_soon'
+SELECT v.name, v.slug, v.description, v.icon_key, v.sort_order, v.is_active, 'coming_soon'
 FROM (VALUES
-  ('Pest Control',        'pest-control',   'Treatment for cockroaches, termites, rodents and other household pests.', 'bug',    80),
-  ('Waterproofing',       'waterproofing',  'Leak, seepage and damp-proofing for roofs, walls and bathrooms.',          'droplets', 90),
-  ('Tiling & Masonry',    'tiling-masonry', 'Tile fitting and repair, plaster work and small civil repairs.',           'hammer', 100),
-  ('CCTV & Security',     'cctv-security',  'CCTV, video door phones and basic home security fittings.',                'shield', 110)
-) AS v(name, slug, description, icon_key, sort_order)
+  ('Home Maintenance', 'home-maintenance', 'Scheduled upkeep for the whole property.',                        'home',     80, true),
+  ('Installation',     'installation',     'Fixtures, fittings and smart home devices.',                       'drill',    90, true),
+  ('Cleaning',         'cleaning',         'Deep cleaning for homes and workspaces.',                          'sparkles', 100, true),
+  ('General Repairs',  'general-repairs',  'Everything else your space needs fixed.',                          'wrench',   110, true),
+  ('Bike & Car Service', 'bike-car-service', 'Draft category. Not visible to customers until coverage is approved.', 'bike', 120, false)
+) AS v(name, slug, description, icon_key, sort_order, is_active)
 WHERE NOT EXISTS (SELECT 1 FROM public.service_categories c WHERE c.slug = v.slug);
 
 REVOKE ALL ON FUNCTION
   public.admin_set_material_price(uuid, numeric, text),
-  public.set_booking_material_preferences(uuid, uuid[]),
+  public.set_booking_material_preferences(uuid, jsonb),
   public.inspector_confirm_materials(uuid, jsonb)
 FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION
   public.admin_set_material_price(uuid, numeric, text),
-  public.set_booking_material_preferences(uuid, uuid[]),
+  public.set_booking_material_preferences(uuid, jsonb),
   public.inspector_confirm_materials(uuid, jsonb)
 TO authenticated;

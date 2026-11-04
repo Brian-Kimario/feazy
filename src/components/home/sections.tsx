@@ -39,13 +39,23 @@ export function FactsStrip() {
 
 /* ── How it works ───────────────────────────────────────────────────────── */
 const STEPS = [
-  ['Choose your service', 'Pick what needs fixing and tell us the problem. Everyday words and a photo are enough.'],
+  ['Choose your service', 'Select the service category that matches the issue at home.'],
   [
-    FREE_INSPECTION_PROMISED ? 'Get a free inspection' : 'Get it inspected',
-    'A verified professional visits, looks at the problem and confirms what needs to be done.',
+    'Describe the problem',
+    'Explain what is happening in your own words and optionally upload a photo. Share the problem before the visit so the professional can arrive prepared.',
   ],
-  ['Get a clear quotation', 'You receive an itemised quote in rupees. You decide; nothing extra happens without your yes.'],
-  ['Get the work done', 'The professional completes the job. Pay securely by UPI, and the invoice is saved to your property record.'],
+  [
+    FREE_INSPECTION_PROMISED ? 'Free inspection & professional assignment' : 'Inspection & professional assignment',
+    'Book a clearly labelled inspection and see how a suitable, verified professional is assigned. The inspection terms are shown before you book.',
+  ],
+  [
+    'Receive a clear quote and track the service',
+    'See an itemised quotation with labour, materials and any other charges. You approve the quote before repair work begins, and you can track the booking status.',
+  ],
+  [
+    'Get the work done',
+    'The professional completes the approved work. Payment, invoice and service history are saved to your property record.',
+  ],
 ] as const;
 
 export function HowItWorks() {
@@ -54,7 +64,7 @@ export function HowItWorks() {
       <div className={`${wrap} grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20`}>
         <div className="lg:sticky lg:top-28 lg:self-start">
           <p className={kicker}>How it works</p>
-          <h2 className={h2}>From booking to fixed, in four simple steps.</h2>
+          <h2 className={h2}>From booking to fixed, in five simple steps.</h2>
           <p className="mt-5 max-w-[44ch] text-[16px] leading-relaxed text-ink-3">
             No phone tag, no cash-in-hand guesswork. Every step is visible to you and to the professional.
           </p>

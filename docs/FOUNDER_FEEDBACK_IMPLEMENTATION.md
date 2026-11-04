@@ -86,3 +86,40 @@ Founder defaults accepted: 12-category catalogue (4 new stay Coming Soon until c
 
 ## Open decisions
 City limits for free inspection; whether fixed-price services skip inspection.
+
+## Price source of truth (verified locally)
+- The price card no longer reads `NEXT_PUBLIC_FREE_INSPECTION` when the database answers. `get_booking_free_inspection()` (migration 119, section 5b) returns the same `free_inspection_enabled` switch that `create_booking` charges by. The wizard shows that value.
+- `NEXT_PUBLIC_FREE_INSPECTION` is now only the fallback when the database cannot answer (migration 119 not applied). Before 119 is applied, the page shows the visit fee, which matches `create_booking` in that state.
+- A booking submit sends the value the customer saw. `createBookingAction` refuses with `price_changed` if the database now differs, and the wizard reloads the price. Nothing is charged at a price the customer did not see.
+- Local evidence: replay of all migrations with the existing free-inspection booking check (flag off: 700 stored as `inspection`; flag on: `quote_after_inspection` with no amount, no visit row). RPC check: returns `f` and `t` as the switch changes, and `anon` is refused.
+- Not verified: browser/Playwright run of the wizard, and production. Migration 119 is still not applied there.
+
+## Verified in this pass (2026-11-04, `feat/founder-revisions`, local only)
+Earlier sections describe earlier rounds. Where they conflict with this section, this section is newer. Full pricing detail is in [REPAIR_PRICING_WORKFLOW.md](REPAIR_PRICING_WORKFLOW.md).
+
+**Fixed in this pass**
+- Rate-limit error code changed from `P0004` to `P0007`. `P0004` is PostgreSQL's `assert_failure`, which `WHEN OTHERS` handlers do not catch, so a caller that catches all errors would let the limit error escape.
+- Migration `20261102_121_profiles_email_column.sql` adds `profiles.email` (`IF NOT EXISTS`). The `handle_new_user` trigger writes that column (migrations 005 and 101), but no migration in the repo created it, so every sign-up failed on a fresh database. Production already has the column (checked read-only), so the migration is a no-op there.
+- `src/lib/supabase/database.types.ts` regenerated from the local database. The previous file was hand-maintained and did not include `create_booking_with_materials` (its `p_materials` argument) or `set_booking_material_preferences`, so `tsc` failed on the new wrapper call in `actions.ts`. The previous copy is kept outside the repo.
+- Advisory lock in `create_booking` moved before the retry lookup, so a parallel retry cannot race the first insert.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Replay of all migrations on a fresh local database | Completed. 3 files flagged (`20261030_011`, `_016`, `_019`), all `unschedule` output, not failures. |
+| `supabase/tests/booking_pricing_guard.sql` | `all checks passed`, transaction rolled back |
+| `pnpm tsc --noEmit` | Exit 0 |
+| `pnpm test` | 46 files passed, 1 skipped; 593 tests passed, 16 skipped, 15 todo; exit 0 |
+| `pnpm build` | Exit 0 |
+| Assignment retry | `_assign_booking_internal` returns NULL for a job that already has a professional, so a retried booking is not offered twice (read from code) |
+| Admin override | `admin_assign_professional` is audited in `job_events` and `matching_decisions`, requires a reason of 10+ characters and an idempotency key. Not written to `audit_logs`. Read from code, not executed. |
+
+**Not verified in this pass**
+- Playwright and browser checks, including the customer sign-in heading. The copy change (`brand.ts`, comma) is in the code, not seen in a browser.
+- The "Round 4" section above records 8 Playwright journeys passing and a quotation approval verified over PostgREST. Those results were not reproduced in this pass and are not counted as current results. The Round 4 checklist in `docs/FEAZY_DEPLOYMENT_CHECKLIST.md` is the place to see what was run then.
+- No-show handling for inspections, and the customer-facing quotation flow end to end.
+
+**Still missing (not built)**
+- Customer service-area coverage check.
+- Inspector capacity and calendar clash checks.
+- Owner actions: apply 119, 120 and 121 to production only with approval and a backup; revoke the leaked legacy service-role key in the Supabase dashboard and verify it with a request. Changing the Vercel environment variable does not revoke the old key.

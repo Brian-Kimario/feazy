@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
+import { assertLocalSupabase } from './scripts/assert-local-supabase'
+
+// Synthetic E2E writes must never reach the production Supabase project.
+assertLocalSupabase()
 
 /**
  * Read environment variables from file.

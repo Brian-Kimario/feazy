@@ -106,4 +106,19 @@ describe('createBookingAction', () => {
     expect(result).toMatchObject({ success: false, code: expected });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
+
+  // Customer-facing copy for each refusal the database can return. The wording is what the customer reads.
+  it.each([
+    ['P0008', 'rejected', /do not serve this area yet/],
+    ['P0009', 'rejected', /refresh the page and book again/],
+    ['P0005', 'rejected', /already have an inspection booked/],
+    ['P0006', 'rejected', /No inspector is free/],
+    ['P0007', 'rejected', /several booking requests in the last hour/],
+    ['P0003', 'price_changed', /price for this service has changed/],
+  ])('shows the copy for %s', async (code, expectedCode, copy) => {
+    rpc.mockResolvedValueOnce({ data: null, error: { code, message: 'x' } });
+    const result = await createBookingAction(input());
+    expect(result).toMatchObject({ success: false, code: expectedCode });
+    if (result.success === false) expect(result.error).toMatch(copy);
+  });
 });

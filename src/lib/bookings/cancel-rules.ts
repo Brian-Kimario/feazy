@@ -3,7 +3,7 @@
  * Mirrors customer_cancel_booking(), which stays the authority: from arrival onward it opens a review request
  * instead of cancelling, and it refuses finished work and a stale state. This only decides what to show.
  */
-const REVIEW_JOB_STATES = ['arrived', 'quote_pending', 'in_progress'];
+const REVIEW_JOB_STATES = ['arrived', 'assessing', 'quote_pending', 'in_progress'];
 const FINISHED_JOB_STATES = ['completed', 'closed', 'cancelled'];
 
 export type CancelOffer = 'offer' | 'request_review' | 'none';

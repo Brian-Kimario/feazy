@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS public.professional_verification_events (
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 
+-- 003 created this table without the action column; add it for databases that predate it.
+ALTER TABLE public.professional_verification_events ADD COLUMN IF NOT EXISTS action text;
+
 CREATE INDEX IF NOT EXISTS idx_pv_events_professional
   ON public.professional_verification_events (professional_id, created_at DESC);
 

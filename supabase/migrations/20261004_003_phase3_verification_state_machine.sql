@@ -62,12 +62,13 @@ CREATE OR REPLACE FUNCTION public.transition_professional_verification_status(
   p_reason text,
   p_metadata jsonb DEFAULT '{}'
 )
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
 -- NOTE: SECURITY DEFINER enforces that this function runs with the privileges of the 
 -- function owner (postgres role), regardless of the calling user. Authorization checks 
 -- inline ensure only admin/support users can change professional verification status.
 SECURITY DEFINER
 SET search_path = public
+AS $$
 DECLARE
   v_current_status text;
   v_valid boolean := false;

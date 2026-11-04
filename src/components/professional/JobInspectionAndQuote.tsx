@@ -125,7 +125,7 @@ export function JobInspectionAndQuote({ jobId, currentState }: JobInspectionAndQ
   }
 
   // Only show when the job is arrived or in_progress or quote_pending
-  const isRelevant = ['arrived', 'in_progress', 'quote_pending'].includes(currentState);
+  const isRelevant = ['arrived', 'assessing', 'in_progress', 'quote_pending'].includes(currentState);
   if (!isRelevant) return null;
 
   return (
@@ -218,13 +218,13 @@ export function JobInspectionAndQuote({ jobId, currentState }: JobInspectionAndQ
           <div>
             {quoteSuccess || currentState === 'quote_pending' ? (
               <div className="p-4 bg-[#FFF4E0] border border-[#E8D5A3] rounded-lg text-xs text-[#9B6700] font-medium">
-                ⏳ Additional quote is currently pending customer approval. The customer has received an immediate notification on their dashboard.
+                ⏳ Quote is currently pending customer approval. The customer has received an immediate notification on their dashboard.
               </div>
             ) : (
               <form onSubmit={handleQuoteSubmit} className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-[#18211F] mb-1.5 uppercase tracking-wider">
-                    Scope & Reason for Extra Work *
+                    {currentState === 'assessing' ? 'Repair Scope & Reason *' : 'Scope & Reason for Extra Work *'}
                   </label>
                   <input
                     type="text"

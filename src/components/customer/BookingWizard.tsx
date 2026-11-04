@@ -5,11 +5,13 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
+  Bike,
   ArrowRight,
   CalendarClock,
   Check,
   CircleAlert,
   Clock,
+  Drill,
   FileCheck2,
   Hammer,
   Home,
@@ -27,6 +29,17 @@ import {
 import { createBookingAction } from '@/app/customer/bookings/new/actions';
 import { SuccessState } from '@/components/ui/SuccessState';
 import { formatCurrency } from '@/lib/currency';
+import { FREE_INSPECTION_PROMISED } from '@/lib/brand';
+import {
+  BUDGET_MAX,
+  BUDGET_MIN,
+  BUDGET_STEP,
+  MATERIAL_QUANTITY_MAX,
+  MATERIAL_QUANTITY_MIN,
+  clampQuantity,
+  composeSummary,
+  preferenceLines,
+} from '@/lib/booking/booking-preferences';
 import { propertyTypeLabel } from '@/lib/shell/rules';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -96,6 +109,17 @@ interface BookingWizardProps {
   preselectedCategoryId?: string;
   preselectedPropertyId?: string;
   initialProblemNotes?: string;
+  /**
+   * Whether the database is charging inspections as free (get_booking_free_inspection). Null when
+   * that could not be read, in which case the NEXT_PUBLIC_FREE_INSPECTION rollout flag is used.
+   */
+  freeInspection: boolean | null;
+  /**
+   * True when the structured booking path is installed (migrations 119 and 120). Only then are materials,
+   * budget, the expected amount and the retry key sent. Otherwise the booking uses the legacy path, and
+   * materials and budget travel as text in the problem summary.
+   */
+  structuredBooking?: boolean;
 }
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
@@ -107,14 +131,6 @@ interface BookingWizardProps {
 
 const MATERIALS_MAX = 200;
 
-/** Customer material requests travel with the problem text; they never affect price or the quote. */
-function composeSummary(problem: string, materials: string): string | undefined {
-  const m = materials.trim();
-  const suffix = m ? `Materials requested: ${m}` : '';
-  const p = problem.trim().slice(0, 1000 - (suffix ? suffix.length + 2 : 0));
-  return [p, suffix].filter(Boolean).join('\n\n') || undefined;
-}
-
 interface PriceInfo {
   /** The amount create_booking will store, or null when it stores none. */
   amount: number | null;
@@ -124,8 +140,14 @@ interface PriceInfo {
   explainer: string;
 }
 
-function priceInfo(service: WizardService): PriceInfo {
-  if (service.pricing_model === 'fixed') {
+export function priceInfo(
+  service: WizardService,
+  freeInspection: boolean = FREE_INSPECTION_PROMISED,
+): PriceInfo {
+  // With free inspection on, create_booking stores inspection-model services as quote_after_inspection.
+  const model =
+    service.pricing_model === 'inspection' && freeInspection ? 'quote_after_inspection' : service.pricing_model;
+  if (model === 'fixed') {
     return {
       amount: service.base_price,
       label: 'Booked price',
@@ -133,7 +155,7 @@ function priceInfo(service: WizardService): PriceInfo {
         'This is the price for the job as described. If the professional finds more work than booked, they send a revised price with a reason, and it only applies if you approve it.',
     };
   }
-  if (service.pricing_model === 'inspection') {
+  if (model === 'inspection') {
     return {
       amount: service.inspection_fee,
       label: 'Visit & diagnosis',
@@ -189,6 +211,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   paintbrush: Paintbrush,
   hammer: Hammer,
   sparkles: Sparkles,
+  home: Home,
+  drill: Drill,
+  bike: Bike,
 };
 
 const STEPS = ['Service', 'Details', 'When & where', 'Review'] as const;
@@ -257,8 +282,12 @@ export function BookingWizard({
   preselectedCategoryId,
   preselectedPropertyId,
   initialProblemNotes,
+  freeInspection,
+  structuredBooking = false,
 }: BookingWizardProps) {
   const router = useRouter();
+  // One key per form. A double tap or a retry sends the same key, so the database returns one booking.
+  const [clientRequestId] = useState<string>(() => crypto.randomUUID());
 
   const initialService = (() => {
     if (!preselectedServiceId) return null;
@@ -277,7 +306,10 @@ export function BookingWizard({
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [problemSummary, setProblemSummary] = useState<string>(initialProblemNotes ?? '');
   const [materialsNote, setMaterialsNote] = useState<string>('');
-  const [materialIds, setMaterialIds] = useState<string[]>([]);
+  // Quantity per chosen material (a preference, sent as text). Presence in this map means chosen.
+  const [materialQty, setMaterialQty] = useState<Record<string, number>>({});
+  const [budget, setBudget] = useState<number | null>(null);
+  const materialIds = Object.keys(materialQty);
   const [scheduledStart, setScheduledStart] = useState<string>('');
   const [minStart, setMinStart] = useState<string | undefined>(undefined);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(() => {
@@ -298,9 +330,16 @@ export function BookingWizard({
     ? categories.find((c) => (servicesByCategory[c.id] ?? []).some((s) => s.id === selectedService.id))
     : undefined;
   const missingOptions = (selectedService?.options ?? []).filter((o) => o.is_required && !selectedOptions[o.id]);
-  const price = selectedService ? priceInfo(selectedService) : null;
+  const freeInspectionOn = freeInspection ?? FREE_INSPECTION_PROMISED;
+  const price = selectedService ? priceInfo(selectedService, freeInspectionOn) : null;
   const materialChoices = selectedService?.materials ?? [];
   const chosenMaterials = materialChoices.filter((m) => materialIds.includes(m.id));
+  const preferredMaterials = chosenMaterials.map((m) => ({
+    name: m.name,
+    brand: m.brand,
+    quantity: materialQty[m.id] ?? MATERIAL_QUANTITY_MIN,
+  }));
+  const preferences = preferenceLines({ materials: preferredMaterials, note: materialsNote, budget });
 
   function go(next: number) {
     setStepError(null);
@@ -312,7 +351,7 @@ export function BookingWizard({
   function chooseService(svc: WizardService) {
     if (selectedService?.id !== svc.id) {
       setSelectedOptions({});
-      setMaterialIds([]);
+      setMaterialQty({});
     }
     setSelectedService(svc);
   }
@@ -351,11 +390,26 @@ export function BookingWizard({
         propertyId: selectedPropertyId,
         scheduledStart: new Date(scheduledStart).toISOString(),
         selectedOptions,
-        problemSummary: composeSummary(problemSummary, materialsNote),
-        materialIds: materialIds.length > 0 ? materialIds : undefined,
+        // The text copy is always sent, so the professional can read the preferences on any database.
+        problemSummary: composeSummary(problemSummary, preferences),
+        // Only sent when the price the customer saw came from the database.
+        expectedFreeInspection: freeInspection ?? undefined,
+        ...(structuredBooking
+          ? {
+              clientRequestId,
+              expectedAmount: price?.amount ?? null,
+              materials: chosenMaterials.map((m) => ({
+                materialId: m.id,
+                quantity: materialQty[m.id] ?? MATERIAL_QUANTITY_MIN,
+              })),
+              budget,
+            }
+          : {}),
       });
       if (result.success === false) {
         setError(result.error);
+        // The price card reads the database again, so the customer reviews the new price before retrying.
+        if (result.code === 'price_changed') router.refresh();
         return;
       }
       setSuccess({ bookingId: result.data.bookingId, matched: result.data.matched });
@@ -414,7 +468,7 @@ export function BookingWizard({
         <ul className="mt-5 grid gap-3 sm:grid-cols-2">
           {servicesForCategory.map((svc) => {
             const on = selectedService?.id === svc.id;
-            const info = priceInfo(svc);
+            const info = priceInfo(svc, freeInspectionOn);
             const duration = formatDuration(svc.estimated_duration_minutes);
             return (
               <li key={svc.id}>
@@ -549,41 +603,112 @@ export function BookingWizard({
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {materialChoices.map((m) => {
-              const on = materialIds.includes(m.id);
+              const quantity = materialQty[m.id] ?? 0;
+              const on = quantity > 0;
               const atLimit = !on && materialIds.length >= 10;
               return (
-                <label
+                <div
                   key={m.id}
-                  className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm ${
+                  className={`rounded-xl border px-3 py-2.5 text-sm ${
                     on ? 'border-teal bg-teal-soft' : 'border-line-strong bg-paper'
                   } ${atLimit ? 'opacity-50' : ''}`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={atLimit}
-                    onChange={() =>
-                      setMaterialIds((ids) => (on ? ids.filter((id) => id !== m.id) : [...ids, m.id]))
-                    }
-                    className="mt-0.5 h-4 w-4 accent-teal"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-medium text-ink">
-                      {m.brand ? `${m.brand} ` : ''}
-                      {m.name}
+                  <label className="flex min-h-11 cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={atLimit}
+                      onChange={() =>
+                        setMaterialQty((q) => {
+                          const next = { ...q };
+                          if (on) delete next[m.id];
+                          else next[m.id] = MATERIAL_QUANTITY_MIN;
+                          return next;
+                        })
+                      }
+                      className="mt-0.5 h-4 w-4 accent-teal"
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-medium text-ink">
+                        {m.brand ? `${m.brand} ` : ''}
+                        {m.name}
+                      </span>
+                      <span className="block text-xs text-ink-3">
+                        {m.indicativePrice != null
+                          ? `About ${money(m.indicativePrice)} per ${m.priceUnit ?? m.unit}`
+                          : 'Price confirmed after inspection'}
+                      </span>
                     </span>
-                    <span className="block text-xs text-ink-3">
-                      {m.indicativePrice != null
-                        ? `About ${money(m.indicativePrice)} per ${m.priceUnit ?? m.unit}`
-                        : 'Price confirmed in your quotation'}
-                    </span>
-                  </span>
-                </label>
+                  </label>
+                  {on && (
+                    <div className="mt-2 flex items-center gap-2 pl-6">
+                      <span className="text-xs text-ink-3">Quantity</span>
+                      <button
+                        type="button"
+                        aria-label={`Use one fewer ${m.name}`}
+                        disabled={quantity <= MATERIAL_QUANTITY_MIN}
+                        onClick={() => setMaterialQty((q) => ({ ...q, [m.id]: clampQuantity(quantity - 1) }))}
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line-strong bg-paper text-lg disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <span aria-live="polite" className="w-8 text-center font-semibold tabular-nums text-ink">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Add one more ${m.name}`}
+                        disabled={quantity >= MATERIAL_QUANTITY_MAX}
+                        onClick={() => setMaterialQty((q) => ({ ...q, [m.id]: clampQuantity(quantity + 1) }))}
+                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line-strong bg-paper text-lg disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                      <span className="text-xs text-ink-4">{m.unit}</span>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
         </fieldset>
       )}
+
+      <div className="mt-6">
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor="budget_preference" className="text-sm font-medium text-ink-2">
+            Rough budget <span className="font-normal text-ink-4">(optional)</span>
+          </label>
+          <span className="text-sm tabular-nums text-ink-2">
+            {budget == null ? 'No preference' : `About ${money(budget)}`}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-ink-4">
+          A preference for the professional, not a price. It never changes what you pay.
+        </p>
+        <div className="mt-2 flex items-center gap-3">
+          <input
+            id="budget_preference"
+            type="range"
+            min={BUDGET_MIN}
+            max={BUDGET_MAX}
+            step={BUDGET_STEP}
+            value={budget ?? BUDGET_MIN}
+            onChange={(e) => setBudget(Number(e.target.value))}
+            aria-valuetext={budget == null ? 'No preference' : `About ${money(budget)}`}
+            className="min-h-11 w-full cursor-pointer accent-teal"
+          />
+          {budget != null && (
+            <button
+              type="button"
+              onClick={() => setBudget(null)}
+              className="min-h-11 shrink-0 cursor-pointer text-sm font-semibold text-teal underline underline-offset-4"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="mt-6">
         <div className="flex items-baseline justify-between gap-2">
@@ -730,7 +855,7 @@ export function BookingWizard({
           <span className="font-semibold text-ink">{selectedService.name}</span>
           {serviceCategory && <span className="block text-sm text-ink-3">{serviceCategory.name}</span>}
         </ReviewRow>
-        {(chosenOptions.length > 0 || problemSummary.trim() || materialsNote.trim() || chosenMaterials.length > 0) && (
+        {(chosenOptions.length > 0 || problemSummary.trim() || preferences.length > 0) && (
           <ReviewRow label="Details" onEdit={() => go(1)}>
             {chosenOptions.map((o) => (
               <span key={o.name} className="block text-sm text-ink-2">
@@ -740,19 +865,11 @@ export function BookingWizard({
             {problemSummary.trim() && (
               <span className="mt-1 block whitespace-pre-line break-words text-sm text-ink-2">{problemSummary.trim()}</span>
             )}
-            {chosenMaterials.length > 0 && (
-              <span className="mt-1 block break-words text-sm text-ink-2">
-                Preferred materials:{' '}
-                <span className="font-medium text-ink">
-                  {chosenMaterials.map((m) => `${m.brand ? `${m.brand} ` : ''}${m.name}`).join(', ')}
-                </span>
+            {preferences.map((line) => (
+              <span key={line} className="mt-1 block break-words text-sm text-ink-2">
+                {line}
               </span>
-            )}
-            {materialsNote.trim() && (
-              <span className="mt-1 block break-words text-sm text-ink-2">
-                Materials requested: <span className="font-medium text-ink">{materialsNote.trim()}</span>
-              </span>
-            )}
+            ))}
           </ReviewRow>
         )}
         <ReviewRow label="When" onEdit={() => go(2)}>
@@ -768,7 +885,7 @@ export function BookingWizard({
         </ReviewRow>
       </dl>
 
-      <PriceCard service={selectedService} />
+      <PriceCard service={selectedService} freeInspection={freeInspectionOn} />
 
       {error && <InlineError message={error} />}
 
@@ -885,8 +1002,8 @@ function SummaryItem({ icon: Icon, label, value }: { icon: LucideIcon; label: st
 }
 
 /** How the price is set and can change. Every step maps to create_booking, create_quote and payment. */
-function PriceCard({ service }: { service: WizardService }) {
-  const info = priceInfo(service);
+function PriceCard({ service, freeInspection }: { service: WizardService; freeInspection: boolean }) {
+  const info = priceInfo(service, freeInspection);
   const steps: { icon: LucideIcon; title: string; body: string }[] = [
     info.amount != null
       ? {
