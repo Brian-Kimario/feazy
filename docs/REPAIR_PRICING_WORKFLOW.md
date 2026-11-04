@@ -1,6 +1,6 @@
 # Repair pricing workflow
 
-Status: verified on `feat/founder-revisions` against the migrations, app code and local test run listed below. Local results are from a replay of every migration in order on a fresh local database, not from production. Items still not verified are marked **open**.
+Status: verified on `feat/founder-revisions` against the migrations, app code and local test runs listed in section 6. Local results come from the local stack, not production. Items still not verified are marked **open**.
 
 There is no universal minimum charge. Each service carries its own price, and the budget preference range (₹500–₹20,000) is a range the customer may choose from. It is not a price floor.
 
@@ -45,20 +45,52 @@ Verified in migration 120 (`supabase/migrations/20261102_120_materials_and_categ
 | Budget | `bookings.budget_preference numeric(10,2)` | 500–20,000 by check constraint and by `create_booking_with_materials` (`22023` before any insert). Not part of the amount charged. |
 
 - `create_booking_with_materials` (120) wraps `create_booking` in one call: it validates the budget, returns the existing booking when `p_client_request_id` was already used, creates the booking, saves the preferences, then saves the budget. A refused input creates no booking row.
-- Customer quantities are not authoritative for the bill. The professional or inspector confirms the actual materials (`inspector_confirm_materials`, `get_visit_materials`, `admin_set_material_price`). **Not re-verified in this pass.**
+- Customer quantities are not authoritative for the bill. The professional or inspector confirms the actual materials (`inspector_confirm_materials`, `get_visit_materials`, `admin_set_material_price`). **Open:** not re-verified in the current pass.
 - `get_booking_materials` / `_booking_materials_json` return `budget` and per-material `quantity` for the read model.
 
-## 4. After booking: the quotation
+## 4. After booking: the quotation and what the customer pays
 
-Verified from the migrations:
+### 4.1 Quote kinds
+
+Migration 123 (`supabase/migrations/20261104_123_quote_accounting_and_completion_gate.sql`) separates quotes by kind:
+
+| Kind | Meaning | Allowed on |
+|---|---|---|
+| `repair` | The repair itself, priced after inspection | `quote_after_inspection` jobs only |
+| `additional_work` | Extra work found during the job, approved by the customer | Any pricing model (`fixed` jobs get only this kind) |
+
+- `create_quote(p_job_id, p_reason, p_items, p_quote_kind)`: when `p_quote_kind` is NULL, the kind is `additional_work` for `fixed` bookings and `repair` otherwise. A `fixed` booking refuses `repair` (`22023`). Existing repair quotes on fixed-price bookings were backfilled to `additional_work`.
+- Each quote has a `revision` within its kind. A newer repair revision supersedes an earlier one.
+
+### 4.2 Lifecycle
 
 1. Assignment: `assign_booking` (customer) or the assignment queue offers the job. `_assign_booking_internal` does not offer a job that already has a professional, so a repeated call is harmless.
 2. Work starts: job `in_progress`.
-3. Extra work: `create_quote(p_job_id, p_reason, p_items)` (`20261030_012`), callable by the assigned professional only, and only while the job is `in_progress`. Moves the job to `quote_pending`.
-4. Decision: `respond_to_quote(p_quote_id, 'approved' | 'declined', p_reason)` (`20261029_002`), callable by the job's customer only. Rejects an already-answered quote, a job not in `quote_pending`, and an expired quote. Both outcomes resume work through `transition_job_state()`. Approval authorises the extra work; a decline sends the job back to continue or cancel the original scope.
-5. `transition_job_state` (`20261030_021`) guards the move out of `quote_pending`: it can go to `in_progress` only after the quote is answered.
+3. Extra work or repair pricing: `create_quote` by the assigned professional, only while the job is `in_progress`. Moves the job to `quote_pending`.
+4. Decision: `respond_to_quote(p_quote_id, 'approved' | 'declined', p_reason)` (`20261029_002`), callable by the job's customer only. Rejects an already-answered quote, a job not in `quote_pending`, and an expired quote. Both outcomes resume work through `transition_job_state()`. Approval authorises the quote; a decline sends the job back to continue or cancel the original scope.
+5. `transition_job_state` guards the move out of `quote_pending`: it can go to `in_progress` only after the quote is answered.
 
-Not covered: quote expiry is enforced at answer time, not by a sweep. **Open:** end-to-end run with two real accounts in the browser.
+### 4.3 What is payable
+
+Enforced in `_job_payment_amount` (migrations 122 and 123), for every caller. Payment is only available once the job is `completed`.
+
+| Pricing model | Payable amount |
+|---|---|
+| `fixed` | Agreed base price, plus every approved `additional_work` quote |
+| `quote_after_inspection` | The operative repair quote (latest approved repair revision; earlier revisions are superseded and never counted), plus every approved `additional_work` quote |
+| `inspection` (inspection-only visit) | The inspection fee. Zero when free inspection is on, which is not payable |
+
+- Declined, expired, pending and superseded quotes never count.
+- Approved quotes with a total of zero or less are ignored.
+- A `quote_after_inspection` job with no approved repair quote has no payable amount: the function raises `22023`.
+
+### 4.4 Completion gate
+
+`transition_job_state` (migration 123) wraps the core transition. A `quote_after_inspection` job cannot move `in_progress` → `completed` unless an approved repair quote exists. The error is `22023`: "A repair job cannot be completed without a customer-approved repair quote". Inspection-only jobs may complete without one.
+
+**Open:** the `arrived` → `in_progress` step for `quote_after_inspection` still starts the assessment in `in_progress`, so an assessment can begin before a quote is approved. The gate stops completion, not the start of work. Decide whether to add an "assessing" state (see [RELEASE_CANDIDATE_PACKAGE.md](RELEASE_CANDIDATE_PACKAGE.md) section 5).
+
+**Open:** quote expiry is enforced at answer time, not by a sweep. End-to-end run with two real accounts in the browser is not done.
 
 ## 5. Free inspection safeguards
 
@@ -76,30 +108,36 @@ All enforced in `create_booking` (119) after the price check and before the inse
 
 **Note:** `P0004` is not used. It is PostgreSQL's `assert_failure` code, which `WHEN OTHERS` handlers do not catch, so the rate limit uses `P0007`.
 
-Admin override: `admin_assign_professional` (`20261101074513_a4_113_admin_assignment.sql`) assigns a professional by hand and is not gated by the inspection gate. Verified by reading the code: it requires an admin (`_require_admin`), a reason of at least 10 characters, and an idempotency key (`p_request_id`). It writes a `matching_decisions` row (`manual: true`, admin id, reason) and a `job_events` row (`admin_assign`, with reason and request id). It does **not** write to `audit_logs`. **Not executed in this pass.**
+Admin override: `admin_assign_professional` (`20261101074513_a4_113_admin_assignment.sql`) assigns a professional by hand and is not gated by the inspection gate. It requires an admin (`_require_admin`), a reason of at least 10 characters, and an idempotency key (`p_request_id`). It writes a `matching_decisions` row (`manual: true`, admin id, reason) and a `job_events` row (`admin_assign`, with reason and request id). It does **not** write to `audit_logs`. `supabase/tests/admin_override_assignment.sql` covers `admin_assign_professional` and `admin_withdraw_offer`. **Open:** `admin_reassign_job` has no override test.
 
 **Missing dependencies (not built):**
-- Customer service-area coverage. The app does not check that a property is inside a served area; no table models it.
+- Customer service-area coverage. The app does not check that a property is inside a served area. Matching uses `professional_service_areas` (city, and area when set), so an uncovered property gets no professional rather than a refusal. See the owner decision in [RELEASE_CANDIDATE_PACKAGE.md](RELEASE_CANDIDATE_PACKAGE.md) section 5.
 - Inspector capacity and calendar. The inspector is only checked for `is_active`; visit slots are not checked for clashes.
 - No-show handling for inspections: the `missed` status exists on `inspection_visits` but the flow that sets it was not verified here.
 
-## 6. Verification run
+## 6. Verification run (local)
 
 | Check | Command | Result |
 |---|---|---|
-| Migrations replay | `replay.sh` (all migrations in order, fresh local DB) | Completed. 3 files flagged (`20261030_011`, `_016`, `_019`); these are `unschedule` output that the script reports as errors. Not failures. |
-| SQL guard tests | `psql -v ON_ERROR_STOP=1 -f supabase/tests/booking_pricing_guard.sql` | `NOTICE: booking_pricing_guard: all checks passed`; the transaction is rolled back. |
-| Type check | `pnpm tsc --noEmit` | Exit 0 (after regenerating `src/lib/supabase/database.types.ts` from the local database) |
-| Unit tests | `pnpm test` | 46 files passed, 1 skipped; 593 tests passed, 16 skipped, 15 todo; exit 0 |
+| Quote accounting and completion gate | `psql -v ON_ERROR_STOP=1 -f supabase/tests/quote_accounting_and_gate.sql` | `all checks passed` |
+| Quote payment invariants | `supabase/tests/quote_payment_invariants.sql` | `all checks passed` |
+| Booking pricing guard | `supabase/tests/booking_pricing_guard.sql` | `all checks passed` |
+| Migration 119 compatibility | `supabase/tests/migration_119_compatibility.sql` | `all checks passed` |
+| Admin overrides | `supabase/tests/admin_override_assignment.sql` | `all checks passed` |
+| Profiles read policy | `supabase/tests/profiles_read_policy.sql` | `all checks passed` |
+| Type check | `pnpm tsc --noEmit` | Exit 0 |
+| Unit tests | `pnpm test` | 47 files passed, 1 skipped; 600 tests passed, 16 skipped, 15 todo; exit 0 |
 | Production build | `pnpm build` | Exit 0 |
-| Browser / Playwright | — | **Not run.** Not claimed. |
+| Browser journey | `tests/e2e/inspection-journey.spec.ts`, Chromium only | 9 passed (see RELEASE_CANDIDATE_PACKAGE.md section 8 for the re-seed requirement) |
 
-The SQL test covers: changed policy (fixed price and switch changed, no row created); correct policy (free inspection stored as quote-after-inspection with no amount; fixed price at the confirmed amount); duplicate submission (same key returns the same booking, one row); unauthorized callers (signed out and professional → `42501`; another customer's property → `P0002`); open-inspection duplicate (`P0005`); rate limit (`P0007`); no inspector with the gate on (`P0006`), then success with an active inspector and a `requested` visit; wrapper (materials stored with quantity, budget stored, retry adds no rows, budget 100 / quantity 11 / unlinked material → `22023`, no booking row).
+The SQL tests run in a transaction that is rolled back. Migrations 122–124 were applied to the existing local database; a full replay from scratch was not run in this pass.
+
+**Not run:** Firefox and WebKit journeys. The journey is not reliable across browser projects without re-seeding between them.
 
 ## 7. Production compatibility
 
-- Production runs the six-argument `create_booking` and has no `create_booking_with_materials`, `set_booking_material_preferences`, `get_booking_free_inspection`, or `service_materials`. The app therefore keeps the legacy call until those exist (`structuredBooking` is false).
-- Migrations 119, 120 and 121 are not applied to production. 121 adds `profiles.email` with `IF NOT EXISTS`. Production already has that column, so it is a no-op there, but it is needed for a fresh database.
+- Production runs the six-argument `create_booking` and has none of `create_booking_with_materials`, `set_booking_material_preferences`, `get_booking_free_inspection`, `service_materials`, `quote_kind`, or the completion gate. The app therefore keeps the legacy call until those exist (`structuredBooking` is false).
+- Migrations 119–124 are not applied to production. Migration 121 adds `profiles.email` with `IF NOT EXISTS`, a no-op there. Migration 124 replaces the admin read policy on `profiles`; check production for the recursive policy before deciding it is needed there.
 - Free inspection must stay off in production until the migrations are applied and the owner approves the switch.
 
 ## 8. Founder decisions still needed
@@ -107,3 +145,6 @@ The SQL test covers: changed policy (fixed price and switch changed, no row crea
 - Whether free inspection applies to fixed-price services. Today the switch only changes `inspection` models.
 - Whether budget and quantity should ever affect the quotation. The current design says no.
 - Whether a global switch flip should make open fixed-price forms ask for confirmation again (current behaviour, accepted for now).
+- Whether repair jobs need an "assessing" state before a quote is approved (section 4.4).
+- Whether the legacy booking path is retired (section 2).
+- Service-area and inspector coverage limits (section 5).
