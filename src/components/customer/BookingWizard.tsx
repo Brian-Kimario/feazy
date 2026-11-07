@@ -40,6 +40,7 @@ import {
   composeSummary,
   preferenceLines,
 } from '@/lib/booking/booking-preferences';
+import { estimateMaterials } from '@/lib/booking/material-estimate';
 import { propertyTypeLabel } from '@/lib/shell/rules';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -341,12 +342,11 @@ export function BookingWizard({
   }));
   const preferences = preferenceLines({ materials: preferredMaterials, note: materialsNote, budget });
   // Estimate only: the itemised quotation is confirmed by the professional and approved by the customer.
-  const pricedMaterials = chosenMaterials.filter((m) => m.indicativePrice != null);
-  const materialEstimate = pricedMaterials.reduce(
-    (sum, m) => sum + (m.indicativePrice ?? 0) * (materialQty[m.id] ?? MATERIAL_QUANTITY_MIN),
-    0,
+  const { estimate: materialEstimate, pricedCount, unpricedCount: unpricedChosen } = estimateMaterials(
+    chosenMaterials,
+    materialQty,
+    MATERIAL_QUANTITY_MIN,
   );
-  const unpricedChosen = chosenMaterials.length - pricedMaterials.length;
 
   function go(next: number) {
     setStepError(null);
@@ -677,9 +677,9 @@ export function BookingWizard({
           {chosenMaterials.length > 0 && (
             <p aria-live="polite" className="mt-3 rounded-xl bg-paper-2 px-3 py-2.5 text-sm text-ink-2">
               <span className="font-semibold tabular-nums text-ink">
-                {pricedMaterials.length > 0 ? `Estimate: about ${money(materialEstimate)}` : 'Estimate: confirmed after inspection'}
+                {pricedCount > 0 ? `Estimate: about ${money(materialEstimate)}` : 'Estimate: confirmed after inspection'}
               </span>
-              {pricedMaterials.length > 0 && unpricedChosen > 0 ? ' plus items priced after inspection' : ''}
+              {pricedCount > 0 && unpricedChosen > 0 ? ' plus items priced after inspection' : ''}
               <span className="mt-0.5 block text-xs text-ink-3">
                 An estimate, not a final price. The professional confirms the itemised quotation and you approve it before any work starts.
               </span>
