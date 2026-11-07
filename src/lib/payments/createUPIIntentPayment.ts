@@ -81,6 +81,17 @@ export async function createUPIIntentPayment(
     return { success: false, error: 'You are not authorised to pay for this job.' };
   }
 
+  // ── 2b. Guard: test bookings never reach the payment provider ──────────────
+  // Runs before any Razorpay call. Fails closed if the booking cannot be read.
+  const { data: booking, error: bookingErr } = await supabase
+    .from('bookings')
+    .select('is_test')
+    .eq('id', job.booking_id)
+    .maybeSingle();
+  if (bookingErr || !booking || booking.is_test) {
+    return { success: false, error: 'Payment is not available for this job.' };
+  }
+
   // ── 3. Guard: only pay completed jobs ───────────────────────────────────────
   if (job.current_state !== 'completed') {
     return {

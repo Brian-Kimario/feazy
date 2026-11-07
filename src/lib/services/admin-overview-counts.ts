@@ -56,8 +56,9 @@ export async function getOverviewCounts(): Promise<AdminResult<OverviewCounts>> 
     available,
     suspended,
   ] = await Promise.all([
-    n('in progress', a.from('jobs').select('id', head).in('current_state', ['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending'])),
-    n('pending offers', a.from('jobs').select('id', head).eq('current_state', 'assigned').not('professional_id', 'is', null)),
+    // Jobs are counted only for real bookings (is_test = false).
+    n('in progress', a.from('jobs').select('id, bookings!inner(is_test)', head).in('current_state', ['on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending']).eq('bookings.is_test', false)),
+    n('pending offers', a.from('jobs').select('id, bookings!inner(is_test)', head).eq('current_state', 'assigned').not('professional_id', 'is', null).eq('bookings.is_test', false)),
     n('exceptions', a.from('job_exceptions').select('id', head).eq('status', 'open')),
     n('pending verifications', profiles().in('verification_status', ['documents_submitted', 'under_review'])),
     n('pros total', profiles()),
@@ -69,7 +70,7 @@ export async function getOverviewCounts(): Promise<AdminResult<OverviewCounts>> 
   // Professionals who hold live work. Distinct ids are counted app-side; the id list is capped.
   let withActiveJobs: number | null = null;
   let suspendedWithActiveJobs: number | null = null;
-  const active = await a.from('jobs').select('professional_id').in('current_state', ACTIVE_JOB_STATES).not('professional_id', 'is', null).limit(2000);
+  const active = await a.from('jobs').select('professional_id, bookings!inner(is_test)').in('current_state', ACTIVE_JOB_STATES).not('professional_id', 'is', null).eq('bookings.is_test', false).limit(2000);
   if (active.error || (active.data?.length ?? 0) >= 2000) {
     if (active.error) console.error('getOverviewCounts active jobs:', active.error.message);
   } else {

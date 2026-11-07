@@ -72,7 +72,9 @@ export async function listBookingDirectory(raw: unknown): Promise<AdminResult<Di
        customer:profiles!bookings_customer_id_fkey ( full_name ),
        jobs:jobs${inner ? '!inner' : ''}!jobs_booking_id_fkey ( id, current_state, professional_id, created_at )`,
       { count: 'exact' },
-    );
+    )
+    // Synthetic test records never appear in the operational directory.
+    .eq('is_test', false);
 
   if (input.lifecycle === 'unmatched') q = q.eq('booking_status', 'pending').is('jobs', null);
   else if (input.lifecycle !== 'all') q = q.in('jobs.current_state', LIFECYCLE_JOB_STATES[input.lifecycle as keyof typeof LIFECYCLE_JOB_STATES]);

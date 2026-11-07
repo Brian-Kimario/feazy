@@ -491,6 +491,7 @@ export type Database = {
           customer_id: string
           id: string
           intake_options: Json
+          is_test: boolean
           pricing_model: string
           problem_summary: string | null
           professional_id: string | null
@@ -513,6 +514,7 @@ export type Database = {
           customer_id: string
           id?: string
           intake_options?: Json
+          is_test?: boolean
           pricing_model: string
           problem_summary?: string | null
           professional_id?: string | null
