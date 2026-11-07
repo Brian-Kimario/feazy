@@ -44,6 +44,7 @@ describe('createUPIIntentPayment', () => {
     };
     tables.payments = { data: null, error: null };
     tables.profiles = { data: { full_name: 'Asha', phone: null }, error: null };
+    tables.bookings = { data: { is_test: false }, error: null };
   });
 
   afterEach(() => {
@@ -93,6 +94,26 @@ describe('createUPIIntentPayment', () => {
 
     const result = await createUPIIntentPayment('job-1');
     expect(result).toMatchObject({ success: false, error: expect.stringContaining('already in progress') });
+  });
+
+  it('refuses a test booking before any RPC or provider call', async () => {
+    tables.bookings = { data: { is_test: true }, error: null };
+    rpc.mockResolvedValueOnce({ data: 49950, error: null });
+    ordersCreate.mockResolvedValue({ id: 'order_should_not_exist' });
+
+    const result = await createUPIIntentPayment('job-1');
+
+    expect(result).toEqual({ success: false, error: 'Payment is not available for this job.' });
+    expect(ordersCreate).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the booking cannot be read', async () => {
+    tables.bookings = { data: null, error: { code: '42501', message: 'denied' } };
+    const result = await createUPIIntentPayment('job-1');
+    expect(result).toMatchObject({ success: false });
+    expect(ordersCreate).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('refuses a job that is not completed before any RPC', async () => {
