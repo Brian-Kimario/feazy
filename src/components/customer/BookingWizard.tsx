@@ -340,6 +340,13 @@ export function BookingWizard({
     quantity: materialQty[m.id] ?? MATERIAL_QUANTITY_MIN,
   }));
   const preferences = preferenceLines({ materials: preferredMaterials, note: materialsNote, budget });
+  // Estimate only: the itemised quotation is confirmed by the professional and approved by the customer.
+  const pricedMaterials = chosenMaterials.filter((m) => m.indicativePrice != null);
+  const materialEstimate = pricedMaterials.reduce(
+    (sum, m) => sum + (m.indicativePrice ?? 0) * (materialQty[m.id] ?? MATERIAL_QUANTITY_MIN),
+    0,
+  );
+  const unpricedChosen = chosenMaterials.length - pricedMaterials.length;
 
   function go(next: number) {
     setStepError(null);
@@ -641,36 +648,43 @@ export function BookingWizard({
                     </span>
                   </label>
                   {on && (
-                    <div className="mt-2 flex items-center gap-2 pl-6">
-                      <span className="text-xs text-ink-3">Quantity</span>
-                      <button
-                        type="button"
-                        aria-label={`Use one fewer ${m.name}`}
-                        disabled={quantity <= MATERIAL_QUANTITY_MIN}
-                        onClick={() => setMaterialQty((q) => ({ ...q, [m.id]: clampQuantity(quantity - 1) }))}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line-strong bg-paper text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        −
-                      </button>
-                      <span aria-live="polite" className="w-8 text-center font-semibold tabular-nums text-ink">
-                        {quantity}
+                    <div className="mt-2 flex items-center gap-3 pl-6">
+                      <label htmlFor={`qty_${m.id}`} className="shrink-0 text-xs text-ink-3">
+                        Quantity
+                      </label>
+                      <input
+                        id={`qty_${m.id}`}
+                        type="range"
+                        min={MATERIAL_QUANTITY_MIN}
+                        max={MATERIAL_QUANTITY_MAX}
+                        step={1}
+                        value={quantity}
+                        aria-valuetext={`${quantity} ${m.unit}`}
+                        onChange={(e) =>
+                          setMaterialQty((q) => ({ ...q, [m.id]: clampQuantity(Number(e.target.value)) }))
+                        }
+                        className="min-h-11 w-full cursor-pointer accent-teal"
+                      />
+                      <span aria-live="polite" className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums text-ink">
+                        {quantity} {m.unit}
                       </span>
-                      <button
-                        type="button"
-                        aria-label={`Add one more ${m.name}`}
-                        disabled={quantity >= MATERIAL_QUANTITY_MAX}
-                        onClick={() => setMaterialQty((q) => ({ ...q, [m.id]: clampQuantity(quantity + 1) }))}
-                        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line-strong bg-paper text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        +
-                      </button>
-                      <span className="text-xs text-ink-4">{m.unit}</span>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+          {chosenMaterials.length > 0 && (
+            <p aria-live="polite" className="mt-3 rounded-xl bg-paper-2 px-3 py-2.5 text-sm text-ink-2">
+              <span className="font-semibold tabular-nums text-ink">
+                {pricedMaterials.length > 0 ? `Estimate: about ${money(materialEstimate)}` : 'Estimate: confirmed after inspection'}
+              </span>
+              {pricedMaterials.length > 0 && unpricedChosen > 0 ? ' plus items priced after inspection' : ''}
+              <span className="mt-0.5 block text-xs text-ink-3">
+                An estimate, not a final price. The professional confirms the itemised quotation and you approve it before any work starts.
+              </span>
+            </p>
+          )}
         </fieldset>
       )}
 
@@ -713,7 +727,7 @@ export function BookingWizard({
       <div className="mt-6">
         <div className="flex items-baseline justify-between gap-2">
           <label htmlFor="materials_note" className="text-sm font-medium text-ink-2">
-            Other parts or brands <span className="font-normal text-ink-4">(optional)</span>
+            Something not listed above <span className="font-normal text-ink-4">(optional)</span>
           </label>
           <span className="text-xs tabular-nums text-ink-4">{materialsNote.length}/{MATERIALS_MAX}</span>
         </div>
