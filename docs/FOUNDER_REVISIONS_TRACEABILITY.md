@@ -53,7 +53,7 @@ Base: `origin/main` at `7af79e2` (PR #11 merged). The production deployment of `
 | 08 | Links, buttons, spacing and navigation | COMPLETE (partial audit) | Footer "About Feazy" links to a real page. Full link audit not done. |
 | New | "About Feazy" page | COMPLETE | `src/app/(marketing)/about/page.tsx`. |
 | P0005 | One open inspection per customer, service and property | COMPLETE (staging) / BLOCKED — LAUNCH CRITICAL (production) | Fix on `fix/p0005-open-inspection-guard`, PR #12. Staging verified. Production apply needs owner approval of the exact SQL. Staging ledger version differs from the repo filename; reconcile before release. |
-| Release | Production deployment verified for this release | BLOCKED — LAUNCH CRITICAL | Vercel metadata for `7af79e2` not yet checked. |
+| Release | Production deployment of the revisions | COMPLETE | GitHub Production deployment `7620127908` is for `7af79e2`, status success. feazy.in returns 200 and serves the About page and approved tagline. |
 
 ## Verification run on this branch
 
