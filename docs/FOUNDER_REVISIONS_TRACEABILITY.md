@@ -1,54 +1,72 @@
 # Feazy website revisions: traceability matrix
 
 Source: `Feazy_Website_Revision_Requirements.pdf` (11 pages, five reference screenshots).
-Status key: **DONE** (implemented and checked), **PARTIAL** (some of it is in place), **BLOCKED** (needs an input or decision from the founder, or a production readiness step).
 
-Base: `origin/main` at `ae8539b` (production deployment `dpl_FieFRiGyLJSMEPRhj4MGSeKFLiWi`, READY, PROMOTED).
+Release labels (only these three are used):
+- **COMPLETE**: implemented and checked for this release.
+- **DEFERRED — OWNER INPUT**: not implemented here because a founder decision or a missing input is needed. Not a launch blocker on its own.
+- **BLOCKED — LAUNCH CRITICAL**: must be resolved before unrestricted public launch.
 
-| Req | Requirement | Status | Evidence / note |
+Base: `origin/main` at `7af79e2` (PR #11 merged). The production deployment of `7af79e2` has not been verified against Vercel metadata yet; the last recorded production deployment is `dpl_FieFRiGyLJSMEPRhj4MGSeKFLiWi` at `ae8539b`.
+
+## Pricing model (approved direction)
+
+- **Fixed-price services**: admin-set price and scope; the amount is server-authoritative; the customer sees and accepts the price before booking. Extra work needs separate approval. Booking flow exists (`BookingWizard.tsx`, `pricing_model = 'fixed'`). Not re-run end to end in this release.
+- **Inspection-based services**: visit terms are shown first; the professional submits an itemised quote; customer approval is required before repair.
+- Free inspection means ₹0 and is not advertised while the operational workflow is off. A paid ₹700 diagnosis must be a separately labelled, explicitly accepted option.
+- Materials are indicative unless explicitly included in a fixed package.
+- Live payments and payouts stay disabled until the provider and business onboarding are ready.
+
+## Requirement status
+
+| Req | Requirement | Label | Evidence / note |
 |---|---|---|---|
-| 01 | Homepage headline and supporting line use the exact approved wording | DONE | `src/lib/brand.ts` `TAGLINES`. Checked at 375px: "Where Better Living Begins." and supporting line rendered verbatim. |
-| 01 | Customer sign-in tagline and "Get Started" | DONE | `/auth/login` shows "Exceptional Care, Right at Your Doorstep." and "Get Started". |
-| 01 | Professional sign-in tagline and "Join as a Professional" | DONE (code) | `TAGLINES.professionalSignIn`, `professionalPrimaryAction`. Visual check of the professional page not done. |
-| 01 | Visible "Sign in" in header, usable on mobile | DONE | Header "Sign in" visible at 375px on the homepage. |
-| 01 | After Sign in, user picks Customer or Professional | DONE | `/auth/login` has "I need a service" / "I'm a professional" switch. |
-| 01 | "Feazy" spelling in visible UI and titles | DONE | No "Feasy" remains in `src/`. Technical identifiers (cookie names, DB objects, template names) keep their legacy spelling on purpose. |
-| 02 | Five-step "How It Works" with the approved titles | PARTIAL | Five steps present (`src/components/home/sections.tsx`). Step 3 reads "Inspection & professional assignment", not "Free inspection", because the free-inspection flag is off (see row 02b). |
-| 02 | Describe the problem before the visit (photo optional) | PARTIAL | Problem-summary step exists in the booking wizard. Photo upload not re-verified in this pass. |
-| 02b | Visible "Free Inspection" option on homepage and booking | BLOCKED | Not advertised: `NEXT_PUBLIC_FREE_INSPECTION` is off and the inspection RPCs are not confirmed in production. Promising it now would breach the release rule. Needs the founder's go-ahead plus a production readiness check. |
-| 02c | Booking summary "₹700 Visit & diagnosis" matches the final policy | PARTIAL | Shown as a paid visit with explainer text (`BookingWizard.tsx` `priceInfo`), so it is not presented as free anywhere. Final policy needs a founder decision. Customer approval step for the paid visit not verified. |
-| 03 | Add every service from the HTML services file | BLOCKED | The HTML services file is not in the repo or Downloads. `Downloads/fixify (1).html` is an older FIXIFY-branded mock with different categories. Not used as the source of truth. |
-| 03 | Add "Bike & Car Service" category | BLOCKED | Needs the catalogue and professional coverage before it can be bookable. |
-| 03 | Distinct icon per category | PARTIAL | Icon map exists (`src/app/customer/page.tsx`, `BookingWizard.tsx`). Not checked against live category rows. |
-| 03 | AI-suggested, category-specific example issues | BLOCKED | Not started. No AI generation exists in the repo. Static examples would also need the catalogue first. |
-| 03 | Category names, icons and examples consistent across homepage, dashboard, booking | PARTIAL | Homepage chips and booking wizard share category data. Consistency not re-verified after the catalogue. |
-| 04 | Replace the free-text "Other parts or brands" box with guided selection | DONE (code) | Checkbox list of example materials with indicative prices (pre-existing), now with a quantity slider. Free text is labelled "Something not listed above (optional)". |
-| 04 | Indicative cost beside each option | DONE | `indicativePrice` shown as "About ₹X per unit", or "Price confirmed after inspection". |
-| 04 | Slider for quantity/price range | DONE (code) | `input type="range"` per selected material (1–10, unit shown). Rough-budget slider already existed. |
-| 04 | Costs labelled as estimates; final itemised quote approved by customer | DONE | "Estimate: about ₹X" line with disclaimer. Nothing is charged for choosing. |
-| 04 | Authenticated, browser-level check of the wizard | PARTIAL | Typecheck, lint and unit tests pass. Not run in a browser with a signed-in customer and a seeded service. |
-| 05 | Remove "Pending actions" from customer dashboard | DONE (code) | Dashboard sections are Book a service, Active, Upcoming, Recently finished, Your properties. Quote review stays on the booking cards. Live page not re-checked. |
-| 05 | Booking records and quote/payment functions unaffected | DONE (code) | No data or RPC changes in this branch. |
-| 06 | Footer email support@feazy.com | DONE (code) | `site-footer.tsx`. Mailbox is not verified; that is an owner check. |
-| 06 | Correct other footer/contact spellings | DONE | No other "Feasy" in `src/`. |
-| 07 | Login IDs and account identifiers use "Feazy" | BLOCKED | Renaming identifiers would break authentication or existing accounts, and the directive forbids identity renames. Display labels already say "Feazy". Needs a founder decision. |
-| 08 | Homepage on desktop and mobile | PARTIAL | Mobile 375px checked: no horizontal overflow, taglines and sign-in visible. Desktop not re-checked. |
-| 08 | Customer and professional sign-in paths | PARTIAL | Customer sign-in page and role switch checked. Professional path not checked in browser. |
-| 08 | End-to-end: service select, problem, free inspection, assignment, quote approval, tracking | BLOCKED | No staging environment. Running this on production would need real bookings, which the directive forbids. |
-| 08 | Links, buttons, spacing and navigation | PARTIAL | Footer "About Feazy" now links to a real page. Full link audit not done. |
-| New | "About Feazy" page (directive) | DONE | `src/app/(marketing)/about/page.tsx`, linked from the footer. Rendered and checked at 375px. |
+| 01 | Homepage headline and supporting line use the approved wording | COMPLETE | `src/lib/brand.ts` `TAGLINES`. Checked at 375px. |
+| 01 | Customer sign-in tagline and "Get Started" | COMPLETE | `/auth/login`. |
+| 01 | Professional sign-in tagline and "Join as a Professional" | COMPLETE (code) | `TAGLINES.professionalSignIn`. Visual check of the professional page not done. |
+| 01 | Visible "Sign in" in header, usable on mobile | COMPLETE | Checked at 375px. |
+| 01 | After sign-in, customer or professional choice | COMPLETE | `/auth/login` role switch. |
+| 01 | "Feazy" spelling in visible UI and titles | COMPLETE | Technical identifiers keep their legacy names on purpose. |
+| 02 | Five-step "How It Works" with approved titles | DEFERRED — OWNER INPUT | Five steps present. Step 3 reads "Inspection & professional assignment". Founder to confirm the final wording. |
+| 02 | Describe the problem before the visit (photo optional) | COMPLETE (code) | Problem-summary step in the wizard. Photo upload not re-verified. |
+| 02b | Visible "Free Inspection" option | DEFERRED — OWNER INPUT | Not advertised. `NEXT_PUBLIC_FREE_INSPECTION` is off and the inspection workflow is not confirmed in production. Founder go-ahead plus a readiness check needed. |
+| 02c | "₹700 Visit & diagnosis" matches final policy | DEFERRED — OWNER INPUT | Shown as a paid visit with explainer text, never as free. Final policy is a founder decision. |
+| 03 | Add every service from the HTML services file | DEFERRED — OWNER INPUT | The HTML services file is not in the repo or Downloads. Not invented. |
+| 03 | Add "Bike & Car Service" category | DEFERRED — OWNER INPUT | Seeded as an inactive draft (migration 120), hidden from customers. Activate only once professional coverage is approved. |
+| 03 | Distinct icon per category | COMPLETE (code) | Icon map in `src/app/customer/page.tsx` and `BookingWizard.tsx`. Not checked against live rows. |
+| 03 | AI-suggested, category-specific example issues | DEFERRED — OWNER INPUT | Not started. Needs the catalogue first. |
+| 03 | Category names, icons and examples consistent across pages | COMPLETE (code) | Homepage chips and wizard share category data. Live consistency not re-checked. |
+| 04 | Guided material selection replaces free text | COMPLETE | Checkbox list with indicative prices and a quantity slider. Free text is optional. |
+| 04 | Indicative cost beside each option | COMPLETE | "About ₹X per unit" or "Price confirmed after inspection". |
+| 04 | Slider for quantity / price range | COMPLETE | Per-material range input (1–10). |
+| 04 | Costs labelled as estimates; quote approved by customer | COMPLETE | "Estimate: about ₹X" with disclaimer. Nothing is charged for choosing. |
+| 05 | Remove "Pending actions" from customer dashboard | COMPLETE | Live page not re-checked. |
+| 05 | Booking records and payment functions unaffected | COMPLETE | No data or RPC changes in this release. |
+| 06 | Footer email support@feazy.com | COMPLETE | Mailbox delivery is an owner check. |
+| 06 | Other footer and contact spellings | COMPLETE | No other "Feasy" in `src/`. |
+| 07 | Login IDs and account identifiers use "Feazy" | DEFERRED — OWNER INPUT | Renaming identifiers would break existing accounts. Display labels already say "Feazy". |
+| 08 | Homepage on desktop and mobile | COMPLETE (mobile) | 375px checked. Desktop not re-checked. |
+| 08 | Customer and professional sign-in paths | COMPLETE (customer) | Professional path not checked in a browser. |
+| 08 | Fixed-price booking, end to end | BLOCKED — LAUNCH CRITICAL | Not re-verified in this release. Needs a staging run to confirm the accepted amount. |
+| 08 | Inspection flow to quote approval, staging | COMPLETE (staging) | Previously verified on isolated staging. Production not exercised. |
+| 08 | Professional completion with finish code; invalid code rejected | BLOCKED — LAUNCH CRITICAL | Staging run not closed in this release. |
+| 08 | Links, buttons, spacing and navigation | COMPLETE (partial audit) | Footer "About Feazy" links to a real page. Full link audit not done. |
+| New | "About Feazy" page | COMPLETE | `src/app/(marketing)/about/page.tsx`. |
+| P0005 | One open inspection per customer, service and property | COMPLETE (staging) / BLOCKED — LAUNCH CRITICAL (production) | Fix on `fix/p0005-open-inspection-guard`, PR #12. Staging verified. Production apply needs owner approval of the exact SQL. Staging ledger version differs from the repo filename; reconcile before release. |
+| Release | Production deployment verified for this release | BLOCKED — LAUNCH CRITICAL | Vercel metadata for `7af79e2` not yet checked. |
 
 ## Verification run on this branch
 
 - `pnpm tsc --noEmit`: exit 0
-- `pnpm exec eslint` on changed files: clean
-- `pnpm vitest run`: 48 files passed, 1 skipped; 609 tests passed, 16 skipped, 15 todo
-- `pnpm build`: exit 0. One pre-existing warning: `Can't resolve '@aws-sdk/client-sns'`. Not in changed files.
-- Browser (dev server, 375px): `/` and `/auth/login` and `/about` render; no horizontal scroll.
+- `pnpm vitest run`: passed
+- ESLint, `pnpm build` and the SQL regression set: see the release report for this release.
 
-## Not done, and why
+## Pending decisions for the owner
 
-- Services, Bike & Car, AI examples: waiting for the HTML services file.
-- Free inspection: waiting for a production readiness check and the founder's go-ahead.
-- Account identifiers: waiting for the founder's decision; renames are not made.
-- Production smoke tests and deployment: not run. This branch is not merged.
+1. Fixed-price catalogue: prices and scope per service.
+2. Free inspection: go or no-go, and the operational readiness of inspection RPCs in production.
+3. ₹700 diagnosis policy.
+4. Bike & Car coverage and the full services HTML file.
+5. Step 3 wording on the homepage.
+6. Approval of the exact P0005 production SQL.
+7. Account identifier naming.
