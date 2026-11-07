@@ -27,7 +27,7 @@ const COLUMNS: ReadonlyArray<{ title: string; links: ReadonlyArray<readonly [str
     links: [
       ['Help centre', '/help'],
       ['Contact us', '/contact'],
-      ['About Feazy', comingSoon('About Feazy')],
+      ['About Feazy', '/about'],
       ['Careers', comingSoon('Careers')],
     ],
   },
