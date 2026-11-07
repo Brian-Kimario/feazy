@@ -142,8 +142,8 @@ export function LoginPageClient() {
             })}
           </div>
 
-          <h1 className="mt-9 font-editorial text-[clamp(34px,5vw,44px)] font-normal leading-[1.05] tracking-[-0.02em]">{copy.heading}</h1>
-          <p className="mt-2 text-[15px] text-ink-3">{copy.sub}</p>
+          <h1 className="sr-only">Sign in</h1>
+          <p className="mt-9 text-[15px] text-ink-3">{copy.sub}</p>
 
           {isLoggedOut && !failure && (
             <p role="status" className="mt-6 rounded-xl bg-teal-wash px-4 py-3 text-[14px] text-teal-deep">You’re signed out. Sign in to continue.</p>
