@@ -95,3 +95,12 @@ Observations (not fixed in this release):
 7. Account identifier naming.
 8. Live payment activation (Razorpay). Stays disabled until the owner decides.
 9. Reconcile the `assessing` migration (repo 125) with production before any release that depends on it.
+
+## Open functional defects (tracked, not fixed in this release)
+
+| ID | Defect | Status | Evidence | Next action |
+|---|---|---|---|---|
+| DEF-01 | P0005: a new inspection booking can be refused after the previous inspection job was completed, because the guard reads only `bookings.booking_status`. | OPEN. Fix is in PR #12 (`supabase/migrations/20261107_129_p0005_open_inspection_guard.sql`). Not on `main`. Not applied to production. | The only change from migration 126 is the guard, which also reads `jobs.current_state`. The PR #12 regression test has not been run in this session; the local DB reset that would run it was blocked. | Reconcile the PR's regression evidence with the current diff. Verify the production SQL and rollback. Get owner approval before applying anything to production. |
+| DEF-02 | `bookings.booking_status` is not advanced by the job lifecycle, so completed work can leave a booking `pending`. | OPEN. Investigating. Not changed. | Code comments in `src/lib/services/admin-operations.ts` and `admin-reads.ts` say the separation is intentional. Read-only SQL on production: FS-000287 has `booking_status = pending` and `jobs.current_state = completed`. Customer booking tabs use the job state, so FS-000287 is listed under History. The admin unmatched query (`getUnmatchedBookings`, `src/lib/services/admin-reads.ts`) filters only on `booking_status` and `scheduled_start`, so it lists bookings whose jobs are completed, closed or cancelled (for example FS-000012, FS-000013, FS-000015, FS-000016). `getCompletedBookings`, `getActiveBookings` and `getBookingStats` in `src/lib/services/bookings.ts` filter on `booking_status`, but nothing in `src/` calls them. | Decide whether the admin unmatched query should exclude bookings whose job is terminal. Do not synchronise the two state machines without evidence. |
+
+Neither item blocks the founder-revision sprint's close. Both must stay visible until resolved.
