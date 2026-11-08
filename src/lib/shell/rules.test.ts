@@ -248,6 +248,37 @@ describe('missingProfessional', () => {
     ).toBe('overdue');
   });
 
+  // The unmatched queue (getUnmatchedBookings) keeps a row only when this returns a reason.
+  // Cases follow the real job states: TERMINAL_STATES = completed, cancelled, closed.
+  describe('unmatched queue membership', () => {
+    const past = '2026-10-30T10:00:00Z';
+    const queueReason = (input: { bookingStatus: string; jobState: string | null; unmatchedSince: string | null }) =>
+      missingProfessional({ ...input, startPassed: true });
+
+    it('keeps a booking without a job (no professional yet)', () => {
+      expect(queueReason({ bookingStatus: 'pending', jobState: null, unmatchedSince: past })).toBe('overdue');
+    });
+
+    it('keeps a booking whose job is still assigned and unfilled', () => {
+      expect(queueReason({ bookingStatus: 'pending', jobState: 'assigned', unmatchedSince: past })).toBe('overdue');
+    });
+
+    it.each(['completed', 'closed', 'cancelled'] as const)('drops a booking whose job is %s', (jobState) => {
+      expect(queueReason({ bookingStatus: 'pending', jobState, unmatchedSince: past })).toBeNull();
+    });
+
+    it('drops a booking whose status is already completed or cancelled', () => {
+      expect(queueReason({ bookingStatus: 'completed', jobState: null, unmatchedSince: past })).toBeNull();
+      expect(queueReason({ bookingStatus: 'cancelled', jobState: null, unmatchedSince: past })).toBeNull();
+    });
+
+    it('drops any booking whose job has moved past assignment', () => {
+      for (const jobState of ['accepted', 'on_the_way', 'arrived', 'assessing', 'in_progress', 'quote_pending']) {
+        expect(queueReason({ bookingStatus: 'pending', jobState, unmatchedSince: past })).toBeNull();
+      }
+    });
+  });
+
   it('is null once a professional accepted, or the booking is closed', () => {
     expect(missingProfessional({ bookingStatus: 'pending', jobState: 'in_progress', startPassed: true })).toBeNull();
     expect(missingProfessional({ bookingStatus: 'cancelled', jobState: null, startPassed: true })).toBeNull();
