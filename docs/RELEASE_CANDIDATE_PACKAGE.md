@@ -252,3 +252,61 @@ Eleven bookings were identified as probable test data in an earlier pass. This p
 - Collect owners, timestamps, references and relationships (jobs, quotes, payments, messages) for each, read-only.
 - Decide, booking by booking, whether each is test data.
 - Any deletion or alteration needs a separate, reviewed plan. Nothing is deleted or changed by this release.
+
+## 15. Post-merge production verification (read-only, 4 Nov 2026)
+
+Checked after PR #8 (`b84ddd7`) and PR #9 (`ae8539b`) were merged to `main`. No migration, configuration change, deploy, record change or synthetic booking was made.
+
+### 15.1 GitGuardian and credential rotation
+
+| Item | Evidence | Status |
+|---|---|---|
+| GitGuardian incident #37860317 | Resolved in the dashboard with the reason "Secret revoked". | DONE |
+| Legacy JWT keys disabled | Supabase's own 401 hint states the legacy `anon` and `service_role` keys were disabled on 2026-11-04T13:19:15Z. The project key list shows `anon` (legacy) disabled and a `default` publishable key enabled. | VERIFIED (from Supabase) |
+| Revocation timestamp | 2026-11-04T13:19:15Z, taken from Supabase's 401 response hint. | RECORDED |
+| Old-key rejection (runbook step 6) | Not run as a deliberate test. Supabase logs show real requests carrying the legacy `service_role` key were rejected with 401 `UNAUTHORIZED_DISABLED_LEGACY_KEY` at 13:20:13Z and 13:32:36Z. This is log evidence, not a controlled test. | PARTLY VERIFIED |
+| New key works in production | Production deployment of `ae8539b` reports success. Admin and booking flows were not exercised against production. | PARTLY VERIFIED |
+| App still sends the legacy anon key | `node` requests from `supabase-ssr/0.12.7` (AWS us-east-1) with the legacy `anon` key return 401 since 13:19:15Z. | **BROKEN, see 15.4** |
+
+### 15.2 Deployment
+
+- Production deployment for `ae8539b` (created 2026-11-04 13:15:54Z) reports `success` on the GitHub commit status, with the Vercel check linked.
+- Previous production deployment: `b84ddd7` (12:51:10Z).
+
+### 15.3 Schema and booking path
+
+- Production migration history ends at `r1a_118_cancellation_policy`. Migrations 119–126 are **not** applied.
+- Production has one `create_booking` overload (6 arguments: service, property, scheduled start, problem summary, urgency, options). It has no service-area gate.
+- `get_booking_free_inspection` is absent. `create_booking_with_materials` is absent.
+- The wizard uses the structured path only when `getFreeInspectionStatus()` returns a value and the materials query succeeds (`src/app/customer/bookings/new/page.tsx`). In production the free-inspection read returns `null`, so `structuredBooking` is `false`. The wizard then omits `clientRequestId` and the action calls the legacy 6-argument `create_booking`. **This fallback is verified by code reading.** It is the reason booking works without migrations 119–126.
+- Impact: a booking in a city with no covered professional is not refused in production. Free inspection cannot be turned on in production until migrations are applied.
+
+### 15.4 Coverage, availability and errors
+
+- Active service-area coverage: only `bangalore` has verified, active professionals (2 verified, 1 available). No other city has coverage.
+- **Application outage risk (highest priority).** The `node` client on `/rest/v1/service_categories` (`supabase-ssr/0.12.7 createServerClient`, from AWS us-east-1, the same region Vercel runs in) sent the legacy `anon` key four times since 13:19Z (two at 13:30:55Z). Each was rejected with `UNAUTHORIZED_DISABLED_LEGACY_KEY`. The likely cause is that the production `NEXT_PUBLIC_SUPABASE_ANON_KEY` on Vercel still holds the legacy anon key, which was disabled at 13:19:15Z, and the 13:15Z deploy did not change it. This is an inference: the Vercel value itself was not read. Fix: set the production anon variable to the enabled publishable key and redeploy. This is an owner action because Vercel production env vars are not to be changed in this pass.
+- **External callers still on the legacy service-role key.** `python-requests` clients on `/auth/v1/health` were rejected at 13:20:13Z (2.33.1, OVH Canada) and 13:32:36Z (2.33.0, AWS Oregon). Their source is unidentified. Each is still a consumer to inventory under the runbook.
+- The 7 edge 401s logged after 13:19Z are all shown above. Earlier 401s (`curl/8.7.1` on `/rest/v1/` at 12:28Z and `/auth/v1/settings` at 06:30Z) predate the disable and are not current evidence.
+- PostgREST "Thread killed by timeout manager" entries between 12:52Z and 13:19Z (12 entries). Not correlated with the deploy window yet.
+
+### 15.5 Security advisors (production)
+
+- RLS is enabled on five tables with no policies.
+- `contact_messages_rate_limit()` is a SECURITY DEFINER function executable by `anon`.
+- 37 SECURITY DEFINER functions are executable by `authenticated`, including `create_booking` and `transition_job_state`. Each needs a review of its caller checks.
+- Leaked-password protection is disabled in Supabase Auth.
+
+### 15.6 Test and lint status
+
+- SQL suites: eight failing (016, 017, 004, 018, 019, 020, 101, `job_codes_and_no_show`). Failures are fixture or shim errors (`Payment not found`, `null job_id`, `Not signed in`, missing `instance_id`, `Job not found`). They were classified from the messages only, not re-run on a disposable database. Suites 016 and 017 were not re-checked.
+- Lint: 85 errors, all style or type rules (`no-explicit-any` 40, `no-unescaped-entities` 34, `ban-ts-comment` 5, `no-require-imports` 2, others 4). No `react-hooks` or runtime-rule errors. Warnings are mostly `no-unused-vars`.
+- Staging booking and quote flows were not run in this pass.
+
+### 15.7 Still open before About Us or performance work
+
+1. Fix the production `NEXT_PUBLIC_SUPABASE_ANON_KEY` on Vercel (set it to the enabled publishable key) and redeploy. Confirm `service_categories` returns 200 afterwards. Owner action.
+2. Identify the two `python-requests` callers still using the legacy service-role key.
+3. Optionally run runbook step 6 as a controlled test with the old key from the secure store. Log evidence already shows rejection; a controlled test adds a status code and time.
+4. Decide whether the 37 authenticated SECURITY DEFINER functions and the `anon` rate-limit function are accepted risks.
+5. Decide whether the eight SQL suites gate the release.
+6. Review the 11 suspected synthetic bookings (section 14) with the owner. Nothing has been deleted or changed.
