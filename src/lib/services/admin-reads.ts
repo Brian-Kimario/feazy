@@ -483,8 +483,9 @@ export async function getUnmatchedBookings(): Promise<{ data: UnmatchedBooking[]
     )
     .or(`unmatched_since.not.is.null,scheduled_start.lt.${new Date().toISOString()}`)
     .not('booking_status', 'in', '("cancelled","completed")')
-    .order('scheduled_start', { ascending: true })
-    .limit(200);
+    .order('scheduled_start', { ascending: true });
+  // No limit here: rows whose job has finished are dropped below by `missingProfessional`,
+  // so a SQL limit would let finished bookings use up the 200 slots before open ones.
 
   if (error) {
     console.error('getUnmatchedBookings:', error.message);
@@ -498,31 +499,29 @@ export async function getUnmatchedBookings(): Promise<{ data: UnmatchedBooking[]
   }
 
   const now = new Date();
-  return {
-    data: parsed.data.flatMap((row) => {
-      const job = Array.isArray(row.job) ? row.job[0] : row.job;
-      const reason = missingProfessional({
-        bookingStatus: row.booking_status,
-        jobState: job?.current_state ?? null,
+  const queue = parsed.data.flatMap((row) => {
+    const job = Array.isArray(row.job) ? row.job[0] : row.job;
+    const reason = missingProfessional({
+      bookingStatus: row.booking_status,
+      jobState: job?.current_state ?? null,
+      unmatchedSince: row.unmatched_since,
+      startPassed: new Date(row.scheduled_start) < now,
+    });
+    if (!reason) return [];
+    return [
+      {
+        id: row.id,
+        reference: row.booking_reference,
+        scheduledStart: row.scheduled_start,
+        reason,
         unmatchedSince: row.unmatched_since,
-        startPassed: new Date(row.scheduled_start) < now,
-      });
-      if (!reason) return [];
-      return [
-        {
-          id: row.id,
-          reference: row.booking_reference,
-          scheduledStart: row.scheduled_start,
-          reason,
-          unmatchedSince: row.unmatched_since,
-          serviceName: row.service?.name ?? 'Service',
-          city: row.property?.address?.city ?? null,
-          attempts: row.attempts[0]?.count ?? 0,
-        },
-      ];
-    }),
-    error: null,
-  };
+        serviceName: row.service?.name ?? 'Service',
+        city: row.property?.address?.city ?? null,
+        attempts: row.attempts[0]?.count ?? 0,
+      },
+    ];
+  });
+  return { data: queue.slice(0, 200), error: null };
 }
 
 export interface AssignmentQueueStatus {
